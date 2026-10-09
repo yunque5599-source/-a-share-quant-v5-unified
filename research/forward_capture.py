@@ -165,7 +165,7 @@ def capture(output_dir, now=None, opener=None):
         with open(summary, "a", encoding="utf-8") as f:
             f.write(f"## Raw ranking evidence: {'PASS' if meta['rawRankArchiveComplete'] else 'FAIL'}\n\n")
             f.write(f"- {meta['candidateReturned']} delivered / {meta['candidateReported']} reported (420 cap)\n")
-            f.write(f"- SHA256: `{meta['rawSha256']}\x60\n")
+            f.write(f"- SHA256: `{meta['rawSha256']}`\n")
             f.write("- **NOT a trading signal or original V10 backtest.**\n")
     print(json.dumps({"rawRankArchiveComplete": meta["rawRankArchiveComplete"],
                       "candidateReturned": meta["candidateReturned"],
