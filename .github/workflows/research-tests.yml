@@ -1,0 +1,17 @@
+name: Research Offline Tests
+on:
+  pull_request:
+    paths:
+      - 'research/**'
+      - 'tests/**'
+      - '.github/workflows/research-tests.yml'
+permissions:
+  contents: read
+jobs:
+  offline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run all offline research unit tests
+        run: python3 -m unittest discover -s tests -v
