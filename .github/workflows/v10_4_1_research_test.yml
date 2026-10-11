@@ -1,0 +1,31 @@
+name: V10.4.1 Research Test
+
+on:
+  push:
+    branches:
+      - research/v10.4.1-momentum-engine
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  research-test:
+    name: Momentum Research Validation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Run syntax check
+        run: |
+          python -m compileall research/v10_4_1
+
+      - name: Run unit tests
+        run: |
+          python -m unittest discover research/v10_4_1/tests -v
