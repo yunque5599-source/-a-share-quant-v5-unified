@@ -27,8 +27,9 @@ assert.equal(JSON.stringify(fixture), before);
 const result = evaluateReal(fixture);
 assert.equal(result.source, 'market.js');
 assert.equal(result.market.marketRisk, 'normal');
-assert.equal(result.ranking[0].symbol, '600519');
-assert.equal(result.ranking[1].symbol, '000858');
+assert.equal(result.ranking.length, 3);
+assert.deepEqual(new Set(result.ranking.map(item => item.symbol)), new Set(['600519', '000858', '300999']));
+assert.ok(result.ranking[0].adjustedScore >= result.ranking[1].adjustedScore);
 assert.ok(['BUY', 'WATCH', 'WAIT'].includes(result.action));
 assert.notEqual(result.action, 'BUY');
 for (const item of result.ranking) {

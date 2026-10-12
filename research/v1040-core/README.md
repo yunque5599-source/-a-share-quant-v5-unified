@@ -15,11 +15,15 @@ The ESM modules implement:
   both candidates have complete factor and risk data, and symbols are distinct;
 - WATCH for a complete candidate at least 70 when market risk is normal or elevated;
   weak or unknown markets force WAIT;
-- a pure run() entry point with deterministic demo data.
+- a pure run() entry point with deterministic demo data;
+- REAL-005 adapters for the read-only response shapes of api/market.js and
+  api/discovery_universe.js.
 
 Missing numeric data is kept as null, penalized conservatively, and never silently
-treated as a positive score. Prediction persistence, Shadow validation, Dashboard,
-and scheduled automation are deferred to a later phase.
+treated as a positive score. Eastmoney ranked rows provide f12/f14/f2/f3/f6/f8/f24/f62/f184/f100
+and rankScore; discovery records provide code/name/price/pct/amount/turn/pct60/mainNet/mainPct
+and industry. Provider inputs lacking volatility history, liquidity history, or catalyst data
+remain incomplete and cannot trigger BUY. The optional risk proxy flag is explicit.
 
 ## Run
 
@@ -27,13 +31,26 @@ From the repository root:
 
     node research/v1040-core/run.js
     node research/v1040-core/tests/decision_test.js
+    node research/v1040-core/tests/real_data_test.js
 
-The output includes V10.4.0 CORE, TOP1/TOP2 stock and score, and Decision.
+Run the real-shape simulation without contacting either production API:
+
+    node research/v1040-core/run.js --input research/v1040-core/tests/fixtures/real_ranked_candidates.json --date 2026-10-12
+
+The input may be the ranked market response (data.candidates and data.indices) or the
+discovery response (records and quality). The CLI prints TOP1, TOP2, Score, and Decision,
+then writes data/predictions/YYYY-MM-DD.json. Set V1040_PREDICTION_DIR to redirect the
+output for a local run. Passing --market overrides inferred index risk. Passing
+--allow-risk-proxies permits explicitly documented provider proxies; it is off by default.
 
 ## Inputs
 
-evaluate(candidates, market) accepts candidates with symbol or code and factor fields
-capitalScore, trendScore, sectorScore, volumeScore, catalystScore. Risk inputs are
-shortTermGainPct, volatilityPct, and avgTurnover20dCny. Scores are clamped to 0..100.
-Numeric strings are accepted; empty or invalid values remain missing. Market risk is
-normal, elevated, weak, or unknown; common Chinese and legacy aliases are accepted.
+evaluate(candidates, market) accepts normalized candidates. evaluateReal(payload) accepts
+the real provider shapes described above and never imports or calls the production API.
+Market risk is normal, elevated, weak, or unknown; common Chinese and legacy aliases are
+accepted. Without explicit risk, indices are averaged: non-negative is normal, mildly
+negative is elevated, and <= -1.5 percent is weak. Discovery quality metadata is retained
+as source metadata and does not create a BUY signal by itself.
+
+Prediction JSON contains date, stock/symbol, score, reason, risk, and decision for each
+ranked candidate. Dashboard, Shadow validation, and scheduled automation remain deferred.
