@@ -32,7 +32,10 @@ function amountScore(value) {
 }
 
 function weighted(parts) {
-  return parts.reduce((sum, part) => sum + (part.value === null ? 0 : part.value * part.weight), 0);
+  const available = parts.filter(part => part.value !== null);
+  return available.length
+    ? available.reduce((sum, part) => sum + part.value * part.weight, 0)
+    : null;
 }
 
 function rowList(raw) {

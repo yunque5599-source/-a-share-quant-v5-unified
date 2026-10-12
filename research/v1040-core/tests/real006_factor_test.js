@@ -8,7 +8,7 @@ function dateFor(index) {
 
 function klineRows(mode) {
   const closes = mode === 'high'
-    ? [...Array.from({ length: 20 }, (_, index) => 100 + index * 0.5), 120, 125, 130, 135, 140]
+    ? [...Array.from({ length: 20 }, (_, index) => 100 + index * 0.5), 116, 119, 122, 125, 128]
     : Array.from({ length: 25 }, (_, index) => 100 + index * 0.05);
   const high = mode === 'high';
   return closes.map((close, index) => ({
