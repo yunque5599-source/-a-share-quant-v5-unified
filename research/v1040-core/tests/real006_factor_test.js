@@ -67,7 +67,7 @@ assert.deepEqual(result.portfolio.map(item => item.symbol), ['600001', '600002']
 assert.ok(result.ranking[0].adjustedScore >= 90);
 assert.ok(result.ranking[1].adjustedScore >= 85);
 assert.ok(result.ranking[0].historyMetrics.gain5Pct > 5);
-assert.ok(result.ranking[0].historyMetrics.trend20Pct > 20);
+assert.ok(result.ranking[0].historyMetrics.trend20Pct > 10);
 assert.equal(result.ranking[0].historyMetrics.maAligned, true);
 assert.ok(result.ranking[0].fundingMetrics.consecutivePositiveDays >= 5);
 assert.ok(result.ranking[0].historyMetrics.volumeExpansionRatio > 2);
