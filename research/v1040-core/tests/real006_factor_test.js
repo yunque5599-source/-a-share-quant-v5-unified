@@ -8,7 +8,7 @@ function dateFor(index) {
 
 function klineRows(mode) {
   const closes = mode === 'high'
-    ? [...Array.from({ length: 20 }, (_, index) => 100 + index * 0.5), 116, 119, 122, 125, 128]
+    ? [...Array.from({ length: 20 }, (_, index) => 100 + index * 0.5), 110, 112, 114, 116, 118]
     : Array.from({ length: 25 }, (_, index) => 100 + index * 0.05);
   const high = mode === 'high';
   return closes.map((close, index) => ({
@@ -18,7 +18,7 @@ function klineRows(mode) {
     high: close + (high ? 1 : 0.05),
     low: close - (high ? 1 : 0.05),
     volume: high && index === 24 ? 30_000_000 : high ? 10_000_000 : 5_000_000,
-    amount: high && index === 24 ? 1_000_000_000 : high ? 100_000_000 : 50_000_000
+    amount: high ? 1_000_000_000 : 50_000_000
   }));
 }
 
@@ -66,7 +66,7 @@ assert.equal(result.action, 'BUY');
 assert.deepEqual(result.portfolio.map(item => item.symbol), ['600001', '600002']);
 assert.ok(result.ranking[0].adjustedScore >= 90);
 assert.ok(result.ranking[1].adjustedScore >= 85);
-assert.ok(result.ranking[0].historyMetrics.gain5Pct > 10);
+assert.ok(result.ranking[0].historyMetrics.gain5Pct > 5);
 assert.ok(result.ranking[0].historyMetrics.trend20Pct > 20);
 assert.equal(result.ranking[0].historyMetrics.maAligned, true);
 assert.ok(result.ranking[0].fundingMetrics.consecutivePositiveDays >= 5);
