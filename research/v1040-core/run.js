@@ -1,3 +1,5 @@
+import { fileURLToPath } from 'node:url';
+import { resolve } from 'node:path';
 import { normalizeCandidates } from './adapter/candidate_adapter.js';
 import { normalizeMarket } from './adapter/market_adapter.js';
 import { calculateFactorScore } from './decision_engine/factor_score.js';
@@ -54,5 +56,5 @@ export function run(options = {}) {
 }
 
 const invokedDirectly = process.argv[1] &&
-  new URL(import.meta.url).pathname === new URL('file://' + process.argv[1]).pathname;
+  fileURLToPath(import.meta.url) === resolve(process.argv[1]);
 if (invokedDirectly) run();

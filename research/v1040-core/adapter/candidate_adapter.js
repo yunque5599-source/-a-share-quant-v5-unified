@@ -16,7 +16,8 @@ const RISK_FIELDS = Object.freeze({
 });
 
 export function finiteNumber(value) {
-  if (value === null || value === undefined || typeof value === 'boolean') return null;
+  if (value === null || value === undefined || typeof value === 'boolean' ||
+      typeof value === 'object') return null;
   if (typeof value === 'string' && value.trim() === '') return null;
   const number = typeof value === 'number' ? value : Number(value);
   return Number.isFinite(number) ? number : null;
