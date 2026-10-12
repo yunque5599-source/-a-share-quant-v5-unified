@@ -1,5 +1,7 @@
+import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { fileURLToPath } from 'node:url';
-import { resolve } from 'node:path';
+import { resolve, join } from 'node:path';
+import { adaptMarketPayload } from './adapter/market_adapter.js';
 import { normalizeCandidates } from './adapter/candidate_adapter.js';
 import { normalizeMarket } from './adapter/market_adapter.js';
 import { calculateFactorScore } from './decision_engine/factor_score.js';
@@ -30,6 +32,16 @@ export function evaluate(candidates = DEMO_CANDIDATES, marketInput = { marketRis
   return { version: 'V10.4.0 CORE', market, ranking, ...decision };
 }
 
+export function evaluateReal(payload, marketInput, adapterOptions = {}) {
+  const adapted = adaptMarketPayload(payload, adapterOptions);
+  const result = evaluate(adapted.candidates, marketInput ?? adapted.market);
+  return {
+    ...result,
+    source: adapted.source,
+    sourceMetadata: adapted.metadata
+  };
+}
+
 function displayScore(stock) {
   return stock ? String(stock.adjustedScore) : '-';
 }
@@ -40,21 +52,92 @@ export function printResult(result) {
   console.log('TOP1');
   console.log('股票: ' + (top1?.name || top1?.symbol || '-'));
   console.log('评分: ' + displayScore(top1));
+  console.log('Score: ' + displayScore(top1));
   console.log('TOP2');
   console.log('股票: ' + (top2?.name || top2?.symbol || '-'));
   console.log('评分: ' + displayScore(top2));
+  console.log('Score: ' + displayScore(top2));
   console.log('Decision: ' + (result?.action || 'WAIT'));
 }
 
 export function run(options = {}) {
-  const result = evaluate(
-    options.candidates ?? DEMO_CANDIDATES,
-    options.market ?? { marketRisk: 'normal' }
-  );
+  const result = options.rawData
+    ? evaluateReal(options.rawData, options.market, options.adapterOptions)
+    : evaluate(options.candidates ?? DEMO_CANDIDATES, options.market ?? { marketRisk: 'normal' });
   printResult(result);
+  return result;
+}
+
+function dateOnly(value) {
+  const date = String(value ?? new Date().toISOString().slice(0, 10)).slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('prediction date must be YYYY-MM-DD');
+  return date;
+}
+
+export async function savePrediction(result, options = {}) {
+  const date = dateOnly(options.date);
+  const outputDir = options.outputDir ??
+    fileURLToPath(new URL('./data/predictions/', import.meta.url));
+  await mkdir(outputDir, { recursive: true });
+  const predictions = (result?.ranking ?? []).slice(0, 20).map(stock => ({
+    date,
+    stock: stock.symbol,
+    symbol: stock.symbol,
+    name: stock.name ?? stock.symbol,
+    score: stock.adjustedScore,
+    reason: result?.reason ?? '',
+    reasons: stock.reasons ?? result?.reasons ?? [],
+    risk: {
+      ...stock.risks,
+      penalty: stock.riskPenalty,
+      missingInputs: stock.missingRiskInputs ?? []
+    },
+    decision: result?.action ?? 'WAIT'
+  }));
+  const document = {
+    version: result?.version ?? 'V10.4.0 CORE',
+    date,
+    generatedAt: new Date().toISOString(),
+    source: result?.source ?? 'demo',
+    market: result?.market ?? null,
+    decision: result?.action ?? 'WAIT',
+    top1: predictions[0] ?? null,
+    top2: predictions[1] ?? null,
+    predictions
+  };
+  const outputPath = join(outputDir, date + '.json');
+  await writeFile(outputPath, JSON.stringify(document, null, 2) + '\n', 'utf8');
+  return { outputPath, document };
+}
+
+function cliValue(args, name) {
+  const index = args.indexOf(name);
+  return index >= 0 ? args[index + 1] : undefined;
+}
+
+async function runCli() {
+  const args = process.argv.slice(2);
+  const inputPath = cliValue(args, '--input');
+  if (!inputPath) return run();
+  const rawData = JSON.parse(await readFile(resolve(inputPath), 'utf8'));
+  const result = run({
+    rawData,
+    market: cliValue(args, '--market'),
+    adapterOptions: { allowRiskProxies: args.includes('--allow-risk-proxies') }
+  });
+  const saved = await savePrediction(result, {
+    date: cliValue(args, '--date'),
+    outputDir: process.env.V1040_PREDICTION_DIR
+  });
+  console.log('Prediction JSON: ' + saved.outputPath);
   return result;
 }
 
 const invokedDirectly = process.argv[1] &&
   fileURLToPath(import.meta.url) === resolve(process.argv[1]);
-if (invokedDirectly) run();
+if (invokedDirectly) {
+  runCli().catch(error => {
+    console.error('V10.4.0 CORE failed: ' + error.message);
+    process.exitCode = 1;
+  });
+}
