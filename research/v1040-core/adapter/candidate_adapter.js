@@ -2,7 +2,7 @@ const FACTOR_FIELDS = Object.freeze({
   capitalScore: ['capitalScore', 'fundsScore', 'fundingScore'],
   trendScore: ['trendScore', 'trendQualityScore'],
   sectorScore: ['sectorScore', 'industryScore'],
-  volumeScore: ['volumeScore', 'volumePriceScore', 'priceVolumeScore'],
+  volumeScore: ['shortTermScore', 'volumeScore', 'volumePriceScore', 'priceVolumeScore'],
   catalystScore: ['catalystScore', 'catalyst']
 });
 
@@ -53,6 +53,7 @@ export function normalizeCandidate(raw = {}, index = 0) {
     symbol,
     name: String(source.name ?? source.stockName ?? symbol).trim(),
     ...factors,
+    shortTermScore: factors.volumeScore,
     ...risks,
     sourceIndex: index,
     factorComplete: missingFactors.length === 0,

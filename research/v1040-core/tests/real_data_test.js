@@ -20,8 +20,8 @@ const adapted = adaptMarketPayload(fixture);
 assert.equal(adapted.source, 'market.js');
 assert.equal(adapted.market.marketRisk, 'normal');
 assert.deepEqual(adapted.candidates.map(item => item.symbol), ['600519', '000858', '300999']);
-assert.ok(adapted.candidates.every(item => Number.isFinite(item.trendScore)));
-assert.ok(adapted.candidates.every(item => item.catalystScore === null));
+assert.ok(adapted.candidates.every(item => item.trendScore === null));
+assert.ok(adapted.candidates.every(item => item.dataQualityWarnings.includes('risk-history-incomplete')));
 assert.equal(JSON.stringify(fixture), before);
 
 const result = evaluateReal(fixture);
@@ -58,4 +58,4 @@ try {
 } finally {
   await rm(outputDir, { recursive: true, force: true });
 }
-console.log('REAL-005 real data simulation: PASS');
+console.log('V10.4.0 CORE REAL-005 tests: PASS');

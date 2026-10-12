@@ -17,7 +17,10 @@ export function calculateFactorScore(stock = {}) {
   const missingFactors = [];
   let baseScore = 0;
   for (const [field, weight] of Object.entries(FACTOR_WEIGHTS)) {
-    const value = finiteNumber(stock[field]);
+    const rawValue = field === 'volumeScore'
+      ? stock.volumeScore ?? stock.shortTermScore
+      : stock[field];
+    const value = finiteNumber(rawValue);
     if (value === null) {
       factors[field] = null;
       missingFactors.push(field);
