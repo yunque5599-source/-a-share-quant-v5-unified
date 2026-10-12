@@ -4,53 +4,46 @@ Research-only A-share short-term quantitative decision engine. It is isolated un
 research/v1040-core and does not change index.html, api/market.js,
 api/discovery_universe.js, or existing production BUY/WAIT rules.
 
-## MVP
+## Factor model
 
-The ESM modules implement:
+The fixed weights are:
 
-- factor score: funds 30%, trend quality 25%, industry strength 20%, volume-price 15%, catalyst 10%;
-- conservative risk adjustment for short-term gain, volatility, liquidity, and market state;
-- deterministic adjusted-score ranking;
-- BUY only when market risk is normal, TOP1 is at least 90, TOP2 is at least 85,
-  both candidates have complete factor and risk data, and symbols are distinct;
-- WATCH for a complete candidate at least 70 when market risk is normal or elevated;
-  weak or unknown markets force WAIT;
-- a pure run() entry point with deterministic demo data;
-- REAL-005 adapters for the read-only response shapes of api/market.js and
-  api/discovery_universe.js.
+- funds 30%: average 20-session turnover, net inflow intensity, consecutive inflow strength;
+- trend 25%: five-session gain, 20-session return, and MA5/MA10/MA20 structure;
+- industry 20%: sector percentage change and sector rank percentile;
+- short-term strength 15%: volume expansion, breakout, and strong-stock signals;
+- catalyst 10%: explicit catalyst input only.
 
-Missing numeric data is kept as null, penalized conservatively, and never silently
-treated as a positive score. Eastmoney ranked rows provide f12/f14/f2/f3/f6/f8/f24/f62/f184/f100
-and rankScore; discovery records provide code/name/price/pct/amount/turn/pct60/mainNet/mainPct
-and industry. Provider inputs lacking volatility history, liquidity history, or catalyst data
-remain incomplete and cannot trigger BUY. The optional risk proxy flag is explicit.
+History is read from the deep market response shape (kline.data.klines and
+flow.data.klines) or historyBySymbol/flowBySymbol maps. K-line rows are sorted by
+date before five/20-session calculations. Daily return standard deviation supplies the
+risk volatility input, and the last 20 CNY amounts supply liquidity risk.
 
-## Run
+The adapter deliberately does not use rankScore as a funds score, f24/pct60 as a
+five-day return, or f10 as volatility. Missing history stays null, receives a quality
+warning, and prevents BUY through the existing complete-data gate.
+
+## Decisions
+
+BUY requires a normal market, distinct complete TOP1/TOP2, adjusted scores of at least
+90/85, and the existing 70%/30% allocation. Weak or unknown markets force WAIT.
+
+## Run and tests
 
 From the repository root:
 
     node research/v1040-core/run.js
     node research/v1040-core/tests/decision_test.js
     node research/v1040-core/tests/real_data_test.js
+    node research/v1040-core/tests/real006_factor_test.js
 
-Run the real-shape simulation without contacting either production API:
+REAL-006 historical simulation:
 
-    node research/v1040-core/run.js --input research/v1040-core/tests/fixtures/real_ranked_candidates.json --date 2026-10-12
+    node research/v1040-core/run.js --input research/v1040-core/tests/fixtures/real006_history_payload.json --date 2026-10-12 --market normal
 
-The input may be the ranked market response (data.candidates and data.indices) or the
-discovery response (records and quality). The CLI prints TOP1, TOP2, Score, and Decision,
-then writes data/predictions/YYYY-MM-DD.json. Set V1040_PREDICTION_DIR to redirect the
-output for a local run. Passing --market overrides inferred index risk. Passing
---allow-risk-proxies permits explicitly documented provider proxies; it is off by default.
+The CLI prints TOP1, TOP2, Score, and Decision, then writes
+data/predictions/YYYY-MM-DD.json. The simulation uses only an injected provider-shaped
+fixture; it does not call or modify either production API. Passing --market overrides
+index-derived risk.
 
-## Inputs
-
-evaluate(candidates, market) accepts normalized candidates. evaluateReal(payload) accepts
-the real provider shapes described above and never imports or calls the production API.
-Market risk is normal, elevated, weak, or unknown; common Chinese and legacy aliases are
-accepted. Without explicit risk, indices are averaged: non-negative is normal, mildly
-negative is elevated, and <= -1.5 percent is weak. Discovery quality metadata is retained
-as source metadata and does not create a BUY signal by itself.
-
-Prediction JSON contains date, stock/symbol, score, reason, risk, and decision for each
-ranked candidate. Dashboard, Shadow validation, and scheduled automation remain deferred.
+Dashboard and Shadow validation remain deferred.
