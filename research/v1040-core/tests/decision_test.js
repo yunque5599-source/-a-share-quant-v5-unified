@@ -42,6 +42,7 @@ const second = {
 {
   const result = evaluate([{ ...pristine, symbol: 'A' }, { ...second, symbol: 'B' }], 'weak');
   assert.equal(normalizeMarketRisk('弱'), 'weak');
+  assert.equal(normalizeMarketRisk('HIGH'), 'weak');
   assert.equal(result.action, 'WAIT');
 }
 {

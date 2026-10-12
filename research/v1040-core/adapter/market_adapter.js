@@ -1,7 +1,7 @@
 const ALIASES = Object.freeze({
   normal: new Set(['normal', '正常', 'low', '低', 'healthy', 'bull', 'safe']),
-  elevated: new Set(['elevated', '中', 'medium', 'high', '高', 'risk', 'caution']),
-  weak: new Set(['weak', '弱', 'bear', 'crash', 'extreme', 'very_high']),
+  elevated: new Set(['elevated', '中', 'medium', 'caution']),
+  weak: new Set(['weak', '弱', 'bear', 'crash', 'extreme', 'very_high', 'high', '高']),
   unknown: new Set(['', 'unknown', '未知', 'n/a', 'na', 'null', 'undefined'])
 });
 
