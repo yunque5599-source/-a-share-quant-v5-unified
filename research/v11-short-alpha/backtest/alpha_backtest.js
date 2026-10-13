@@ -103,6 +103,7 @@ function selectionValue(candidate, selectionScore) {
 }
 
 function orderedRanking(ranking, selectionScore) {
+  if (selectionScore === 'alpha') return ranking;
   const values = ranking.map((candidate, index) => ({
     candidate, index, value: selectionValue(candidate, selectionScore)
   }));
