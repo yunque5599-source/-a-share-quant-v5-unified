@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { backtestAlpha } from './backtest/alpha_backtest.js';
+import { backtestAlpha } from '../backtest/alpha_backtest.js';
 import { integrateCandidateFlow } from '../candidate_flow.js';
 
 const flowFixtureUrl = new URL('./fixtures/v11_flow.json', import.meta.url);
