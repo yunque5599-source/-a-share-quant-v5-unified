@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { benchmarkV12OutOfSample } from '../backtest/v12_oos.js';
+import { backtestAlpha } from '../backtest/alpha_backtest.js';
 import { classifyMarketRegime } from '../market_regime.js';
 
 const fixture = JSON.parse(await readFile(
@@ -62,6 +63,25 @@ test('zero costs preserve gross and net returns', () => {
   const metric = result.aggregate.overall.top5['T+5'];
   assert.equal(metric.gross.averageReturnPct, metric.net.averageReturnPct);
   assert.equal(metric.gross.maxDrawdownPct, metric.net.maxDrawdownPct);
+});
+
+test('trade cost breakdown records commission tax and slippage', () => {
+  const result = backtestAlpha({
+    predictions:[{asOf:'2026-01-01',ranking:[{
+      symbol:'600001',price:100,scores:{alpha:90,timing:80,psychology:70},
+      quality:{complete:true}
+    }]}],
+    histories:{'600001':[
+      {date:'2026-01-01',close:100},{date:'2026-01-02',close:110}
+    ]}
+  }, {horizons:[1],topN:1,costs:{commissionBps:3,stampTaxBps:5,slippageBps:5}});
+  const trade=result.results['T+1'].trades[0];
+  assert.equal(trade.status,'ok');
+  assert.equal(trade.netReturnPct,trade.returnPct);
+  assert.ok(trade.commissionPct > 0);
+  assert.ok(trade.stampTaxPct > 0);
+  assert.ok(trade.slippagePct > 0);
+  assert.ok(trade.totalCostPct > 0);
 });
 
 test('costs reduce a positive trade and worsen a negative trade', () => {

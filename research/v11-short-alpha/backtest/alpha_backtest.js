@@ -137,7 +137,8 @@ function normalizeCosts(options = {}) {
   return {
     commissionBps: bps(costs.commissionBps ?? options.commissionBps),
     stampTaxBps: bps(costs.stampTaxBps ?? options.stampTaxBps),
-    slippageBps: bps(costs.slippageBps ?? options.slippageBps)
+    slippageBps: bps(costs.slippageBps ?? options.slippageBps),
+    legacyRoundTripCostBps: bps(options.roundTripCostBps)
   };
 }
 
@@ -154,7 +155,8 @@ function tradeReturn(entryPrice, exitPrice, costs) {
   const slippageCost = (entryExecution - entryPrice) + (exitPrice - exitExecution);
   const invested = entryExecution + buyCommission;
   const proceeds = exitExecution - sellCommission - stampTax;
-  const netFactor = proceeds / invested;
+  const legacyFactor = Math.max(0, 1 - costs.legacyRoundTripCostBps / 10000);
+  const netFactor = proceeds / invested * legacyFactor;
   const grossReturnPct = (grossFactor - 1) * 100;
   const returnPct = (netFactor - 1) * 100;
   return {
