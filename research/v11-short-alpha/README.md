@@ -198,3 +198,39 @@ return, maximum drawdown, payoff ratio, and BUY_NOW accuracy for Top1/Top5 at
 T+1/T+3/T+5 across explicit periods. BUY_NOW accuracy is the share of selected
 BUY_NOW trades whose forward return is positive; it is null when there are no
 BUY_NOW observations. This is research-only and does not alter production.
+
+## V12 sample-out-of-sample validation, costs, and Market Regime
+
+`research/v11-short-alpha/backtest/v12_oos.js` performs a chronological walk-forward
+replay of V12TradeScore. A fold uses only the preceding `trainSize` snapshots as
+the training window and scores the next `testSize` snapshots; fixed V12 weights
+are not refit. The default fixture uses 18 dated snapshots, two-snapshot
+training, two-snapshot validation, and a two-snapshot step (8 complete folds).
+T+1, T+3, and T+5 are evaluated for Top1 and Top5.
+
+`research/v11-short-alpha/market_regime.js` is a research-only grouping layer.
+It returns `bull`, `bear`, `sideways`, or `unknown` with a score, confidence,
+and feature diagnostics. It prefers an explicit as-of regime label, otherwise
+uses index change/trend and market breadth. Historical market bars are filtered
+to `asOf` before trend estimation, so bars after the prediction date cannot
+change the label. The regime label is used only to partition validation metrics;
+it is not an additional V12 factor and does not alter ranking.
+
+Transaction costs are applied to the simulated execution prices:
+
+- commission: 3 bps on buy and sell;
+- stamp tax: 5 bps on sell only;
+- slippage: 5 bps on each side.
+
+Every completed trade retains `grossReturnPct`, `netReturnPct`, `commissionPct`,
+`stampTaxPct`, `slippagePct`, and `totalCostPct`. Reports expose gross and net
+metrics, including sample count, win rate, average return, maximum drawdown,
+payoff ratio, and BUY_NOW accuracy. The bundled fixture is synthetic and checks
+walk-forward separation, cost direction, and regime grouping; its numbers are
+not a live-market performance claim.
+
+Run it with:
+
+    node research/v11-short-alpha/backtest/v12_oos.js \
+      --input research/v11-short-alpha/tests/fixtures/v12_oos.json
+

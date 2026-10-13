@@ -131,9 +131,41 @@ function orderedRanking(ranking, selectionScore) {
   return values.map(item => item.candidate);
 }
 
-function safeTradeReturn(entryPrice, exitPrice, costBps) {
-  const gross = (exitPrice / entryPrice - 1) * 100;
-  return gross - costBps / 100;
+function normalizeCosts(options = {}) {
+  const costs = options.costs ?? {};
+  const bps = value => Math.max(0, number(value) ?? 0);
+  return {
+    commissionBps: bps(costs.commissionBps ?? options.commissionBps),
+    stampTaxBps: bps(costs.stampTaxBps ?? options.stampTaxBps),
+    slippageBps: bps(costs.slippageBps ?? options.slippageBps)
+  };
+}
+
+function tradeReturn(entryPrice, exitPrice, costs) {
+  const slip = costs.slippageBps / 10000;
+  const commission = costs.commissionBps / 10000;
+  const stamp = costs.stampTaxBps / 10000;
+  const entryExecution = entryPrice * (1 + slip);
+  const exitExecution = exitPrice * (1 - slip);
+  const grossFactor = exitPrice / entryPrice;
+  const buyCommission = entryExecution * commission;
+  const sellCommission = exitExecution * commission;
+  const stampTax = exitExecution * stamp;
+  const slippageCost = (entryExecution - entryPrice) + (exitPrice - exitExecution);
+  const invested = entryExecution + buyCommission;
+  const proceeds = exitExecution - sellCommission - stampTax;
+  const netFactor = proceeds / invested;
+  const grossReturnPct = (grossFactor - 1) * 100;
+  const returnPct = (netFactor - 1) * 100;
+  return {
+    grossReturnPct,
+    returnPct,
+    costPct: (grossFactor - netFactor) * 100,
+    commissionPct: (buyCommission + sellCommission) / entryPrice * 100,
+    stampTaxPct: stampTax / entryPrice * 100,
+    slippagePct: slippageCost / entryPrice * 100,
+    totalCostPct: (grossFactor - netFactor) * 100
+  };
 }
 
 function maxDrawdown(trades) {
@@ -204,7 +236,7 @@ export function backtestAlpha(input = {}, options = {}) {
   if (!['alpha', 'timing', 'composite', 'random', 'v12', 'v12Trade'].includes(selectionScore)) {
     throw new Error('Unknown selectionScore: ' + selectionScore);
   }
-  const costBps = Math.max(0, number(options.roundTripCostBps ?? options.costBps) ?? 0);
+  const costs = normalizeCosts(options);
   const diagnostics = {
     snapshotCount: snapshots.length,
     candidateCount: 0,
@@ -310,14 +342,21 @@ export function backtestAlpha(input = {}, options = {}) {
           };
         } else {
           const exit = future[horizon - 1];
-          const returnPct = safeTradeReturn(entryPrice, exit.close, costBps);
+          const returns = tradeReturn(entryPrice, exit.close, costs);
           trade = {
             symbol, rank, alphaRank, alphaScore: score, timingScore: timing,
             psychologyScore: psychology, compositeScore: composite,
             v12TradeScore: v12Trade, timingSignal: signal, selectedBy: selectionScore,
             selectionValue: selectedValue, entryDate, entryPrice, entryBasis,
             horizon, exitDate: exit.date, exitPrice: exit.close,
-            returnPct: round(returnPct), status: 'ok'
+            grossReturnPct: round(returns.grossReturnPct),
+            netReturnPct: round(returns.returnPct),
+            returnPct: round(returns.returnPct),
+            commissionPct: round(returns.commissionPct),
+            stampTaxPct: round(returns.stampTaxPct),
+            slippagePct: round(returns.slippagePct),
+            totalCostPct: round(returns.totalCostPct),
+            costPct: round(returns.costPct), status: 'ok'
           };
         }
         if (trade.status !== 'ok') diagnostics.unavailableByHorizon[key] += 1;
@@ -337,9 +376,7 @@ export function backtestAlpha(input = {}, options = {}) {
     asOf: uniqueDates.length === 1 ? uniqueDates[0] : null,
     snapshots: snapshots.length,
     horizons,
-    options: {
-      includeIncomplete, topN, selectionScore, roundTripCostBps: costBps
-    },
+    options: { includeIncomplete, topN, selectionScore, costs },
     diagnostics,
     results
   };
@@ -358,6 +395,9 @@ async function main(args) {
   const selectionScore = selectionIndex >= 0 ? args[selectionIndex + 1] : 'alpha';
   const options = {
     includeIncomplete: args.includes('--include-incomplete'),
+    costs: {commissionBps: number(args[args.indexOf('--commission-bps') + 1]),
+      stampTaxBps: number(args[args.indexOf('--stamp-bps') + 1]),
+      slippageBps: number(args[args.indexOf('--slippage-bps') + 1])},
     selectionScore
   };
   console.log(JSON.stringify(backtestAlpha(input, options), null, 2));
