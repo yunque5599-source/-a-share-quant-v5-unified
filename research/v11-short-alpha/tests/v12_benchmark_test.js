@@ -12,7 +12,7 @@ const fixture = JSON.parse(await readFile(
 
 test('V12 formula is Alpha60 Timing25 Psychology15 and requires psychology', () => {
   const score = computeV12TradeScore({scores:{alphaRaw:90,timingRaw:80,psychologyRaw:100}});
-  assert.equal(score.score, 88.5);
+  assert.equal(score.score, 89);
   assert.equal(computeV12TradeScore({scores:{alphaRaw:90,timingRaw:80}}), null);
 });
 

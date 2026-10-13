@@ -86,13 +86,20 @@ export function summarizeTrades(trades = []) {
   const valid = trades.filter(trade => trade.status === 'ok');
   const returns = valid.map(trade => trade.returnPct);
   const wins = returns.filter(value => value > 0);
+  const buyNow = valid.filter(trade => trade.timingSignal === 'BUY_NOW');
+  const buyNowCorrect = buyNow.filter(trade => trade.returnPct > 0).length;
   return {
     tradeCount: valid.length,
+    sampleCount: valid.length,
     unavailable: trades.length - valid.length,
     averageReturnPct: metric(mean(returns)),
     winRatePct: valid.length ? metric(wins.length / valid.length * 100) : null,
     maxDrawdownPct: metric(maxDrawdown(valid)),
-    payoffRatio: metric(payoffRatio(returns))
+    payoffRatio: metric(payoffRatio(returns)),
+    buyNowSamples: buyNow.length,
+    buyNowCorrect,
+    buyNowCoveragePct: valid.length ? metric(buyNow.length / valid.length * 100) : null,
+    buyNowAccuracyPct: buyNow.length ? metric(buyNowCorrect / buyNow.length * 100) : null
   };
 }
 
