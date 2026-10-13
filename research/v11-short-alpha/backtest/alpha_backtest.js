@@ -99,6 +99,7 @@ function compositeScore(candidate) {
 function selectionValue(candidate, selectionScore) {
   if (selectionScore === 'composite') return compositeScore(candidate);
   if (selectionScore === 'timing') return timingScore(candidate);
+  if (selectionScore === 'random') return null;
   return alphaScore(candidate);
 }
 
@@ -180,7 +181,7 @@ export function backtestAlpha(input = {}, options = {}) {
   const includeIncomplete = options.includeIncomplete === true;
   const topN = Number.isInteger(options.topN) && options.topN > 0 ? options.topN : null;
   const selectionScore = options.selectionScore ?? 'alpha';
-  if (!['alpha', 'timing', 'composite'].includes(selectionScore)) {
+  if (!['alpha', 'timing', 'composite', 'random'].includes(selectionScore)) {
     throw new Error('Unknown selectionScore: ' + selectionScore);
   }
   const costBps = Math.max(0, number(options.roundTripCostBps ?? options.costBps) ?? 0);
@@ -229,7 +230,7 @@ export function backtestAlpha(input = {}, options = {}) {
       } else if (qualityBlocked && !includeIncomplete) {
         diagnostics.skippedIncomplete += 1;
         skipReason = 'incomplete-alpha-record';
-      } else if (selectionScore !== 'alpha' && selectedValue === null) {
+      } else if (!['alpha', 'random'].includes(selectionScore) && selectedValue === null) {
         skipReason = 'missing-' + selectionScore + '-score';
       } else {
         diagnostics.eligibleCandidates += 1;

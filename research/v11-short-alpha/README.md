@@ -168,3 +168,22 @@ Trade records retain Alpha, Timing, composite, and the selected score. Rolling
 validation accepts the same selection option while preserving the fixed Alpha
 weights. The timing fixture is
 `research/v11-short-alpha/tests/fixtures/timing_backtest.json`.
+
+## Composite stability benchmark
+
+The benchmark compares three selectors on the same eligible snapshot universe:
+deterministic seeded random selection, Alpha ranking, and explicit Alpha+Timing
+composite ranking. It supports explicit date periods and reports Top1/Top5 at
+T+1/T+3/T+5 for every period plus an aggregate:
+
+    node research/v11-short-alpha/backtest/stability_benchmark.js \
+      --input research/v11-short-alpha/tests/fixtures/stability_benchmark.json
+
+Random selection is reproducible from the configured seed and snapshot date; it
+does not use `Math.random` or any future close. Candidates are filtered by
+as-of quality and score availability before all three selectors, and missing
+composite scores never fall back to Alpha. The output reports
+`tradeCount`, `winRatePct`, `averageReturnPct`, `maxDrawdownPct`,
+`payoffRatio`, and unavailable counts for each strategy, period, portfolio,
+and horizon. The expanded fixture is synthetic and is a validation regression,
+not live-market performance evidence.
