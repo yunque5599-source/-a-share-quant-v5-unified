@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { finiteNumber, round, validDate, asOfDate } from '../schema.js';
+import { computeV12TradeScore } from '../v12_trade_score.js';
 
 export const BACKTEST_SCHEMA = 'v11-short-alpha-backtest-v1';
 export const DEFAULT_HORIZONS = Object.freeze([1, 3, 5]);
@@ -95,11 +96,22 @@ function timingScore(candidate) {
 function compositeScore(candidate) {
   return number(candidate?.scores?.compositeRaw ?? candidate?.scores?.composite);
 }
+function v12TradeScore(candidate) {
+  return computeV12TradeScore(candidate)?.scoreRaw ?? null;
+}
+function timingSignal(candidate) {
+  const explicit = candidate?.timing?.signal ?? candidate?.timingSignal;
+  if (typeof explicit === 'string') return explicit;
+  const score = timingScore(candidate);
+  if (score === null) return 'UNKNOWN';
+  return score >= 75 ? 'BUY_NOW' : score >= 50 ? 'WAIT_PULLBACK' : 'AVOID';
+}
 
 function selectionValue(candidate, selectionScore) {
   if (selectionScore === 'composite') return compositeScore(candidate);
   if (selectionScore === 'timing') return timingScore(candidate);
   if (selectionScore === 'random') return null;
+  if (selectionScore === 'v12' || selectionScore === 'v12Trade') return v12TradeScore(candidate);
   return alphaScore(candidate);
 }
 
@@ -156,14 +168,22 @@ function resultFor(horizon, trades) {
   const valid = trades.filter(trade => trade.status === 'ok');
   const returns = valid.map(trade => trade.returnPct);
   const wins = returns.filter(value => value > 0);
+  const buyNow = valid.filter(trade => trade.timingSignal === 'BUY_NOW');
+  const buyNowCorrect = buyNow.filter(trade => trade.returnPct > 0).length;
   return {
     horizon,
     observations: valid.length,
+    sampleCount: valid.length,
+    tradeCount: valid.length,
     unavailable: trades.length - valid.length,
     averageReturnPct: metric(mean(returns)),
     winRatePct: valid.length ? metric(wins.length / valid.length * 100) : null,
     maxDrawdownPct: metric(maxDrawdown(valid)),
     payoffRatio: metric(payoffRatio(returns)),
+    buyNowSamples: buyNow.length,
+    buyNowCorrect,
+    buyNowCoveragePct: valid.length ? metric(buyNow.length / valid.length * 100) : null,
+    buyNowAccuracyPct: buyNow.length ? metric(buyNowCorrect / buyNow.length * 100) : null,
     trades
   };
 }
@@ -181,7 +201,7 @@ export function backtestAlpha(input = {}, options = {}) {
   const includeIncomplete = options.includeIncomplete === true;
   const topN = Number.isInteger(options.topN) && options.topN > 0 ? options.topN : null;
   const selectionScore = options.selectionScore ?? 'alpha';
-  if (!['alpha', 'timing', 'composite', 'random'].includes(selectionScore)) {
+  if (!['alpha', 'timing', 'composite', 'random', 'v12', 'v12Trade'].includes(selectionScore)) {
     throw new Error('Unknown selectionScore: ' + selectionScore);
   }
   const costBps = Math.max(0, number(options.roundTripCostBps ?? options.costBps) ?? 0);
@@ -217,8 +237,11 @@ export function backtestAlpha(input = {}, options = {}) {
       const alphaRank = number(candidate.rank);
       const score = alphaScore(candidate);
       const timing = timingScore(candidate);
+      const psychology = number(candidate?.scores?.psychologyRaw ?? candidate?.scores?.psychology ?? candidate?.psychology?.score);
       const composite = compositeScore(candidate);
+      const v12Trade = v12TradeScore(candidate);
       const selectedValue = selectionValue(candidate, selectionScore);
+      const signal = timingSignal(candidate);
       const qualityBlocked = candidate?.quality?.complete === false;
       let skipReason = null;
       if (!/^\d{6}$/.test(symbol)) {
@@ -271,7 +294,8 @@ export function backtestAlpha(input = {}, options = {}) {
         if (skipReason) {
           trade = {
             symbol, rank, alphaRank, alphaScore: score, timingScore: timing,
-            compositeScore: composite, selectedBy: selectionScore,
+            psychologyScore: psychology, compositeScore: composite,
+            v12TradeScore: v12Trade, timingSignal: signal, selectedBy: selectionScore,
             selectionValue: selectedValue, entryDate,
             entryPrice: entryPrice > 0 ? entryPrice : null,
             horizon, status: 'unavailable', reason: skipReason
@@ -279,7 +303,8 @@ export function backtestAlpha(input = {}, options = {}) {
         } else if (future.length < horizon) {
           trade = {
             symbol, rank, alphaRank, alphaScore: score, timingScore: timing,
-            compositeScore: composite, selectedBy: selectionScore,
+            psychologyScore: psychology, compositeScore: composite,
+            v12TradeScore: v12Trade, timingSignal: signal, selectedBy: selectionScore,
             selectionValue: selectedValue, entryDate, entryPrice, horizon,
             status: 'unavailable', reason: 'no-forward-bar'
           };
@@ -288,7 +313,8 @@ export function backtestAlpha(input = {}, options = {}) {
           const returnPct = safeTradeReturn(entryPrice, exit.close, costBps);
           trade = {
             symbol, rank, alphaRank, alphaScore: score, timingScore: timing,
-            compositeScore: composite, selectedBy: selectionScore,
+            psychologyScore: psychology, compositeScore: composite,
+            v12TradeScore: v12Trade, timingSignal: signal, selectedBy: selectionScore,
             selectionValue: selectedValue, entryDate, entryPrice, entryBasis,
             horizon, exitDate: exit.date, exitPrice: exit.close,
             returnPct: round(returnPct), status: 'ok'

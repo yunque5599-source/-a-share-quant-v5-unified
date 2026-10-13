@@ -187,3 +187,14 @@ composite scores never fall back to Alpha. The output reports
 `payoffRatio`, and unavailable counts for each strategy, period, portfolio,
 and horizon. The expanded fixture is synthetic and is a validation regression,
 not live-market performance evidence.
+
+## V12 TradeScore backtest
+
+V12 is evaluated as a separate research selector. The existing Composite remains
+Alpha*0.70 + Timing*0.30; V12TradeScore is
+Alpha*0.60 + Timing*0.25 + Psychology*0.15. Missing Psychology evidence never
+falls back to Composite. The benchmark reports sample count, win rate, average
+return, maximum drawdown, payoff ratio, and BUY_NOW accuracy for Top1/Top5 at
+T+1/T+3/T+5 across explicit periods. BUY_NOW accuracy is the share of selected
+BUY_NOW trades whose forward return is positive; it is null when there are no
+BUY_NOW observations. This is research-only and does not alter production.
