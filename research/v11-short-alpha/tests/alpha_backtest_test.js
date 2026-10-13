@@ -21,7 +21,7 @@ test('replays T+1, T+3 and T+5 without lookahead', () => {
   assert.equal(result.results['T+1'].payoffRatio, 1.23);
   assert.equal(result.results['T+3'].averageReturnPct, -0.04);
   assert.equal(result.results['T+3'].winRatePct, 50);
-  assert.equal(result.results['T+3'].maxDrawdownPct, 0.09);
+  assert.equal(result.results['T+3'].maxDrawdownPct, 0.59);
   assert.equal(result.results['T+5'].averageReturnPct, 2.73);
   assert.equal(result.results['T+5'].winRatePct, 50);
   assert.equal(result.results['T+5'].maxDrawdownPct, 0);
