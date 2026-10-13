@@ -1,0 +1,120 @@
+{
+  "description": "Synthetic same-sample ranking comparison for V11 timing filter validation",
+  "asOf": "2026-05-04",
+  "histories": {
+    "600001": [
+      {
+        "date": "2026-05-04",
+        "close": 100
+      },
+      {
+        "date": "2026-05-05",
+        "close": 94
+      },
+      {
+        "date": "2026-05-06",
+        "close": 93
+      },
+      {
+        "date": "2026-05-07",
+        "close": 90
+      },
+      {
+        "date": "2026-05-08",
+        "close": 94
+      },
+      {
+        "date": "2026-05-11",
+        "close": 92
+      }
+    ],
+    "600002": [
+      {
+        "date": "2026-05-04",
+        "close": 100
+      },
+      {
+        "date": "2026-05-05",
+        "close": 103
+      },
+      {
+        "date": "2026-05-06",
+        "close": 104
+      },
+      {
+        "date": "2026-05-07",
+        "close": 105
+      },
+      {
+        "date": "2026-05-08",
+        "close": 106
+      },
+      {
+        "date": "2026-05-11",
+        "close": 108
+      }
+    ]
+  },
+  "baseline": {
+    "predictions": [
+      {
+        "asOf": "2026-05-04",
+        "ranking": [
+          {
+            "symbol": "600001",
+            "rank": 1,
+            "price": 100,
+            "scores": {
+              "alpha": 92
+            },
+            "quality": {
+              "complete": true
+            }
+          },
+          {
+            "symbol": "600002",
+            "rank": 2,
+            "price": 100,
+            "scores": {
+              "alpha": 85
+            },
+            "quality": {
+              "complete": true
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "optimized": {
+    "predictions": [
+      {
+        "asOf": "2026-05-04",
+        "ranking": [
+          {
+            "symbol": "600002",
+            "rank": 1,
+            "price": 100,
+            "scores": {
+              "alpha": 85
+            },
+            "quality": {
+              "complete": true
+            }
+          },
+          {
+            "symbol": "600001",
+            "rank": 2,
+            "price": 100,
+            "scores": {
+              "alpha": 70
+            },
+            "quality": {
+              "complete": true
+            }
+          }
+        ]
+      }
+    ]
+  }
+}

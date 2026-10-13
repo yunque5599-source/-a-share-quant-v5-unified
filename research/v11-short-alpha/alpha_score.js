@@ -20,8 +20,13 @@ export function scoreCandidate(input = {}) {
       ...record.quality.blockedReasons,
       ...record.quality.missing.map(field => 'missing:' + field),
       ...Object.entries(components).filter(([, part]) => part.score >= 75)
-        .map(([name]) => name + '-strong')
-    ]
+        .map(([name]) => name + '-strong'),
+      record.features.momentum?.trendStage && 'trend-' + record.features.momentum.trendStage,
+      record.features.momentum?.overboughtRisk === 'high' && 'overbought-risk-high',
+      record.features.momentum?.overboughtRisk === 'elevated' && 'overbought-risk-elevated',
+      record.features.capital?.flowTiming === 'early-inflow' && 'capital-early-inflow',
+      record.features.capital?.flowTiming === 'late-high-inflow' && 'capital-late-high-inflow'
+    ].filter(Boolean)
   };
 }
 

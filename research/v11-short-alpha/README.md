@@ -108,3 +108,24 @@ winning return divided by the absolute average losing return; it is JSON `null`
 when there are no losing observations. Optional round-trip costs are supplied as
 `roundTripCostBps`. This is an offline research validator and does not change
 the production page or API.
+
+## Timing and overbought refinement
+
+The Alpha weights remain capital 30%, momentum 25%, sector 20%, volume 15%, and
+risk 10%. The momentum subscore now records `trendStage` (startup, acceleration,
+mature, range, or high-risk), prior-five-day return, acceleration, and
+`overboughtRisk`. High short-term return, extended ten-day return, or an extended
+breakout applies a transparent penalty before the momentum contribution is ranked.
+
+Capital now separates the prior five matching sessions from the latest five:
+`early-inflow`, `recent-inflow`, `late-high-inflow`, and `outflow`. Positive
+flows arriving while the price is already extended receive a timing penalty;
+earlier accumulation receives a timing preference. Raw windows and penalties are
+retained in the canonical feature record for review.
+
+The synthetic comparison fixture is:
+
+    research/v11-short-alpha/tests/fixtures/alpha_optimization_compare.json
+
+It is only a deterministic regression sample for comparing the old ranking with
+the refined ranking. It is not a live performance claim.

@@ -64,13 +64,37 @@ function features(raw, bars, flows, sector, flowDegraded) {
   const closes = bars.map(bar => bar.close);
   const r5 = bars.length >= 6 ? (last.close / bars.at(-6).close - 1) * 100 : null;
   const r10 = bars.length >= 11 ? (last.close / bars.at(-11).close - 1) * 100 : null;
+  const prior5Return = bars.length >= 11
+    ? (bars.at(-6).close / bars.at(-11).close - 1) * 100 : null;
+  const accelerationPct = usable([r5, prior5Return]) ? r5 - prior5Return : null;
   const highs = bars.slice(-21, -1).map(bar => bar.high);
   const breakout = highs.length === 20 && usable(highs) && highs.every(high => high > 0)
     ? (last.close / Math.max(...highs) - 1) * 100 : null;
+  const overboughtRisk = usable([r5, r10, breakout])
+    ? r5 >= 15 || r10 >= 30 || breakout >= 10 ? 'high'
+      : r5 >= 10 || r10 >= 20 || breakout >= 6 ? 'elevated' : 'normal'
+    : 'unknown';
+  const overboughtPenalty = overboughtRisk === 'high' ? 22
+    : overboughtRisk === 'elevated' ? 10 : 0;
+  const trendStage = overboughtRisk === 'high' ? 'high-risk'
+    : r5 === null || r10 === null ? 'unknown'
+      : r5 > 0.5 && r10 <= 8 && (accelerationPct ?? 0) >= -0.5 ? 'startup'
+        : r10 >= 5 && ((accelerationPct ?? 0) >= -1 || breakout >= 0) ? 'acceleration'
+          : r10 > 0 ? 'mature' : 'range';
+  const stageScore = {
+    startup: 84, acceleration: 88, mature: 62, range: 50, 'high-risk': 25
+  }[trendStage] ?? null;
+  const baseMomentumScore = usable([r5, r10, breakout])
+    ? pctScore(r5, 5) * 0.35 + pctScore(r10, 5) * 0.35 + pctScore(breakout, 10) * 0.30
+    : null;
+  const momentumScore = baseMomentumScore === null ? null
+    : clamp((stageScore === null ? baseMomentumScore
+      : baseMomentumScore * 0.70 + stageScore * 0.30) - overboughtPenalty);
   const momentum = {
-    return5dPct: r5, return10dPct: r10, breakoutStrengthPct: breakout,
-    score: usable([r5, r10, breakout])
-      ? pctScore(r5, 5) * 0.35 + pctScore(r10, 5) * 0.35 + pctScore(breakout, 10) * 0.30 : null
+    return5dPct: r5, return10dPct: r10, prior5dReturnPct: prior5Return,
+    accelerationPct, breakoutStrengthPct: breakout, trendStage,
+    trendStageScore: stageScore, overboughtRisk, overboughtPenalty,
+    score: momentumScore
   };
 
   const priorVolumes = bars.slice(-21, -1).map(bar => bar.volume);
@@ -91,6 +115,12 @@ function features(raw, bars, flows, sector, flowDegraded) {
   const expectedFlowDates = bars.slice(-5).map(bar => bar.date);
   const recentFlows = expectedFlowDates.map(date => flowByDate.get(date));
   const flowComplete = expectedFlowDates.length === 5 && recentFlows.every(flow => flow && n(flow.net) !== null);
+  const priorFlows = flows.slice(-10, -5);
+  const priorFlowComplete = priorFlows.length === 5 && priorFlows.every(flow => n(flow.net) !== null);
+  const recentNet = flowComplete ? recentFlows.reduce((sum, flow) => sum + flow.net, 0) : null;
+  const priorNet = priorFlowComplete ? priorFlows.reduce((sum, flow) => sum + flow.net, 0) : null;
+  const earlyPositiveRatio = priorFlowComplete
+    ? priorFlows.filter(flow => flow.net > 0).length / 5 : null;
   const currentFlow = last ? flowByDate.get(last.date) : null;
   const mainNet = flowDegraded ? null : n(raw?.f62 ?? raw?.mainNet) ?? currentFlow?.net ?? null;
   const mainPct = flowDegraded ? null : n(raw?.f184 ?? raw?.mainPct) ?? currentFlow?.pct ??
@@ -98,11 +128,25 @@ function features(raw, bars, flows, sector, flowDegraded) {
   const positiveRatio = !flowDegraded && flowComplete ? recentFlows.filter(flow => flow.net > 0).length / 5 : null;
   const netStrength = mainNet === null ? null
     : clamp(50 + Math.sign(mainNet) * 10 * Math.log10(1 + Math.abs(mainNet) / 1e6));
+  const highPriceFlow = recentNet !== null && recentNet > 0 &&
+    ((r5 !== null && r5 >= 10) || (breakout !== null && breakout >= 6) || overboughtRisk === 'high');
+  const flowTiming = !flowComplete ? 'unknown'
+    : highPriceFlow ? 'late-high-inflow'
+      : priorNet !== null && priorNet > 0 && earlyPositiveRatio >= 0.6 ? 'early-inflow'
+        : recentNet > 0 ? 'recent-inflow' : 'outflow';
+  const timingScore = {
+    'early-inflow': 86, 'recent-inflow': 62, 'late-high-inflow': 28, outflow: 24
+  }[flowTiming] ?? null;
+  const lateFlowPenalty = flowTiming === 'late-high-inflow' ? 18 : 0;
+  const baseCapitalScore = usable([mainNet, mainPct, positiveRatio])
+    ? pctScore(mainPct, 5) * 0.50 + netStrength * 0.25 + positiveRatio * 100 * 0.25 : null;
   const capital = {
     mainNetCny: mainNet, mainNetPct: mainPct, positiveFlowRatio5d: positiveRatio,
+    earlyNetCny: priorNet, recentNetCny: recentNet,
+    earlyPositiveFlowRatio5d: earlyPositiveRatio, flowTiming, lateFlowPenalty,
     amountCny: last?.amount ?? n(raw?.f6 ?? raw?.amount),
-    score: usable([mainNet, mainPct, positiveRatio])
-      ? pctScore(mainPct, 5) * 0.50 + netStrength * 0.25 + positiveRatio * 100 * 0.25 : null
+    score: baseCapitalScore === null || timingScore === null ? null
+      : clamp(baseCapitalScore * 0.75 + timingScore * 0.25 - lateFlowPenalty)
   };
 
   const sectorRankScore = sector?.total >= 2
