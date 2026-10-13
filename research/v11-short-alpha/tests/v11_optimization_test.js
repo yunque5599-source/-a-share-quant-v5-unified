@@ -9,6 +9,20 @@ const flowFixture = JSON.parse(await readFile(flowFixtureUrl, 'utf8'));
 const clone = value => structuredClone(value);
 const first = result => result.ranking.find(candidate => candidate.symbol === '600001');
 
+function startupFlowInput() {
+  const input = clone(flowFixture);
+  const item = input.deep.items.find(candidate => candidate.code === '600001');
+  const kline = item.kline.data.klines.map(row => row.split(','));
+  kline.forEach((fields, index) => {
+    const close = index < 19 ? 100 : index === 19 ? 101 : 101 + (index - 19);
+    fields[2] = String(close);
+    fields[3] = String(close + 1);
+    fields[4] = String(close - 1);
+  });
+  item.kline.data.klines = kline.map(fields => fields.join(','));
+  return input;
+}
+
 function highRiskFlowInput() {
   const input = clone(flowFixture);
   const item = input.deep.items.find(candidate => candidate.code === '600001');
@@ -38,8 +52,10 @@ function highRiskFlowInput() {
 
 test('identifies startup/acceleration and high-risk trend phases', () => {
   const baseline = first(integrateCandidateFlow(flowFixture));
+  const startup = first(integrateCandidateFlow(startupFlowInput()));
   const highRisk = first(integrateCandidateFlow(highRiskFlowInput()));
-  assert.ok(['startup', 'acceleration', 'mature'].includes(baseline.features.momentum.trendStage));
+  assert.equal(startup.features.momentum.trendStage, 'startup');
+  assert.equal(baseline.features.momentum.trendStage, 'acceleration');
   assert.equal(highRisk.features.momentum.trendStage, 'high-risk');
   assert.equal(highRisk.features.momentum.overboughtRisk, 'high');
   assert.ok(highRisk.features.momentum.overboughtPenalty > 0);
