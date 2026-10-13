@@ -48,6 +48,10 @@ test('walk-forward V12 OOS reports gross and net costs by regime', () => {
     assert.ok(metrics.net.buyNowAccuracyPct === null ||
       typeof metrics.net.buyNowAccuracyPct === 'number');
   }
+  assert.ok(result.aggregate.bull.top1['T+3'].net.averageReturnPct >
+    result.aggregate.bear.top1['T+3'].net.averageReturnPct);
+  assert.ok(result.aggregate.bull.top1['T+3'].net.winRatePct >
+    result.aggregate.bear.top1['T+3'].net.winRatePct);
 });
 
 test('zero costs preserve gross and net returns', () => {
