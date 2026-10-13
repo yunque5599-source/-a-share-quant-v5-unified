@@ -69,3 +69,12 @@ test('CLI emits period and strategy metrics', () => {
   assert.deepEqual(Object.keys(document.aggregate), ['random','alpha','composite']);
   assert.equal(document.periods.length, 4);
 });
+
+
+test('random baseline is invariant to source ranking order', () => {
+  const input = clone();
+  for (const snapshot of input.predictions) snapshot.ranking.reverse();
+  const original = benchmarkStability(fixture, {seed:'order-seed'});
+  const reversed = benchmarkStability(input, {seed:'order-seed'});
+  assert.deepEqual(reversed.aggregate.random, original.aggregate.random);
+});
