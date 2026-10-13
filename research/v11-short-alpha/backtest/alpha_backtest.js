@@ -88,6 +88,35 @@ function alphaScore(candidate) {
   return number(candidate?.scores?.alpha ?? candidate?.alphaScore ?? candidate?.score);
 }
 
+function timingScore(candidate) {
+  return number(candidate?.scores?.timingRaw ?? candidate?.scores?.timing);
+}
+
+function compositeScore(candidate) {
+  return number(candidate?.scores?.compositeRaw ?? candidate?.scores?.composite);
+}
+
+function selectionValue(candidate, selectionScore) {
+  if (selectionScore === 'composite') return compositeScore(candidate);
+  if (selectionScore === 'timing') return timingScore(candidate);
+  return alphaScore(candidate);
+}
+
+function orderedRanking(ranking, selectionScore) {
+  const values = ranking.map((candidate, index) => ({
+    candidate, index, value: selectionValue(candidate, selectionScore)
+  }));
+  values.sort((left, right) => {
+    if (left.value === null && right.value === null) return left.index - right.index;
+    if (left.value === null) return 1;
+    if (right.value === null) return -1;
+    return right.value - left.value ||
+      (alphaScore(right.candidate) ?? -Infinity) - (alphaScore(left.candidate) ?? -Infinity) ||
+      left.index - right.index;
+  });
+  return values.map(item => item.candidate);
+}
+
 function safeTradeReturn(entryPrice, exitPrice, costBps) {
   const gross = (exitPrice / entryPrice - 1) * 100;
   return gross - costBps / 100;
@@ -149,6 +178,10 @@ export function backtestAlpha(input = {}, options = {}) {
   const horizons = requestedHorizons(options.horizons);
   const includeIncomplete = options.includeIncomplete === true;
   const topN = Number.isInteger(options.topN) && options.topN > 0 ? options.topN : null;
+  const selectionScore = options.selectionScore ?? 'alpha';
+  if (!['alpha', 'timing', 'composite'].includes(selectionScore)) {
+    throw new Error('Unknown selectionScore: ' + selectionScore);
+  }
   const costBps = Math.max(0, number(options.roundTripCostBps ?? options.costBps) ?? 0);
   const diagnostics = {
     snapshotCount: snapshots.length,
@@ -171,15 +204,19 @@ export function backtestAlpha(input = {}, options = {}) {
     const snapshotDate = asOfFor(snapshot, input?.asOf);
     if (snapshotDate) snapshotDates.push(snapshotDate);
     const histories = historyMapOf(input, snapshot);
-    const ranking = rankingOf(snapshot);
+    const ranking = orderedRanking(rankingOf(snapshot), selectionScore);
     const selected = topN ? ranking.slice(0, topN) : ranking;
     diagnostics.candidateCount += selected.length;
 
     for (let index = 0; index < selected.length; index += 1) {
       const candidate = selected[index] ?? {};
       const symbol = symbolOf(candidate);
-      const rank = number(candidate.rank) ?? index + 1;
+      const rank = index + 1;
+      const alphaRank = number(candidate.rank);
       const score = alphaScore(candidate);
+      const timing = timingScore(candidate);
+      const composite = compositeScore(candidate);
+      const selectedValue = selectionValue(candidate, selectionScore);
       const qualityBlocked = candidate?.quality?.complete === false;
       let skipReason = null;
       if (!/^\d{6}$/.test(symbol)) {
@@ -191,6 +228,8 @@ export function backtestAlpha(input = {}, options = {}) {
       } else if (qualityBlocked && !includeIncomplete) {
         diagnostics.skippedIncomplete += 1;
         skipReason = 'incomplete-alpha-record';
+      } else if (selectionScore !== 'alpha' && selectedValue === null) {
+        skipReason = 'missing-' + selectionScore + '-score';
       } else {
         diagnostics.eligibleCandidates += 1;
       }
@@ -229,19 +268,26 @@ export function backtestAlpha(input = {}, options = {}) {
         let trade;
         if (skipReason) {
           trade = {
-            symbol, rank, alphaScore: score, entryDate, entryPrice: entryPrice > 0 ? entryPrice : null,
+            symbol, rank, alphaRank, alphaScore: score, timingScore: timing,
+            compositeScore: composite, selectedBy: selectionScore,
+            selectionValue: selectedValue, entryDate,
+            entryPrice: entryPrice > 0 ? entryPrice : null,
             horizon, status: 'unavailable', reason: skipReason
           };
         } else if (future.length < horizon) {
           trade = {
-            symbol, rank, alphaScore: score, entryDate, entryPrice, horizon,
+            symbol, rank, alphaRank, alphaScore: score, timingScore: timing,
+            compositeScore: composite, selectedBy: selectionScore,
+            selectionValue: selectedValue, entryDate, entryPrice, horizon,
             status: 'unavailable', reason: 'no-forward-bar'
           };
         } else {
           const exit = future[horizon - 1];
           const returnPct = safeTradeReturn(entryPrice, exit.close, costBps);
           trade = {
-            symbol, rank, alphaScore: score, entryDate, entryPrice, entryBasis,
+            symbol, rank, alphaRank, alphaScore: score, timingScore: timing,
+            compositeScore: composite, selectedBy: selectionScore,
+            selectionValue: selectedValue, entryDate, entryPrice, entryBasis,
             horizon, exitDate: exit.date, exitPrice: exit.close,
             returnPct: round(returnPct), status: 'ok'
           };
@@ -263,7 +309,9 @@ export function backtestAlpha(input = {}, options = {}) {
     asOf: uniqueDates.length === 1 ? uniqueDates[0] : null,
     snapshots: snapshots.length,
     horizons,
-    options: { includeIncomplete, topN, roundTripCostBps: costBps },
+    options: {
+      includeIncomplete, topN, selectionScore, roundTripCostBps: costBps
+    },
     diagnostics,
     results
   };
@@ -278,7 +326,12 @@ async function main(args) {
     throw new Error('Usage: node research/v11-short-alpha/backtest/alpha_backtest.js --input FILE');
   }
   const input = JSON.parse(await readFile(resolve(args[inputIndex + 1]), 'utf8'));
-  const options = { includeIncomplete: args.includes('--include-incomplete') };
+  const selectionIndex = args.indexOf('--selection-score');
+  const selectionScore = selectionIndex >= 0 ? args[selectionIndex + 1] : 'alpha';
+  const options = {
+    includeIncomplete: args.includes('--include-incomplete'),
+    selectionScore
+  };
   console.log(JSON.stringify(backtestAlpha(input, options), null, 2));
 }
 

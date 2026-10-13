@@ -148,3 +148,23 @@ The aggregate output contains `tradeCount`, `winRatePct`, `averageReturnPct`,
 `maxDrawdownPct`, and `payoffRatio` for each portfolio and horizon. The included
 rolling fixture is synthetic and is intended to verify date separation, missing
 windows, and metric aggregation rather than claim live performance.
+
+## Buy Timing score
+
+Buy Timing is an execution layer over the existing Alpha record. It does not change
+Alpha weights or `scores.alpha`. Timing uses trend stage (40%), capital lead
+(35%), and chase safety (25%) to produce `scores.timing` from 0 to 100. The
+signals are `BUY_NOW` (75+), `WAIT_PULLBACK` (50-74), and `AVOID` (<50).
+The composite trade score is `0.70 * Alpha + 0.30 * Timing`; missing timing
+evidence yields a null composite instead of an optimistic fallback.
+
+The historical replay keeps Alpha selection by default. To test timing-aware
+execution explicitly, pass `selectionScore: "composite"` or:
+
+    node research/v11-short-alpha/backtest/alpha_backtest.js \
+      --selection-score composite --input FILE
+
+Trade records retain Alpha, Timing, composite, and the selected score. Rolling
+validation accepts the same selection option while preserving the fixed Alpha
+weights. The timing fixture is
+`research/v11-short-alpha/tests/fixtures/timing_backtest.json`.

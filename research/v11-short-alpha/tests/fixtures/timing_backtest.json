@@ -1,0 +1,96 @@
+{
+  "description": "Timing selection regression: Alpha prefers a late high-risk candidate, composite prefers an early-inflow candidate",
+  "predictions": [
+    {
+      "asOf": "2026-06-01",
+      "ranking": [
+        {
+          "symbol": "600001",
+          "rank": 1,
+          "price": 100,
+          "scores": {
+            "alpha": 92,
+            "alphaRaw": 92,
+            "timing": 20,
+            "timingRaw": 20,
+            "composite": 70.4,
+            "compositeRaw": 70.4
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600002",
+          "rank": 2,
+          "price": 100,
+          "scores": {
+            "alpha": 85,
+            "alphaRaw": 85,
+            "timing": 90,
+            "timingRaw": 90,
+            "composite": 86.5,
+            "compositeRaw": 86.5
+          },
+          "quality": {
+            "complete": true
+          }
+        }
+      ]
+    }
+  ],
+  "histories": {
+    "600001": [
+      {
+        "date": "2026-06-01",
+        "close": 100
+      },
+      {
+        "date": "2026-06-02",
+        "close": 94
+      },
+      {
+        "date": "2026-06-03",
+        "close": 93
+      },
+      {
+        "date": "2026-06-04",
+        "close": 90
+      },
+      {
+        "date": "2026-06-05",
+        "close": 94
+      },
+      {
+        "date": "2026-06-08",
+        "close": 92
+      }
+    ],
+    "600002": [
+      {
+        "date": "2026-06-01",
+        "close": 100
+      },
+      {
+        "date": "2026-06-02",
+        "close": 103
+      },
+      {
+        "date": "2026-06-03",
+        "close": 104
+      },
+      {
+        "date": "2026-06-04",
+        "close": 105
+      },
+      {
+        "date": "2026-06-05",
+        "close": 106
+      },
+      {
+        "date": "2026-06-08",
+        "close": 108
+      }
+    ]
+  }
+}

@@ -36,7 +36,7 @@ function normalizePositiveIntegers(value, fallback) {
   return normalized.length ? normalized.sort((a, b) => a - b) : [...fallback];
 }
 
-function trainingProfile(training) {
+function trainingProfile(training, selectionScore = 'alpha') {
   const candidates = training.flatMap(snapshot => rankingOf(snapshot));
   const scores = candidates.map(candidate =>
     number(candidate?.scores?.alpha ?? candidate?.alphaScore ?? candidate?.score)
@@ -49,6 +49,8 @@ function trainingProfile(training) {
     meanAlpha: metric(mean(scores)),
     meanTop1Alpha: metric(mean(topScores)),
     adjustment: 'none',
+    selectionScore,
+    timingVersion: selectionScore === 'alpha' ? null : 'V11 Buy Timing Phase 1',
     weights: 'fixed-v11-alpha-30-25-20-15-10'
   };
 }
@@ -142,6 +144,10 @@ export function rollingBacktest(input = {}, options = {}) {
     .filter(horizon => DEFAULT_ROLLING_HORIZONS.includes(horizon));
   const horizons = requestedHorizons.length ? requestedHorizons : [...DEFAULT_ROLLING_HORIZONS];
   const topNs = normalizePositiveIntegers(options.topNs, DEFAULT_TOP_NS);
+  const selectionScore = options.selectionScore ?? 'alpha';
+  if (!['alpha', 'timing', 'composite'].includes(selectionScore)) {
+    throw new Error('Unknown selectionScore: ' + selectionScore);
+  }
   const includePartial = options.includePartial === true;
   const histories = input?.histories ?? input?.historyBySymbol ?? input?.prices ?? {};
   const folds = [];
@@ -163,7 +169,7 @@ export function rollingBacktest(input = {}, options = {}) {
       fold: folds.length + 1,
       training: foldDates(training),
       validation: foldDates(validation),
-      trainingProfile: trainingProfile(training),
+      trainingProfile: trainingProfile(training, selectionScore),
       results: {}
     };
     for (const topN of topNs) {
@@ -174,6 +180,7 @@ export function rollingBacktest(input = {}, options = {}) {
           topN,
           horizons,
           includeIncomplete: options.includeIncomplete === true,
+          selectionScore,
           roundTripCostBps: options.roundTripCostBps
         }
       );
@@ -201,7 +208,7 @@ export function rollingBacktest(input = {}, options = {}) {
     schema: ROLLING_SCHEMA,
     version: 'V11 Short Alpha Out-of-Sample Rolling Validation',
     config: {
-      trainSize, testSize, step, horizons, topNs,
+      trainSize, testSize, step, horizons, topNs, selectionScore,
       adjustment: 'none',
       weights: 'fixed-v11-alpha-30-25-20-15-10',
       includePartial
@@ -232,7 +239,8 @@ async function main(args) {
   const result = rollingBacktest(input, {
     trainSize: numeric('--train-size'),
     testSize: numeric('--test-size'),
-    step: numeric('--step')
+    step: numeric('--step'),
+    selectionScore: valueAfter(args, '--selection-score') ?? 'alpha'
   });
   console.log(JSON.stringify(result, null, 2));
 }

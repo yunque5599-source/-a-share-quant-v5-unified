@@ -79,3 +79,22 @@ test('CLI emits the rolling validation document', () => {
   assert.equal(document.version, 'V11 Short Alpha Out-of-Sample Rolling Validation');
   assert.deepEqual(Object.keys(document.aggregate), ['top1', 'top5']);
 });
+
+
+test('rolling replay can select by composite timing score explicitly', () => {
+  const input = clone();
+  for (const snapshot of input.predictions) {
+    for (const candidate of snapshot.ranking) {
+      const timing = candidate.symbol === '600001' ? 85 : 65;
+      candidate.scores.timing = timing;
+      candidate.scores.timingRaw = timing;
+      candidate.scores.composite = candidate.scores.alpha * 0.7 + timing * 0.3;
+      candidate.scores.compositeRaw = candidate.scores.composite;
+    }
+  }
+  const result = rollingBacktest(input, {selectionScore:'composite'});
+  assert.equal(result.config.selectionScore, 'composite');
+  assert.equal(result.folds[0].trainingProfile.selectionScore, 'composite');
+  assert.equal(result.folds[0].trainingProfile.timingVersion, 'V11 Buy Timing Phase 1');
+  assert.equal(result.aggregate.top1['T+1'].tradeCount, 4);
+});
