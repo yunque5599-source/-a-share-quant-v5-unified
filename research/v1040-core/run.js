@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { resolve, join } from 'node:path';
 import { adaptMarketPayload } from './adapter/market_adapter.js';
 import { normalizeCandidates } from './adapter/candidate_adapter.js';
+import { integrateCandidateFlow } from '../v11-short-alpha/candidate_flow.js';
 import { normalizeMarket } from './adapter/market_adapter.js';
 import { calculateFactorScore } from './decision_engine/factor_score.js';
 import { applyRiskAdjustment } from './decision_engine/risk_adjustment.js';
@@ -43,12 +44,12 @@ export function evaluateReal(payload, marketInput, adapterOptions = {}) {
 }
 
 function displayScore(stock) {
-  return stock ? String(stock.adjustedScore) : '-';
+  return stock ? String(stock.scores?.alpha ?? stock.adjustedScore) : '-';
 }
 
 export function printResult(result) {
   const [top1, top2] = result?.ranking ?? [];
-  console.log('V10.4.0 CORE');
+  console.log(result?.version ?? 'V10.4.0 CORE');
   console.log('TOP1');
   console.log('股票: ' + (top1?.name || top1?.symbol || '-'));
   console.log('评分: ' + displayScore(top1));
@@ -61,7 +62,12 @@ export function printResult(result) {
 }
 
 export function run(options = {}) {
-  const result = options.rawData
+  if (options.model && !['v1040', 'v11'].includes(options.model)) throw new Error('Unknown model: ' + options.model);
+  const result = options.model === 'v11'
+    ? integrateCandidateFlow(options.rawData ?? { data: { candidates: options.candidates ?? [] } }, {
+        market: options.market, asOf: options.asOf
+      })
+    : options.rawData
     ? evaluateReal(options.rawData, options.market, options.adapterOptions)
     : evaluate(options.candidates ?? DEMO_CANDIDATES, options.market ?? { marketRisk: 'normal' });
   printResult(result);
@@ -118,13 +124,20 @@ function cliValue(args, name) {
 async function runCli() {
   const args = process.argv.slice(2);
   const inputPath = cliValue(args, '--input');
-  if (!inputPath) return run();
+  const model = cliValue(args, '--model') ?? 'v1040';
+  if (!['v1040', 'v11'].includes(model)) throw new Error('Unknown model: ' + model);
+  if (!inputPath) {
+    if (model === 'v11') throw new Error('V11 requires --input with candidate/history data');
+    return run();
+  }
   const rawData = JSON.parse(await readFile(resolve(inputPath), 'utf8'));
   const result = run({
-    rawData,
+    model, rawData, asOf: cliValue(args, '--date'),
     market: cliValue(args, '--market'),
     adapterOptions: { allowRiskProxies: args.includes('--allow-risk-proxies') }
   });
+  // Phase 1 V11 produces scores only; keep earlier prediction records untouched.
+  if (model === 'v11' || args.includes('--no-save')) return result;
   const saved = await savePrediction(result, {
     date: cliValue(args, '--date'),
     outputDir: process.env.V1040_PREDICTION_DIR
