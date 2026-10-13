@@ -87,3 +87,24 @@ Legacy CORE CLI may use --no-save to suppress its existing prediction write.
 
 The fixture is synthetic and has real API shapes; test results do not prove investment
 returns. T+1/3/5 backtests, SELL policy, production wiring, and frontend work are deferred.
+
+## Alpha historical validation
+
+The isolated validator replays captured Alpha rankings against future close bars:
+
+    node research/v11-short-alpha/backtest/alpha_backtest.js \
+      --input research/v11-short-alpha/tests/fixtures/alpha_backtest.json
+
+The input may contain one result or a `predictions` array plus `histories`/ `historyBySymbol`.
+T+1, T+3, and T+5 use the corresponding valid bar strictly after each snapshot
+`asOf`; rows on or before `asOf`, malformed dates, duplicate dates, missing bars,
+and incomplete Alpha records are never filled or counted as zero. Use
+`includeIncomplete: true` only for diagnostic runs.
+
+Each horizon returns observations, unavailable, averageReturnPct, winRatePct,
+maxDrawdownPct, payoffRatio, and trade records. Maximum drawdown is calculated
+from an equal-weight portfolio grouped by prediction date. Payoff ratio is average
+winning return divided by the absolute average losing return; it is JSON `null`
+when there are no losing observations. Optional round-trip costs are supplied as
+`roundTripCostBps`. This is an offline research validator and does not change
+the production page or API.
