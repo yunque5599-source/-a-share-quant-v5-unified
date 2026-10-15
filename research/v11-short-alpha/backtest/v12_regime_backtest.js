@@ -6,6 +6,7 @@ import { backtestAlpha } from './alpha_backtest.js';
 import {
   canExecuteBuyNow,
   evaluateRegimeExecution,
+  candidateTimingSignal,
   normalizeExecutionAsOf
 } from '../market_regime_execution.js';
 
@@ -24,7 +25,7 @@ function normalizePositiveIntegers(value, fallback, allowed = null) {
   const source = Array.isArray(value) ? value : fallback;
   const normalized = [...new Set(source.map(number)
     .filter(item => Number.isInteger(item) && item > 0 &&
-      (!allowed || allowed.includes(item)))];
+      (!allowed || allowed.includes(item))))];
   return normalized.length ? normalized.sort((a, b) => a - b) : [...fallback];
 }
 
@@ -80,8 +81,8 @@ function maxDrawdown(periods, field) {
   let drawdown = 0;
   for (const period of [...periods].sort((a, b) =>
     a.entryDate.localeCompare(b.entryDate))) {
-    const value = Number(period[field]);
-    if (!Number.isFinite(value)) continue;
+    const value = number(period[field]);
+    if (value === null) continue;
     equity *= 1 + value / 100;
     peak = Math.max(peak, equity);
     drawdown = Math.max(drawdown, (peak - equity) / peak * 100);
@@ -102,9 +103,10 @@ function metricSummary(bucket, field) {
     trade.status === 'ok' && Number.isFinite(trade[field]));
   const rawReturns = valid.map(trade => trade[field]);
   const periods = bucket.periods;
-  const periodReturns = periods.map(period => Number(period[field]))
-    .filter(value => Number.isFinite(value));
-  const activePeriods = periodReturns.filter(value => value !== 0);
+  const periodReturns = periods.map(period => number(period[field]))
+    .filter(value => value !== null);
+  const activePeriods = periods.filter(period => period.tradeCount > 0)
+    .map(period => number(period[field])).filter(value => value !== null);
   const wins = rawReturns.filter(value => value > 0);
   const portfolioWins = activePeriods.filter(value => value > 0);
   let equity = 1;
@@ -117,7 +119,8 @@ function metricSummary(bucket, field) {
     skippedObservations: periods.filter(period => period.tradeCount === 0).length,
     averageReturnPct: metric(mean(periodReturns)),
     tradeAverageReturnPct: metric(mean(rawReturns)),
-    cumulativeReturnPct: metric((equity - 1) * 100),
+    cumulativeReturnPct: periodReturns.length ? metric((equity - 1) * 100) : null,
+    unavailableObservations: periods.length - periodReturns.length,
     winRatePct: valid.length ? metric(wins.length / valid.length * 100) : null,
     portfolioWinRatePct: activePeriods.length
       ? metric(portfolioWins.length / activePeriods.length * 100) : null,
@@ -132,7 +135,8 @@ function resultFor(bucket) {
     net: metricSummary(bucket, 'returnPct'),
     transactionCount: bucket.trades.filter(trade => trade.status === 'ok').length,
     observationCount: bucket.periods.length,
-    skippedObservations: bucket.periods.filter(period => period.tradeCount === 0).length
+    skippedObservations: bucket.periods.filter(period => period.tradeCount === 0).length,
+    trades: bucket.trades, periods: bucket.periods
   };
 }
 
@@ -148,13 +152,14 @@ function cohortPeriod(trades, entryDate, regime, action, exposure, topN, horizon
     trade.status === 'ok' && Number.isFinite(trade.grossReturnPct) &&
     Number.isFinite(trade.returnPct));
   const denominator = topN > 0 ? topN : 1;
+  const complete = valid.length === trades.length;
   return {
     entryDate, regime, action, exposure, topN, horizon,
     tradeCount: valid.length,
-    grossReturnPct: valid.reduce((sum, trade) =>
-      sum + trade.grossReturnPct * exposure / denominator, 0),
-    returnPct: valid.reduce((sum, trade) =>
-      sum + trade.returnPct * exposure / denominator, 0)
+    grossReturnPct: complete ? valid.reduce((sum, trade) =>
+      sum + trade.grossReturnPct * exposure / denominator, 0) : null,
+    returnPct: complete ? valid.reduce((sum, trade) =>
+      sum + trade.returnPct * exposure / denominator, 0) : null
   };
 }
 
@@ -173,17 +178,18 @@ function attachExecution(trade, policy, topN) {
 /**
  * Compare the existing un-gated V12 replay with a regime execution gate.
  *
- * Baseline keeps the current V12 selection and executes every selected slot.
- * Gated mode preserves rank and score, executes only existing BUY_NOW rows,
+ * Baseline and gated mode share BUY_NOW eligibility and original V12 TopN slots.
+ * Legacy score replay remains available separately. Gated mode preserves rank,
  * applies a 0.5 exposure and every-second-snapshot cadence in neutral markets,
  * and executes no trades in bear or unknown markets. Empty slots remain cash.
  */
 export function benchmarkV12RegimeGate(input = {}, options = {}) {
-  const dated = snapshotsOf(input).map((snapshot, index) => ({
-    snapshot, index, date: snapshotDate(snapshot)
-  })).filter(item => item.date)
-    .sort((a, b) => a.date.localeCompare(b.date) || a.index - b.index);
-  const snapshots = dated.map(item => item.snapshot);
+  const seenDates = new Set();
+  let invalidSnapshotDates = 0, duplicateSnapshotDates = 0;
+  const dated = snapshotsOf(input).map((snapshot,index)=>({snapshot,index,date:snapshotDate(snapshot)}))
+    .filter(item=>{if(!item.date){invalidSnapshotDates++;return false;}if(seenDates.has(item.date)){duplicateSnapshotDates++;return false;}seenDates.add(item.date);return true;})
+    .sort((a,b)=>a.date.localeCompare(b.date)||a.index-b.index);
+  const snapshots=dated.map(item=>item.snapshot);
   const trainSize = Math.max(1, Math.floor(number(options.trainSize) ?? 2));
   const testSize = Math.max(1, Math.floor(number(options.testSize) ?? 2));
   const step = Math.max(1, Math.floor(number(options.step) ?? testSize));
@@ -192,20 +198,24 @@ export function benchmarkV12RegimeGate(input = {}, options = {}) {
   const topNs = normalizePositiveIntegers(
     options.topNs, DEFAULT_TOP_NS);
   const neutralEvery = Math.max(
-    1, Math.floor(number(options.neutralEvery) ?? 2));
+    2, Math.floor(number(options.neutralEvery) ?? 2));
   const neutralExposure = Math.min(
-    1, Math.max(0, number(options.neutralExposure) ?? 0.5));
-  const costs = options.costs ?? {
-    commissionBps: 3, stampTaxBps: 5, slippageBps: 5
+    0.5, Math.max(0, number(options.neutralExposure) ?? 0.5));
+  const costs = {
+    commissionBps: number(options.costs?.commissionBps) ?? 3,
+    stampTaxBps: number(options.costs?.stampTaxBps) ?? 5,
+    slippageBps: number(options.costs?.slippageBps) ?? 5
   };
   const histories = input?.histories ?? input?.historyBySymbol ?? input?.prices ?? {};
+  const legacy = makeStore(topNs, horizons);
   const baseline = makeStore(topNs, horizons);
+  const busyUntil = new Map();
   const gated = makeStore(topNs, horizons);
   const decisions = [];
   const folds = [];
   const seenValidationDates = new Set();
   const diagnostics = {
-    snapshotCount: snapshots.length,
+    snapshotCount: snapshots.length, invalidSnapshotDates, duplicateSnapshotDates,
     foldCount: 0,
     duplicateValidationDates: 0,
     skippedPartialFolds: 0,
@@ -215,6 +225,12 @@ export function benchmarkV12RegimeGate(input = {}, options = {}) {
     gatedTransactions: 0
   };
   let neutralOrdinal = 0;
+  const policies = new Map();
+  for(const snapshot of snapshots){
+    const policy=evaluateRegimeExecution(snapshot,{neutralEvery,neutralOrdinal,neutralExposure});
+    policies.set(snapshotDate(snapshot),policy);
+    if(policy.state==='neutral')neutralOrdinal++;
+  }
 
   for (let start = trainSize; start < snapshots.length; start += step) {
     const training = snapshots.slice(Math.max(0, start - trainSize), start);
@@ -244,10 +260,7 @@ export function benchmarkV12RegimeGate(input = {}, options = {}) {
 
     for (const snapshot of validation) {
       const date = normalizeExecutionAsOf(snapshot);
-      const before = evaluateRegimeExecution(snapshot, {
-        neutralEvery, neutralOrdinal, neutralExposure
-      });
-      if (before.state === 'neutral') neutralOrdinal += 1;
+      const before = policies.get(date);
       const regime = before.regime;
       if (fold.regimes[regime] !== undefined) fold.regimes[regime] += 1;
       decisions.push({
@@ -266,34 +279,41 @@ export function benchmarkV12RegimeGate(input = {}, options = {}) {
         for (const horizon of horizons) {
           const horizonKey = 'T+' + horizon;
           const rawTrades = replay.results[horizonKey]?.trades ?? [];
-          const baselineTrades = rawTrades.map(trade => ({
-            ...trade, executionExposure: 1, executionAction: 'BASELINE',
+          const legacyTrades = rawTrades.map(trade => ({
+            ...trade, executionExposure: 1, executionAction: 'LEGACY',
+            marketRegime: regime, plannedTopN: topN
+          }));
+          const eligibleTrades = rawTrades.filter(trade =>
+            candidateTimingSignal(trade) === 'BUY_NOW');
+          const scheduleKey = topN + ':' + horizon;
+          const holding = date <= (busyUntil.get(scheduleKey) ?? '');
+          const baselineTrades = holding ? [] : eligibleTrades.map(trade => ({
+            ...trade, executionExposure: 1, executionAction: 'BUY_NOW',
             executionState: 'baseline', marketRegime: regime, plannedTopN: topN
           }));
-          const gatedTrades = rawTrades
-            .filter(trade => canExecuteBuyNow(before, trade))
-            .map(trade => attachExecution(trade, before, topN));
-          const baselinePeriod = cohortPeriod(
-            baselineTrades, date, regime, 'BUY_NOW', 1, topN, horizon);
-          const gatedPeriod = cohortPeriod(
-            gatedTrades, date, regime, before.action, before.exposure,
-            topN, horizon);
-          addToStore(baseline, regime, topN, horizon,
-            baselineTrades, baselinePeriod);
-          addToStore(gated, regime, topN, horizon,
-            gatedTrades, gatedPeriod);
-          diagnostics.baselineTransactions += baselineTrades
-            .filter(trade => trade.status === 'ok').length;
-          diagnostics.gatedTransactions += gatedTrades
-            .filter(trade => trade.status === 'ok').length;
+          const gatedTrades = baselineTrades.filter(trade =>
+            canExecuteBuyNow(before, trade)).map(trade => attachExecution(trade,before,topN));
+          if(!holding){
+            const exits=baselineTrades.filter(t=>t.status==='ok').map(t=>t.exitDate).sort();
+            if(exits.length)busyUntil.set(scheduleKey,exits.at(-1));
+          }
+          const legacyPeriod=cohortPeriod(legacyTrades,date,regime,'LEGACY',1,topN,horizon);
+          const baselinePeriod=cohortPeriod(baselineTrades,date,regime,holding?'HOLD':'BUY_NOW',1,topN,horizon);
+          const gatedPeriod=cohortPeriod(gatedTrades,date,regime,holding?'HOLD':before.action,before.exposure,topN,horizon);
+          addToStore(legacy,regime,topN,horizon,legacyTrades,legacyPeriod);
+          addToStore(baseline,regime,topN,horizon,baselineTrades,baselinePeriod);
+          addToStore(gated,regime,topN,horizon,gatedTrades,gatedPeriod);
+          diagnostics.baselineTransactions+=baselineTrades.filter(t=>t.status==='ok').length;
+          diagnostics.gatedTransactions+=gatedTrades.filter(t=>t.status==='ok').length;
         }
       }
     }
     folds.push(fold);
   }
 
-  const aggregate = { baseline: {}, gated: {} };
-  for (const [name, store] of [['baseline', baseline], ['gated', gated]]) {
+  diagnostics.foldCount=folds.length;
+  const aggregate = { legacy: {}, baseline: {}, gated: {} };
+  for (const [name, store] of [['legacy', legacy], ['baseline', baseline], ['gated', gated]]) {
     aggregate[name] = {};
     for (const regime of ['overall', ...REGIMES]) {
       aggregate[name][regime] = {};
@@ -313,9 +333,11 @@ export function benchmarkV12RegimeGate(input = {}, options = {}) {
     config: {
       trainSize, testSize, step, horizons, topNs, selectionScore: 'v12',
       costs, neutralEvery, neutralExposure,
-      baseline: 'current-v12-un-gated-selected-slots',
+      baseline: 'V12 TopN BUY_NOW slots, no market gate',
+      legacy: 'all-signal V12 score replay, reference only',
       gated: 'BUY_NOW-only; neutral cadence and half exposure; bear/unknown WAIT',
-      metricDefinition: 'equal-weight cohort replay with cash for skipped slots'
+      metricDefinition: 'exposure-weighted cohort replay; cash for skipped slots; not daily marked-to-market NAV',
+      adjustment: 'none; fixed V12 scores; training metadata only'
     },
     folds, decisions, aggregate, diagnostics
   };
@@ -330,18 +352,8 @@ async function main(args) {
   }
   const input = JSON.parse(await readFile(
     resolve(args[inputIndex + 1]), 'utf8'));
-  const options = {
-    trainSize: number(args[args.indexOf('--train-size') + 1]),
-    testSize: number(args[args.indexOf('--test-size') + 1]),
-    step: number(args[args.indexOf('--step') + 1]),
-    neutralEvery: number(args[args.indexOf('--neutral-every') + 1]),
-    neutralExposure: number(args[args.indexOf('--neutral-exposure') + 1]),
-    costs: {
-      commissionBps: number(args[args.indexOf('--commission-bps') + 1]),
-      stampTaxBps: number(args[args.indexOf('--stamp-bps') + 1]),
-      slippageBps: number(args[args.indexOf('--slippage-bps') + 1])
-    }
-  };
+  const numeric=flag=>{const i=args.indexOf(flag);return i>=0?number(args[i+1]):undefined;};
+  const options={trainSize:numeric('--train-size'),testSize:numeric('--test-size'),step:numeric('--step'),neutralEvery:numeric('--neutral-every'),neutralExposure:numeric('--neutral-exposure'),costs:{commissionBps:numeric('--commission-bps')??3,stampTaxBps:numeric('--stamp-bps')??5,slippageBps:numeric('--slippage-bps')??5}};
   console.log(JSON.stringify(benchmarkV12RegimeGate(input, options), null, 2));
 }
 

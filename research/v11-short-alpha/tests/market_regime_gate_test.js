@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import {
-  canExecuteBuyNow,
+  canExecuteBuyNow, applyRegimeToCandidate,
   evaluateRegimeExecution
 } from '../market_regime_execution.js';
 import { benchmarkV12RegimeGate } from '../backtest/v12_regime_backtest.js';
@@ -14,7 +14,7 @@ const fixture = JSON.parse(await readFile(
 ));
 
 test('Bull permits BUY_NOW but never upgrades WAIT_PULLBACK', () => {
-  const policy = evaluateRegimeExecution({marketRegime:'bull'});
+  const policy = evaluateRegimeExecution({asOf:'2026-01-01',marketRegime:'bull'});
   assert.equal(policy.action, 'BUY_NOW');
   assert.equal(policy.exposure, 1);
   assert.equal(canExecuteBuyNow(policy, {
@@ -27,10 +27,10 @@ test('Bull permits BUY_NOW but never upgrades WAIT_PULLBACK', () => {
 
 test('Neutral cadence halves exposure and lowers frequency', () => {
   const first = evaluateRegimeExecution(
-    {marketRegime:'neutral'}, {neutralOrdinal:0, neutralEvery:2, neutralExposure:0.4}
+    {asOf:'2026-01-01',marketRegime:'neutral'}, {neutralOrdinal:0, neutralEvery:2, neutralExposure:0.4}
   );
   const second = evaluateRegimeExecution(
-    {marketRegime:'sideways'}, {neutralOrdinal:1, neutralEvery:2, neutralExposure:0.4}
+    {asOf:'2026-01-01',marketRegime:'sideways'}, {neutralOrdinal:1, neutralEvery:2, neutralExposure:0.4}
   );
   assert.equal(first.state, 'neutral');
   assert.equal(first.action, 'BUY_NOW');
@@ -97,4 +97,11 @@ test('Regime gate CLI emits comparison document', () => {
   const document = JSON.parse(result.stdout);
   assert.equal(document.schema, 'v12-regime-gate-v1');
   assert.ok(document.aggregate.gated.bear.top1['T+1']);
+  assert.deepEqual(document.config.costs,{commissionBps:3,stampTaxBps:5,slippageBps:5});
+  assert.equal(document.diagnostics.foldCount,8);
 });
+
+test('invalid/future market timestamps fail closed',()=>{for(const s of [{marketRegime:'bull'},{asOf:'2026-01-01',market:{regime:'bull',asOf:'2026-01-02'}}])assert.equal(evaluateRegimeExecution(s).action,'WAIT');});
+test('same BUY_NOW eligibility keeps bull arms equal',()=>{const r=benchmarkV12RegimeGate(fixture);for(const top of ['top1','top5'])for(const h of ['T+1','T+3','T+5'])assert.deepEqual(r.aggregate.baseline.bull[top][h],r.aggregate.gated.bull[top][h]);});
+test('cadence persists and missing prices are unavailable',()=>{const a=benchmarkV12RegimeGate(fixture,{testSize:2,step:2}),b=benchmarkV12RegimeGate(fixture,{testSize:1,step:1});assert.deepEqual(a.decisions,b.decisions);assert.equal(a.aggregate.gated.sideways.top5['T+1'].transactionCount,12);const x=structuredClone(fixture);delete x.histories['600001'];assert.equal(benchmarkV12RegimeGate(x).aggregate.baseline.overall.top1['T+1'].net.averageReturnPct,null);});
+test('scores stay unchanged and future bars do not gate buys',()=>{const c={rank:2,scores:{alpha:91,timing:85,psychology:70},timing:{signal:'BUY_NOW'}},bars=Array.from({length:21},(_,i)=>({date:'2026-01-'+String(i+1).padStart(2,'0'),close:100+i}),);const s={asOf:'2026-01-21',marketHistory:bars,breadthPct:75},a=applyRegimeToCandidate(s,c),b=applyRegimeToCandidate({...s,marketHistory:[...bars,{date:'2026-01-22',close:1}]},c);assert.deepEqual(a,b);assert.deepEqual(a.scores,c.scores);});

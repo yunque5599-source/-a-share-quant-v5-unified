@@ -234,4 +234,24 @@ Run it with:
     node research/v11-short-alpha/backtest/v12_oos.js \
       --input research/v11-short-alpha/tests/fixtures/v12_oos.json
 
-\n## V12 Market Regime execution gate\n\n`research/v11-short-alpha/market_regime_execution.js` adds an execution policy\naround the existing V12 score without adding a selection factor or changing\nAlpha, Timing, Psychology, or ranking:\n\n- Bull: existing `BUY_NOW` rows may execute at 1.0 exposure.\n- Neutral/sideways: existing `BUY_NOW` rows execute at 0.5 exposure on every\n  second neutral snapshot; the other neutral snapshots stay in cash.\n- Bear and unknown: `WAIT`, zero exposure, and no transactions.\n\nThe gate does not promote `WAIT_PULLBACK`, `AVOID`, or missing timing data to a\nbuy. TopN slots are not refilled after filtering; unfilled slots remain cash.\n`backtest/v12_regime_backtest.js` compares the current un-gated V12 replay with\nthis gate at T+1/T+3/T+5 and Top1/Top5 using the same costs. Average and maximum\ndrawdown are exposure-weighted cohort returns; raw trade win rate and executed\ntransaction count are reported separately. Bear periods with no executions\nreturn a null win rate rather than a false 100%.\n\nRun it with:\n\n    node research/v11-short-alpha/backtest/v12_regime_backtest.js \\n      --input research/v11-short-alpha/tests/fixtures/v12_oos.json\n\nThis remains research-only and does not change the production page or API.\n\n
+\n
+## V12 Market Regime execution gate
+
+This execution policy preserves V12 factors, weights and TopN ranks. Bull permits
+existing BUY_NOW. Neutral/sideways uses half exposure on every second chronological
+neutral snapshot. Bear and unknown output WAIT with zero exposure. Missing asOf or
+future-dated market timestamps fail closed to WAIT. Filtering never refills vacated
+TopN slots. Training chronology is included when computing neutral cadence.
+
+Baseline and gated arms share BUY_NOW eligibility, TopN slots, costs and a common
+non-overlapping schedule; legacy all-signal replay is retained separately.
+Missing forward prices are unavailable, not zero-return cash. Portfolio return is
+exposure-weighted by TopN; trade win rate excludes cash. Zero trades report null
+win rate and zero return/drawdown. Drawdown is endpoint cohort settlement equity,
+not daily marked-to-market NAV. The fixture uses synthetic as-of labels.
+
+    node research/v11-short-alpha/backtest/v12_regime_backtest.js \
+      --input research/v11-short-alpha/tests/fixtures/v12_oos.json
+
+Default costs are 3bps commission per side, 5bps sell stamp tax, and 5bps slippage
+per side. Production page, API, and main are unchanged.

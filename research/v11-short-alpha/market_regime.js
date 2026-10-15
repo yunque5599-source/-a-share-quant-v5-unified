@@ -14,14 +14,15 @@ function explicit(value) {
 
 function historyTrend(snapshot, market) {
   const asOf = asOfDate(snapshot?.asOf ?? snapshot?.date ?? snapshot?.generatedAt);
+  if (!asOf) return null;
   const raw = snapshot?.marketHistory ?? snapshot?.indexHistory ??
     market?.history ?? market?.indexHistory;
   const rows = Array.isArray(raw) ? raw : Array.isArray(raw?.index) ? raw.index : [];
-  const bars = rows.map(row => ({
+  const bars = rows.filter(row => row?.complete !== false && row?.completed !== false).map(row => ({
     date: asOfDate(row?.date ?? row?.asOf),
     close: n(row?.close ?? row?.value ?? row?.price)
   })).filter(row => row.date && row.close !== null && row.close > 0 &&
-    (!asOf || row.date <= asOf)).sort((a, b) => a.date.localeCompare(b.date));
+    row.date <= asOf).sort((a, b) => a.date.localeCompare(b.date));
   if (bars.length < 2) return null;
   const first = bars[Math.max(0, bars.length - 21)];
   const last = bars.at(-1);
