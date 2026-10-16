@@ -364,6 +364,7 @@ export function buildAutomaticPsychologyResearch(theme = {}, news = [], members 
       propagation:narrative.components?.propagation?.score ?? null,
       persistence:narrative.components?.persistence?.score ?? null,
       expectationGap:narrative.components?.expectationGap?.score ?? null,
+      sentiment:narrative.components?.sentiment?.score ?? null,
       evidence:narrative.evidence
     },
     imaginationResearch:{
