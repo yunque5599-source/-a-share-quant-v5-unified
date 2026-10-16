@@ -50,18 +50,22 @@ function scoreEmotionHeat(theme = {}) {
   const breadth = breadthPct(theme);
   const limitUps = limitUpRatio(theme);
   const strongBreadth = strongBreadthPct(theme);
-  if ([flow, change, breadth, limitUps].some(value => value === null)) {
+  if ([flow, change, breadth].some(value => value === null)) {
     return {score:null, confidence:0, components:{}, reasons:['emotion-evidence-incomplete']};
   }
   const components = {
-    flow: {score:pctScore(flow, 8), weight:0.35},
-    breadth: {score:breadth, weight:0.25},
-    limitUps: {score:clamp(50 + (limitUps - 5) * 5), weight:0.20},
-    change: {score:pctScore(change, 5), weight:0.20}
+    flow: {score:pctScore(flow, 8), weight:0.40},
+    breadth: {score:breadth, weight:0.35},
+    change: {score:pctScore(change, 5), weight:0.25}
   };
+  if (limitUps !== null) {
+    components.limitUps = {score:clamp(50 + (limitUps - 5) * 5), weight:0.15};
+    for (const key of ['flow','breadth','change']) components[key].weight *= 0.85;
+  }
   if (strongBreadth !== null) {
     components.strongBreadth = {score:clamp(50 + (strongBreadth - 5) * 5), weight:0.10};
-    for (const key of ['flow','breadth','limitUps','change']) components[key].weight *= 0.90;
+    const baseKeys = limitUps !== null ? ['flow','breadth','change','limitUps'] : ['flow','breadth','change'];
+    for (const key of baseKeys) components[key].weight *= 0.90;
   }
   const score = Object.values(components).reduce((sum, item) =>
     sum + item.score * item.weight, 0);
@@ -91,7 +95,7 @@ function scoreEmotionAcceleration(theme = {}) {
   const currentLimit = n(theme.limitUpCount);
   const priorLimit = n(theme.priorLimitUpCount);
   const memberCount = n(theme.memberCount);
-  const flow = n(theme.mainNetPct ?? theme.themeFlowPct);
+  const flow = n(theme.recentMainNetPct ?? theme.mainNetPct ?? theme.themeFlowPct);
   const priorFlow = n(theme.priorMainNetPct ?? theme.priorThemeFlowPct);
 
   const signals = [];
