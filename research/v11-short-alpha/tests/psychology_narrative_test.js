@@ -3,11 +3,11 @@ import assert from 'node:assert/strict';
 import { buildAutomaticPsychologyResearch } from '../psychology_narrative.js';
 
 const news = [
-  {date:'2026-10-16 09:00:00', title:'国务院发布产业行动方案，推动人工智能应用加速落地', content:'政策明确推进重点场景，市场规模预计达到万亿元，渗透率仍处于早期。', mediaName:'中国政府网', url:'https://example.gov/1'},
+  {date:'2026-10-16 09:00:00', title:'国务院发布产业行动方案，推动人工智能应用加速落地', content:'政策明确推进重点场景，市场规模预计达到1.2万亿元，渗透率仍处于早期。', mediaName:'中国政府网', url:'https://example.gov/1'},
   {date:'2026-10-15 14:00:00', title:'工信部推进人工智能产业化，多个场景进入量产阶段', content:'工信部提出多场景、跨行业应用，产业商业化和量产提速。', mediaName:'工信部', url:'https://example.gov/2'},
   {date:'2026-10-14 10:00:00', title:'行业订单增长超预期，龙头企业率先受益', content:'产业订单放量，平台生态持续扩张，市场空间广阔。', mediaName:'证券时报', url:'https://example.com/3'},
   {date:'2026-10-13 11:00:00', title:'人工智能需求持续增长，渗透率仍有提升空间', content:'从工业到医疗、汽车、消费等多个领域扩展，需求空间巨大。', mediaName:'财联社', url:'https://example.com/4'},
-  {date:'2026-10-12 16:00:00', title:'龙头公司签署重大订单，产业链关注度升温', content:'公司商业化加速，出口和国产替代预期增强。', mediaName:'中国证券报', url:'https://example.com/5'}
+  {date:'2026-10-12 16:00:00', title:'龙头科技签署重大订单，产业链关注度升温', content:'公司商业化加速，出口和国产替代预期增强。', mediaName:'中国证券报', url:'https://example.com/5'}
 ];
 
 const theme = {
