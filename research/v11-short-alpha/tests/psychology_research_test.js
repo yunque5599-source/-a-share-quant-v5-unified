@@ -63,3 +63,17 @@ test('attachResearchScores writes only evidence-backed fields', () => {
   assert.equal(result.researchQuality.narrative.complete, true);
   assert.equal(result.researchQuality.imagination.complete, true);
 });
+
+test('explicitly incomplete research blocks cannot produce a tradable score', () => {
+  const input = structuredClone(completeResearch);
+  input.narrativeResearch.complete = false;
+  input.imaginationResearch.complete = false;
+  const n = scoreNarrativeResearch(input);
+  const i = scoreImaginationResearch(input);
+  assert.equal(n.score, null);
+  assert.equal(i.score, null);
+  assert.equal(n.complete, false);
+  assert.equal(i.complete, false);
+  assert.ok(n.confidence < 0.8);
+  assert.ok(i.confidence < 0.8);
+});
