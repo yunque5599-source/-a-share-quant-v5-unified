@@ -309,8 +309,9 @@ function fomoRisk(theme = {}, candidate = {}) {
   };
 }
 
-function scoreBehavioral(theme = {}, candidate = {}) {
+function scoreBehavioral(theme = {}, candidate = {}, marketEmotion = {}) {
   const fomo = fomoRisk(theme, candidate);
+  const globalEmotion = n(marketEmotion?.score ?? marketEmotion?.marketEmotionScore);
   const flow = n(theme.mainNetPct ?? theme.themeFlowPct);
   const breadth = breadthPct(theme);
   const candidateChange = n(candidate.pct ?? candidate.changePct);
@@ -373,6 +374,13 @@ function scoreBehavioral(theme = {}, candidate = {}) {
       key:'leaderAlignment',
       score:alignment,
       weight:0.10
+    });
+  }
+  if (globalEmotion !== null) {
+    parts.push({
+      key:'marketEmotion',
+      score:clamp(globalEmotion),
+      weight:0.15
     });
   }
 
@@ -464,14 +472,14 @@ function primaryTheme(candidate, themes) {
   return {theme:themes[0], basis:'first-matched-theme'};
 }
 
-function scoreTheme(theme, candidate) {
+function scoreTheme(theme, candidate, marketEmotion = {}) {
   const heat = scoreEmotionHeat(theme);
   const acceleration = scoreEmotionAcceleration(theme);
   const narrative = scoreNarrative(theme);
   const leader = scoreLeader(theme, candidate);
   const imagination = scoreImagination(theme);
   const fomo = fomoRisk(theme, candidate);
-  const behavioral = scoreBehavioral(theme, candidate);
+  const behavioral = scoreBehavioral(theme, candidate, marketEmotion);
   const parts = {emotionHeat:heat, emotionAcceleration:acceleration, narrative, leader, imagination, behavioral};
   const complete = Object.values(parts).every(item => item.score !== null) &&
     Object.values(parts).every(item => item.confidence >= 0.70);
@@ -515,7 +523,8 @@ export function scoreCandidatePsychology(candidate = {}, context = {}) {
       reasons:['theme-membership-missing']
     };
   }
-  const scored = themes.map(theme => scoreTheme(theme, candidate));
+  const marketEmotion = context?.marketEmotion ?? {};
+  const scored = themes.map(theme => scoreTheme(theme, candidate, marketEmotion));
   const primary = primaryTheme(candidate, themes);
   const primaryIndex = primary ? themes.indexOf(primary.theme) : -1;
   const result = primaryIndex >= 0 ? scored[primaryIndex] : null;
