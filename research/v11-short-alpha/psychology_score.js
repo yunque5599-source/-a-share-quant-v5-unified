@@ -315,6 +315,9 @@ function scoreBehavioral(theme = {}, candidate = {}) {
   const breadth = breadthPct(theme);
   const candidateChange = n(candidate.pct ?? candidate.changePct);
   const leaderChange = n(theme.leaderChangePct);
+  const capital = candidate?.features?.capital ?? {};
+  const largeOrderPct = n(capital.largeOrderNetPct5d);
+  const largeOrderPositiveRatio = n(capital.largeOrderPositiveRatio5d);
   const parts = [];
 
   const change = n(theme.changePct ?? theme.themeChangePct);
@@ -322,10 +325,30 @@ function scoreBehavioral(theme = {}, candidate = {}) {
     const flowScore = clamp(50 + flow * 8);
     const priceScore = change === null ? 50 : clamp(50 + change * 5);
     const directionBonus = change === null || flow * change >= 0 ? 10 : -10;
+    let capitalEmotionScore = clamp(flowScore * 0.60 + priceScore * 0.40 + directionBonus);
+    let capitalReason = 'main-flow-price-aligned';
+    // Eastmoney exposes order-size buckets, not an A-share "dark pool".
+    // Treat large+super-large net flow only as an observable institutional/large-order proxy.
+    if (largeOrderPct !== null && largeOrderPositiveRatio !== null) {
+      const largeOrderScore = clamp(
+        clamp(50 + largeOrderPct * 8) * 0.65 +
+        largeOrderPositiveRatio * 100 * 0.35
+      );
+      const orderAlignment = flow === 0 || largeOrderPct === 0 ||
+        Math.sign(flow) === Math.sign(largeOrderPct);
+      capitalEmotionScore = clamp(
+        capitalEmotionScore * 0.75 +
+        largeOrderScore * 0.25 +
+        (orderAlignment ? 4 : -6)
+      );
+      capitalReason = orderAlignment ? 'large-order-confirmation' : 'large-order-divergence';
+    }
     parts.push({
       key:'capitalEmotionAlignment',
-      score:clamp(flowScore * 0.60 + priceScore * 0.40 + directionBonus),
-      weight:0.35
+      score:capitalEmotionScore,
+      weight:0.35,
+      detail:{largeOrderNetPct5d:largeOrderPct, largeOrderPositiveRatio5d:largeOrderPositiveRatio,
+        interpretation:capitalReason}
     });
   }
   if (breadth !== null) {
