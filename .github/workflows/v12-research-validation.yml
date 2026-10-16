@@ -11,6 +11,8 @@ on:
       - main
     paths:
       - 'research/v11-short-alpha/**'
+      - 'api/**'
+      - 'index.html'
       - '.github/workflows/v12-research-validation.yml'
 
 permissions:
