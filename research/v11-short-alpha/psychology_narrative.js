@@ -59,13 +59,26 @@ function clean(value) {
     .replace(/\s+/g, ' ').trim();
 }
 
-function articleDate(item) {
-  const raw = item?.date ?? item?.published ?? item?.time ?? item?.datetime;
+function parseSourceDate(raw) {
+  if (raw instanceof Date) return Number.isFinite(raw.getTime()) ? raw : null;
   if (typeof raw !== 'string' || !raw.trim()) return null;
-  const iso = raw.includes('T') ? raw : raw.replace(' ', 'T');
-  const timestamp = Date.parse(iso);
-  if (!Number.isFinite(timestamp)) return null;
-  return new Date(timestamp);
+  const value = raw.trim();
+  const hasZone = /(?:Z|[+-]\d{2}:?\d{2})$/i.test(value);
+  const iso = value.includes('T') ? value : value.replace(' ', 'T');
+  const normalized = hasZone ? iso : iso + '+08:00';
+  const timestamp = Date.parse(normalized);
+  return Number.isFinite(timestamp) ? new Date(timestamp) : null;
+}
+
+function asOfInstant(asOf) {
+  if (typeof asOf !== 'string' || !asOf.trim()) return null;
+  const value = asOf.trim();
+  if (validDate(value)) {
+    const timestamp = Date.parse(value + 'T23:59:59.999+08:00');
+    return Number.isFinite(timestamp) ? new Date(timestamp) : null;
+  }
+  const timestamp = Date.parse(value);
+  return Number.isFinite(timestamp) ? new Date(timestamp) : null;
 }
 
 function dateOnly(date) {
@@ -74,20 +87,19 @@ function dateOnly(date) {
 
 function inAsOf(date, asOf) {
   if (!date) return false;
-  const cutoff = asOfDate(asOf);
-  return !cutoff || dateOnly(date) <= cutoff;
+  const cutoff = asOfInstant(asOf);
+  return !cutoff || date.getTime() <= cutoff.getTime();
 }
 
 function daysAgo(date, asOf) {
-  const cutoff = asOfDate(asOf);
+  const cutoff = asOfInstant(asOf);
   if (!date || !cutoff) return null;
-  const end = Date.parse(cutoff + 'T23:59:59+08:00');
-  return (end - date.getTime()) / 86400000;
+  return (cutoff.getTime() - date.getTime()) / 86400000;
 }
 
 function normalizeNews(raw, asOf) {
   const source = list(raw).map(item => {
-    const date = articleDate(item);
+    const date = parseSourceDate(item?.date ?? item?.published ?? item?.time ?? item?.datetime);
     return {
       title:clean(item?.title),
       content:clean(item?.content ?? item?.snippet ?? item?.description),
@@ -349,6 +361,7 @@ export function buildAutomaticPsychologyResearch(theme = {}, news = [], members 
 }
 
 export const _internal = {
-  normalizeNews, countTerms, sourceScore, scaleScore, penetrationScore,
-  policyScore, optionalityScore, buildNarrative, buildImagination
+  parseSourceDate, asOfInstant, normalizeNews, countTerms, sourceScore,
+  scaleScore, penetrationScore, policyScore, optionalityScore,
+  buildNarrative, buildImagination
 };
