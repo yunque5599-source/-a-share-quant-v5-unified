@@ -269,6 +269,17 @@ function sourceAsOf(rows, fallback) {
   return dates.at(-1) ?? fallback;
 }
 
+const NON_NARRATIVE_THEME_PATTERNS = [
+  /历史新高/, /昨日打二板/, /融资融券/, /HS300/i, /上证50/, /上证180/,
+  /央视50/, /沪股通/, /深股通/, /科创板做市商/, /MSCI/i, /富时罗素/
+];
+
+function isNarrativeTheme(row = {}) {
+  const name = String(row.name ?? '');
+  return /^BK\d+$/.test(row.code ?? '') &&
+    !NON_NARRATIVE_THEME_PATTERNS.some(pattern => pattern.test(name));
+}
+
 function themeStrength(row) {
   const flow = row.mainNetPct === null ? 50 : Math.max(0, Math.min(100, 50 + row.mainNetPct * 8));
   const breadthTotal = (row.upCount ?? 0) + (row.downCount ?? 0) + (row.flatCount ?? 0);
@@ -334,7 +345,8 @@ function enrichTheme(base, flowRows, memberRows, newsRows, candidatePct, candida
     leaderChangePct,
     leaderStatus,
     candidatePremiumPct,
-    leaderPremiumPct:candidatePremiumPct,
+    leaderPremiumPct:leaderChangePct !== null && base.changePct !== null
+      ? leaderChangePct - base.changePct : null,
     change5dPct:cumulativeReturn(rows),
     prior5dPct:priorCumulativeReturn(rows),
     recentMainNetPct:averageMainPct(rows, -5, rows.length),
@@ -421,7 +433,7 @@ export default async function handler(req, res) {
     for (const membership of memberships) {
       const matched = membership.concepts
         .map(ref => conceptMap.get(ref.code))
-        .filter(Boolean)
+        .filter(isNarrativeTheme)
         .sort((a,b) => themeStrength(b) - themeStrength(a) || a.code.localeCompare(b.code))
         .slice(0,2);
       selectedByStock.set(membership.code, matched);
