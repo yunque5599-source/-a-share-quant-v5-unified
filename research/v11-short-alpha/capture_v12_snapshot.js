@@ -158,14 +158,37 @@ const outputFile = snapshotPath(process.argv[2]);
 await mkdir(dirname(outputFile), {recursive:true});
 await writeFile(outputFile, JSON.stringify(output, null, 2) + '\n', 'utf8');
 
+const blockCounts = {};
+for (const row of decision.ranking) {
+  for (const reason of row.quality?.blockedReasons ?? []) {
+    blockCounts[reason] = (blockCounts[reason] ?? 0) + 1;
+  }
+}
+const modelTop = decision.ranking.slice(0, 10).map(row => ({
+  rank:row.rank ?? null,
+  symbol:row.symbol,
+  name:row.name,
+  alpha:row.scores?.alpha ?? null,
+  timing:row.scores?.timing ?? null,
+  psychology:row.scores?.psychology ?? null,
+  v12Trade:row.scores?.v12Trade ?? null,
+  psychComplete:row.psychology?.complete === true,
+  qualityComplete:row.quality?.complete === true,
+  blockedReasons:(row.quality?.blockedReasons ?? []).slice(0, 6)
+}));
 console.log(JSON.stringify({
   status:'LIVE_SNAPSHOT_CAPTURED',
   file:outputFile,
   capturedAt,
   asOf:decision.asOf,
   candidatePool:codes.length,
+  rankingCount:decision.ranking.length,
+  qualityComplete:decision.ranking.filter(row => row.quality?.complete === true).length,
   psychologyComplete:decision.diagnostics.psychologyComplete,
+  v12Scoreable:decision.ranking.filter(row => row.scores?.v12TradeRaw !== null).length,
   v12Eligible:decision.diagnostics.v12Eligible,
+  blockedReasonCounts:blockCounts,
+  modelTop,
   top5:decision.tradeRanking.slice(0, 5).map(row => ({
     rank:row.tradeRank,
     symbol:row.symbol,
