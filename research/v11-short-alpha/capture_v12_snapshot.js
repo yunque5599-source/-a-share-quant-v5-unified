@@ -73,6 +73,34 @@ function assertQualifiedDiscovery(discovery) {
   }
 }
 
+function median(values){
+  const sorted=[...values].sort((a,b)=>a-b);
+  if(!sorted.length)return null;
+  const mid=Math.floor(sorted.length/2);
+  return sorted.length%2?sorted[mid]:(sorted[mid-1]+sorted[mid])/2;
+}
+function buildRankedSectorProxy(candidates){
+  const groups=new Map();
+  for(const row of candidates){
+    const industry=String(row?.f100??row?.industry??'').trim();
+    const pct=Number(row?.f3??row?.pct??row?.changePct);
+    if(!industry||!Number.isFinite(pct))continue;
+    const bucket=groups.get(industry)||[];
+    bucket.push(pct);
+    groups.set(industry,bucket);
+  }
+  const sectors=[...groups.entries()]
+    .map(([industry,pcts])=>({industry,medianPct:median(pcts),sampleCount:pcts.length}))
+    .filter(row=>row.medianPct!==null)
+    .sort((a,b)=>b.medianPct-a.medianPct||b.sampleCount-a.sampleCount||a.industry.localeCompare(b.industry));
+  return {
+    qualifiedForDiscovery:sectors.length>=5,
+    quality:{qualified:sectors.length>=5,degraded:true},
+    source:'ranked-candidate-sector-proxy-v1',
+    sectorResearch:{sectors}
+  };
+}
+
 const ranked = parseResult(
   'ranked_candidates',
   await invoke(marketHandler, '/api/market?action=ranked_candidates')
@@ -94,7 +122,9 @@ const [deep, discovery, psychology] = await Promise.all([
 ]);
 
 const deepPayload = parseResult('deep_batch', deep);
-const discoveryPayload = parseResult('discovery_universe', discovery);
+const discoveryPayload = discovery.statusCode === 200
+  ? parseResult('discovery_universe', discovery)
+  : buildRankedSectorProxy(rankedCandidates);
 const psychologyPayload = parseResult('psychology_universe', psychology);
 
 assertQualifiedDiscovery(discoveryPayload);
