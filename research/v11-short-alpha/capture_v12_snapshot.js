@@ -105,8 +105,7 @@ const decision = integrateCandidateFlow({
   ranked,
   deep:deepPayload,
   discovery:discoveryPayload,
-  psychology:psychologyPayload?.data ?? psychologyPayload,
-  market:ranked?.data?.indices
+  psychology:psychologyPayload?.data ?? psychologyPayload
 }, {
   asOf:ranked?.data?.generatedAt
 });
