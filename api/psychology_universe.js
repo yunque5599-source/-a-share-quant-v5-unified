@@ -509,7 +509,7 @@ export default async function handler(req, res) {
     res.setHeader('cache-control','s-maxage=30, stale-while-revalidate=60');
     res.end(JSON.stringify({
       schema:'v12-psychology-source-v1',
-      version:'V12 Psychology Market Evidence Phase 2',
+      version:'V12 Psychology Market Evidence Phase 3 Behavioral',
       asOf:asOfValues.at(-1) ?? fallbackAsOf,
       data:{
         themeBySymbol,
@@ -519,8 +519,9 @@ export default async function handler(req, res) {
       researchPolicy:{
         psychologyCanBeComputed:true,
         mode:'automatic-news-proxy-with-evidence-gates',
-        reason:'Narrative and imagination are derived from dated public news, theme membership, leader evidence and market data. Incomplete evidence remains null and cannot enter V12.',
-        requiredFields:['narrativeScore','narrativeEvidence','imaginationScore','imaginationEvidence']
+        reason:'Narrative and imagination are derived from dated public news, theme membership, leader evidence and market data; behavioral psychology is derived from capital-price alignment, participation breadth and FOMO balance. Incomplete evidence remains null and cannot enter V12.',
+        requiredFields:['narrativeScore','narrativeEvidence','imaginationScore','imaginationEvidence'],
+        behavioralInputs:['mainNetPct','changePct','upCount','downCount','flatCount','leaderChangePct']
       }
     }));
   } catch (error) {
