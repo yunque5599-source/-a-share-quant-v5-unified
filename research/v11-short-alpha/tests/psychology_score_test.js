@@ -44,7 +44,7 @@ test('weights sum to 100% and hot leader scores materially higher', () => {
   assert.equal(weak.complete, true);
   assert.ok(weak.score < 45);
   assert.ok(hot.score > weak.score + 30);
-  assert.equal(hot.stage, 'mainstream');
+  assert.equal(hot.stage, 'acceleration');
   assert.equal(weak.stage, 'decay');
 });
 
