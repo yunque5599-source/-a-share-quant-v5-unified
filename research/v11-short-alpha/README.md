@@ -303,3 +303,20 @@ for validation, must be tied to a previously captured signal snapshot and record
 the real order/fill timestamp, quantity, price, fees, slippage, rejection/cancellation
 status, and exit details. No same-day outcome may be fed back into that day's signal.
 \n
+
+### Forward-outcome evaluation
+
+After a snapshot is captured, do not edit the snapshot. Once future trading-day bars exist,
+run:
+
+    node research/v11-short-alpha/evaluate_v12_snapshot.js ./live_snapshots/v12-YYYYMMDD-HHMM.json
+
+The evaluator re-fetches current historical daily bars, then strictly excludes every bar whose
+date is on or before the snapshot as-of date. It reports T+1/T+3/T+5 close returns, 5-day
+maximum favorable/adverse excursion, win/loss rates, and Top1/Top5/Top10/Top20 summaries.
+
+This is a research measurement, not a broker-fill simulation. Entry price is the snapshot
+decision price; fees, slippage, queue position, suspension, limit-up/limit-down execution,
+and actual fill probability are not inferred. Actual-money validation uses a separate execution
+ledger and the real fill price.
+
