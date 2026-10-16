@@ -65,7 +65,7 @@ async function fetchFromHosts(hosts, path, params, timeoutMs = 7000) {
 
 function parseCodes(value, max = 30) {
   return [...new Set(String(value ?? '').split(',').map(item => item.trim())
-    .filter(code => /^(0|6)\\d{5}$/.test(code)))].slice(0, max);
+    .filter(code => /^(0|6)\d{5}$/.test(code)))].slice(0, max);
 }
 
 function secid(code) {
@@ -121,7 +121,7 @@ async function fetchConceptRanking() {
     leaderCode:String(row?.f140 ?? ''),
     leaderChangePct:n(row?.f136),
     quoteTimestamp:n(row?.f124)
-  })).filter(row => /^BK\\d+$/.test(row.code));
+  })).filter(row => /^BK\d+$/.test(row.code));
 }
 
 async function fetchStockConcepts(code) {
@@ -134,7 +134,7 @@ async function fetchStockConcepts(code) {
   return rows.map(row => ({
     code:String(row?.f12 ?? ''),
     name:String(row?.f14 ?? '')
-  })).filter(row => /^BK\\d+$/.test(row.code));
+  })).filter(row => /^BK\d+$/.test(row.code));
 }
 
 async function fetchThemeFlow(boardCode) {
