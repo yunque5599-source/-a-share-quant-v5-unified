@@ -50,10 +50,10 @@ test('trend validation reports psychology, capital, theme, leader, imagination a
       row(90,5,'ignition'), row(88,4,'acceleration'), row(60,1,'neutral')
     ]}]
   });
-  assert.ok(result.combinations.trendStrong_emotionIgnition.t1?.top20?.sampleCount >= 0);
-  assert.equal(result.combinations.trendStrong_emotionAcceleration.t1.top20.sampleCount, 1);
-  assert.equal(result.combinations.trendStrong_capitalEarlyOrAccelerating.t1.top20.sampleCount, 2);
-  assert.equal(result.combinations.trendStrong_leader.t1.top20.sampleCount, 2);
-  assert.equal(result.combinations.trendStrong_imaginationHigh.t1.top20.sampleCount, 2);
-  assert.equal(result.combinations.trendStrong_fomoHigh.t1.top20.sampleCount, 1);
+  assert.ok(result.combinations.trendStrong_emotionIgnition.t1?.pairCount >= 0);
+  assert.equal(result.combinations.trendStrong_emotionAcceleration.t1.pairCount, 1);
+  assert.equal(result.combinations.trendStrong_capitalEarlyOrAccelerating.t1.pairCount, 2);
+  assert.equal(result.combinations.trendStrong_leader.t1.pairCount, 2);
+  assert.equal(result.combinations.trendStrong_imaginationHigh.t1.pairCount, 2);
+  assert.equal(result.combinations.trendStrong_fomoHigh.t1.pairCount, 1);
 });
