@@ -1,0 +1,60 @@
+name: V12 Live Snapshot Capture
+
+on:
+  push:
+    branches:
+      - research/v12-psychology-narrative
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Capture point-in-time V12 snapshot
+        run: |
+          mkdir -p live-snapshot
+          node research/v11-short-alpha/capture_v12_snapshot.js live-snapshot/v12-live-snapshot.json
+
+      - name: Print snapshot summary
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const x = JSON.parse(fs.readFileSync('live-snapshot/v12-live-snapshot.json', 'utf8'));
+          console.log(JSON.stringify({
+            schema:x.schema,
+            capturedAt:x.capturedAt,
+            asOf:x.asOf,
+            candidatePool:x.inputs?.ranked?.data?.candidateCount ?? null,
+            psychologyComplete:x.decision?.diagnostics?.psychologyComplete ?? null,
+            v12Eligible:x.decision?.diagnostics?.v12Eligible ?? null,
+            top5:x.decision?.tradeRanking?.slice(0,5).map(row => ({
+              rank:row.tradeRank,
+              symbol:row.symbol,
+              name:row.name,
+              v12Trade:row.scores?.v12Trade ?? null,
+              psychologyStage:row.psychology?.stage ?? null,
+              primaryTheme:row.psychology?.primaryTheme ?? null
+            }))
+          }, null, 2));
+          NODE
+
+      - name: Upload immutable V12 snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v12-live-snapshot-${{ github.run_id }}
+          path: live-snapshot/
+          if-no-files-found: warn
+          retention-days: 30
