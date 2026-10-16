@@ -47,8 +47,7 @@ test('candidate flow attaches psychology without changing the legacy Alpha ranki
   assert.equal(result.tradeRanking.length, 1);
   assert.equal(result.tradeRanking[0].symbol, '600001');
   assert.equal(result.tradeRanking[0].tradeRank, 1);
-  assert.ok(result.tradeRanking[0].scores.v12TradeRaw >
-    result.tradeRanking[1].scores.v12TradeRaw);
+  assert.ok(result.tradeRanking[0].scores.v12TradeRaw > 0);
 });
 
 test('without psychology evidence V11 remains usable but V12 trade ranking stays empty', () => {
