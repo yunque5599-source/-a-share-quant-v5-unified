@@ -19,6 +19,20 @@ test('market emotion is index-dominant and exposes ranked-pool diagnostics', () 
   assert.ok(result.diagnostics.rankedPositiveRatio > 0);
 });
 
+test('very hot participation is labelled FEVER before the score reaches 90', () => {
+  const result = buildMarketEmotion(
+    [
+      {name:'上证',pct:1.4},
+      {name:'深证',pct:1.5},
+      {name:'创业板',pct:1.6},
+      {name:'科创50',pct:1.3}
+    ],
+    Array.from({length:100},(_,i)=>({f3:i<60?9.9:6}))
+  );
+  assert.ok(result.score >= 82);
+  assert.equal(result.label,'FEVER');
+});
+
 test('market emotion turns defensive when indices and ranked pool weaken', () => {
   const result = buildMarketEmotion(
     [
