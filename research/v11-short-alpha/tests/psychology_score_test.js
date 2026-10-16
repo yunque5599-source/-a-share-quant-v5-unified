@@ -68,6 +68,25 @@ test('behavioral psychology captures capital flow, participation and FOMO balanc
 });
 
 
+test('behavioral psychology prefers early capital ignition over late high-price inflow', () => {
+  const early = scoreCandidatePsychology(
+    {symbol:'600001',asOf:'2026-10-16',pct:5,themes:['BK9001'],
+      features:{capital:{flowTiming:'early-inflow',largeOrderNetPct5d:3,largeOrderPositiveRatio5d:1}}},
+    {themes:[hotTheme]}
+  );
+  const late = scoreCandidatePsychology(
+    {symbol:'600001',asOf:'2026-10-16',pct:12,themes:['BK9001'],
+      features:{capital:{flowTiming:'late-high-inflow',largeOrderNetPct5d:-2,largeOrderPositiveRatio5d:0.4}}},
+    {themes:[hotTheme]}
+  );
+  assert.ok(
+    early.themes[0].components.behavioral.score >
+    late.themes[0].components.behavioral.score
+  );
+  assert.equal(early.themes[0].components.behavioral.components.flowTimingPsychology.score, 90);
+  assert.equal(late.themes[0].components.behavioral.components.flowTimingPsychology.score, 17);
+});
+
 test('behavioral capital-flow signal penalizes flow-price divergence', () => {
   const alignedTheme = {...hotTheme, changePct:6, mainNetPct:5};
   const divergentTheme = {...hotTheme, changePct:-6, mainNetPct:5};
