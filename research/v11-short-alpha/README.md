@@ -348,3 +348,11 @@ does not change the rule model.
 Live snapshot capture retains legacy Top20 `tradeRanking` and now stores the full
 `decision.datasetCandidates` for future selection validation. No production page,
 API, broker, automatic order placement, or training-data mixing is changed.
+
+### Trend Structure research factor
+
+trend_structure.js computes a standalone 0-100 Trend Structure score from point-in-time bars. It preserves raw trend direction, moving-average alignment and slopes, higher-high/lower-low structure, persistence, pullback quality, volume confirmation, and overextension diagnostics under candidate.features.trendStructure.
+
+The factor is research-only. It is not part of ALPHA_WEIGHTS, Alpha, Timing, Psychology, V12TradeScore, or V12SelectionScore. Candidate history is filtered to bar.date <= snapshot asOf; an intraday same-day bar is excluded unless explicitly marked complete.
+
+analyze_trend_structure.js evaluates the factor against T+1 through T+5 outcomes with per-snapshot rank metrics and independent quantile cuts. It also reports research-only combinations for trend strength with emotion stage, capital timing, theme presence, leader, imagination, and FOMO. These results must accumulate real forward samples before any production score decision.
