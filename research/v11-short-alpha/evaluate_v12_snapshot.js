@@ -120,6 +120,9 @@ function aggregate(rows) {
   return summary;
 }
 
+export { parseDailyBars, asOfDate, forwardBars, evaluateOne, aggregate };
+
+async function main() {
 const inputFile = process.argv[2];
 if (!inputFile) throw new Error('usage: node evaluate_v12_snapshot.js <snapshot.json> [output.json]');
 
@@ -175,3 +178,8 @@ console.log(JSON.stringify({
   top5:output.summary.top5,
   completeSignals:evaluated.filter(row => row.outcomeStatus === 'complete').length
 }, null, 2));
+}
+
+if (process.argv[1] && import.meta.url === new URL('file://' + resolve(process.argv[1])).href) {
+  await main();
+}
