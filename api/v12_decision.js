@@ -99,6 +99,7 @@ function compact(row) {
     industry:row.industry,
     price:row.price,
     marketRisk:row.marketRisk,
+    marketEmotion:row.marketEmotion ?? null,
     scores:{
       alpha:row.scores?.alpha ?? null,
       timing:row.scores?.timing ?? null,
