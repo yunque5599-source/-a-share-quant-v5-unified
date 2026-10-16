@@ -258,6 +258,8 @@ per side. Production page, API, and main are unchanged.
 
 ## V12 live snapshot capture
 
+The capture workflow is intentionally separate from production and records a point-in-time artifact for forward validation.
+
 The research branch includes a live capture CLI that runs the existing market, discovery, and
 V12 psychology handlers from a reachable Node environment. It does not connect to a broker,
 place orders, or modify production.
