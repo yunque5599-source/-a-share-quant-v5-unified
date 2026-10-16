@@ -1,5 +1,5 @@
 import { generateDecision } from '../v1040-core/decision_engine/decision_output.js';
-import { normalizeMarketRisk } from '../v1040-core/adapter/market_adapter.js';
+import { normalizeMarketRisk, inferMarketRisk } from '../v1040-core/adapter/market_adapter.js';
 import { finiteNumber as n, clamp, round, validDate, asOfDate, createCandidateRecord } from './schema.js';
 import { rankCandidates } from './alpha_score.js';
 import { withPsychology } from './psychology_score.js';
@@ -114,20 +114,29 @@ function features(raw, bars, flows, sector, flowDegraded) {
   };
 
   const flowByDate = new Map(flows.map(flow => [flow.date, flow]));
-  const expectedFlowDates = bars.slice(-5).map(bar => bar.date);
-  const recentFlows = expectedFlowDates.map(date => flowByDate.get(date));
-  const flowComplete = expectedFlowDates.length === 5 && recentFlows.every(flow => flow && n(flow.net) !== null);
-  const priorFlows = flows.slice(-10, -5);
-  const priorFlowComplete = priorFlows.length === 5 && priorFlows.every(flow => n(flow.net) !== null);
+  // Intraday snapshots often have today's price bar while the daily fund-flow endpoint
+  // still ends on the previous completed session. Match the latest five available flow
+  // observations instead of requiring an exact same-day join.
+  const usableFlows = flows.filter(flow => flow && flow.date && n(flow.net) !== null);
+  const recentFlows = usableFlows.slice(-5);
+  const priorFlows = usableFlows.slice(-10, -5);
+  const flowComplete = recentFlows.length === 5;
+  const priorFlowComplete = priorFlows.length === 5;
   const recentNet = flowComplete ? recentFlows.reduce((sum, flow) => sum + flow.net, 0) : null;
   const priorNet = priorFlowComplete ? priorFlows.reduce((sum, flow) => sum + flow.net, 0) : null;
   const earlyPositiveRatio = priorFlowComplete
     ? priorFlows.filter(flow => flow.net > 0).length / 5 : null;
-  const currentFlow = last ? flowByDate.get(last.date) : null;
-  const mainNet = flowDegraded ? null : n(raw?.f62 ?? raw?.mainNet) ?? currentFlow?.net ?? null;
-  const mainPct = flowDegraded ? null : n(raw?.f184 ?? raw?.mainPct) ?? currentFlow?.pct ??
+  const currentFlow = last ? (flowByDate.get(last.date) ?? usableFlows.at(-1)) : usableFlows.at(-1);
+  const flowLagDays = currentFlow?.date && last?.date
+    ? Math.max(0, (Date.parse(last.date) - Date.parse(currentFlow.date)) / 86400000) : null;
+  const flowFreshEnough = flowLagDays === null || flowLagDays <= 4;
+  const mainNet = flowDegraded || !flowFreshEnough ? null :
+    n(raw?.f62 ?? raw?.mainNet) ?? currentFlow?.net ?? null;
+  const mainPct = flowDegraded || !flowFreshEnough ? null :
+    n(raw?.f184 ?? raw?.mainPct) ?? currentFlow?.pct ??
     (mainNet !== null && last?.amount > 0 ? mainNet / last.amount * 100 : null);
-  const positiveRatio = !flowDegraded && flowComplete ? recentFlows.filter(flow => flow.net > 0).length / 5 : null;
+  const positiveRatio = !flowDegraded && flowFreshEnough && flowComplete
+    ? recentFlows.filter(flow => flow.net > 0).length / 5 : null;
   const netStrength = mainNet === null ? null
     : clamp(50 + Math.sign(mainNet) * 10 * Math.log10(1 + Math.abs(mainNet) / 1e6));
   const highPriceFlow = recentNet !== null && recentNet > 0 &&
@@ -219,9 +228,19 @@ export function integrateCandidateFlow(input = {}, options = {}) {
     rejectedCandidates: 0, psychologyComplete: 0, v12Eligible: 0 };
   const explicitMarket = options.market ?? input?.market ?? root.marketRisk;
   let marketRisk = normalizeMarketRisk(explicitMarket);
-  if (marketRisk === 'unknown' && explicitMarket === undefined) {
-    const values = list(root.indices ?? input?.indices).map(index => n(index?.pct)).filter(value => value !== null);
-    if (values.length >= 2) marketRisk = mean(values) <= -1.5 ? 'weak' : mean(values) < 0 ? 'elevated' : 'normal';
+  if (marketRisk === 'unknown') {
+    marketRisk = inferMarketRisk(root.indices ?? input?.indices ?? [], explicitMarket);
+  }
+  if (marketRisk === 'unknown') {
+    const marketRows = candidates.slice(0, 120)
+      .map(row => n(row?.f3 ?? row?.pct ?? row?.changePct))
+      .filter(value => value !== null);
+    if (marketRows.length >= 20) {
+      const averagePct = mean(marketRows);
+      const positiveRatio = marketRows.filter(value => value > 0).length / marketRows.length;
+      marketRisk = averagePct <= -1.5 || positiveRatio < 0.35 ? 'weak'
+        : averagePct < 0 || positiveRatio < 0.45 ? 'elevated' : 'normal';
+    }
   }
   const asOf = options.asOf ?? root.generatedAt ?? input?.asOf?.collectionFinishedAt ?? input?.asOf ?? null;
   const cutoff = asOfDate(asOf);
