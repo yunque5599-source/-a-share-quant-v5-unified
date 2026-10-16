@@ -92,7 +92,7 @@ test('Regime gate CLI emits comparison document', () => {
   );
   const result = spawnSync(process.execPath, [
     moduleFile, '--input', fixtureFile
-  ], {encoding:'utf8'});
+  ], {encoding:'utf8', maxBuffer:32 * 1024 * 1024});
   assert.equal(result.status, 0, result.stderr);
   const document = JSON.parse(result.stdout);
   assert.equal(document.schema, 'v12-regime-gate-v1');
