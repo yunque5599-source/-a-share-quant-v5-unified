@@ -64,16 +64,21 @@ test('missing high low never fabricates MFE or MAE', () => {
 test('selection analysis reports rank, quantile and market/time layers', () => {
   const rows=Array.from({length:5},(_,i)=>({
     symbol:'60000'+(i+1),selectionScore:100-i*10,
+    psychology:{stage:'acceleration'},
     horizons:{t1:{returnPct:(4-i),marketExcessReturnPct:3-i,sectorExcessReturnPct:2-i,mfePct:4-i,maePct:-i}},
   }));
   const result=analyzeV12Selection({snapshots:[
-    {asOf:'2026-10-16T03:15:00Z',marketRegime:'bull',market:{emotion:{label:'FEVER'}},signals:rows}
+    {asOf:'2026-10-16T03:15:00Z',decision:{market:{marketRisk:'weak',emotion:{label:'FEVER'}},datasetCandidates:rows}},
+    {asOf:'2026-10-16T05:30:00Z',marketRegime:'bull',signals:rows}
   ]});
   assert.equal(result.schema,'v12-selection-analysis-v1');
   assert.equal(result.overall.t1.pairCount,5);
   assert.ok(result.overall.t1.rankIC > 0);
   assert.equal(result.overall.t1.top20.sampleCount,1);
+  assert.ok(result.byMarketRegime.bear);
   assert.ok(result.byMarketRegime.bull);
   assert.ok(result.byEmotion.high);
+  assert.ok(result.byEmotionStage.acceleration);
   assert.ok(result.byTimeBucket.morning_1115);
+  assert.ok(result.overall.t1.top20.riskAdjustedReturnPct !== undefined);
 });
