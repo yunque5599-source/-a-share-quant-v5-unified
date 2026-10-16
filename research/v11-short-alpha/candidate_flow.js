@@ -215,8 +215,20 @@ export function integrateCandidateFlow(input = {}, options = {}) {
     if (deepMap.has(symbol)) duplicateDeep.add(symbol);
     else deepMap.set(symbol, item);
   }
-  const diagnostics = { inputCount: candidates.length, duplicateCandidates: 0, rejectedCandidates: 0,
-    psychologyComplete: 0, v12Eligible: 0 };
+  // Deep data is an explicit research boundary. Do not score the entire fast-ranked
+  // universe with missing history just because only the selected top-N names were deep-fetched.
+  // This keeps completeness semantics honest and makes the V12 ranking operate on names
+  // for which the required historical inputs were actually requested.
+  const evaluationCandidates = deepMap.size > 0
+    ? candidates.filter(raw => {
+        const symbol = symbolOf(raw);
+        return deepMap.has(symbol) ||
+          raw?.history || raw?.kline || raw?.k ||
+          root.historyBySymbol?.[symbol] || input?.historyBySymbol?.[symbol];
+      })
+    : candidates;
+  const diagnostics = { inputCount: candidates.length, evaluatedInputCount:evaluationCandidates.length,
+    duplicateCandidates: 0, rejectedCandidates: 0, psychologyComplete: 0, v12Eligible: 0 };
   const explicitMarket = options.market ?? input?.market ?? root.marketRisk;
   let marketRisk = normalizeMarketRisk(explicitMarket);
   if (marketRisk === 'unknown' && explicitMarket === undefined) {
@@ -227,7 +239,7 @@ export function integrateCandidateFlow(input = {}, options = {}) {
   const cutoff = asOfDate(asOf);
   const seen = new Set();
   const records = [];
-  for (const raw of candidates) {
+  for (const raw of evaluationCandidates) {
     const symbol = symbolOf(raw);
     if (!/^\d{6}$/.test(symbol)) { diagnostics.rejectedCandidates += 1; continue; }
     if (seen.has(symbol)) { diagnostics.duplicateCandidates += 1; continue; }
