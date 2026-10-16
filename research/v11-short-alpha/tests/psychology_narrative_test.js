@@ -98,3 +98,22 @@ test('source timestamps without timezone are interpreted as Asia/Shanghai', () =
   assert.equal(result.news.some(item => item.title.includes('上海时间早盘消息')), true);
   assert.equal(result.news.some(item => item.title.includes('上海时间未来消息')), false);
 });
+
+test('partial imagination evidence produces a confidence-weighted score without pretending all dimensions are known', () => {
+  const partialNews = [
+    {date:'2026-10-16 09:00:00', title:'人工智能应用政策推进', content:'政策支持产业化落地，应用加速。', mediaName:'中国政府网'},
+    {date:'2026-10-15 14:00:00', title:'人工智能商业化提速', content:'多场景应用进入商业化阶段。', mediaName:'证券时报'},
+    {date:'2026-10-14 10:00:00', title:'人工智能需求增长', content:'需求持续增长，产业扩张。', mediaName:'财联社'}
+  ];
+  const result = buildAutomaticPsychologyResearch(
+    {...theme, candidateName:'', leaderName:'', candidateCode:'', leaderCode:''},
+    partialNews,
+    []
+  );
+  assert.equal(result.researchQuality.imagination.complete, false);
+  assert.ok(result.imaginationResearch.technologyOptionality !== null);
+  assert.ok(result.imaginationResearch.policyRunway !== null);
+  assert.ok(result.imaginationResearch.marketSize === null);
+  assert.ok(result.researchQuality.imagination.confidence > 0);
+});
+
