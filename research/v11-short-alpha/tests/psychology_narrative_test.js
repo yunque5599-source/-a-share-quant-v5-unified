@@ -85,6 +85,19 @@ test('negative evidence can lower narrative quality rather than becoming bullish
   assert.ok(result.narrativeResearch.novelty >= 0);
 });
 
+test('news sentiment materially shifts narrative quality', () => {
+  const positive = buildAutomaticPsychologyResearch(theme, news, []);
+  const negative = buildAutomaticPsychologyResearch(theme, news.map(item => ({
+    ...item,
+    title:'行业风险上升，订单下滑且需求不及预期',
+    content:'需求疲软，项目延期，监管处罚，竞争加剧。'
+  })), []);
+  assert.ok(positive.narrativeResearch.sentiment >= 70);
+  assert.ok(negative.narrativeResearch.sentiment <= 35);
+  assert.ok(positive.narrativeResearch.novelty >= 0);
+  assert.ok(negative.narrativeResearch.novelty >= 0);
+});
+
 test('intraday as-of excludes same-day news published after the capture timestamp', () => {
   const result = buildAutomaticPsychologyResearch(
     {...theme, asOf:'2026-10-16T10:00:00+08:00'},
