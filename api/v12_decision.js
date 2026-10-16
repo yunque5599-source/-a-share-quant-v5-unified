@@ -1,7 +1,6 @@
 export const config = { maxDuration: 30 };
 
 import marketHandler from './market.js';
-import discoveryHandler from './discovery_universe.js';
 import psychologyHandler from './psychology_universe.js';
 import { integrateCandidateFlow } from '../research/v11-short-alpha/candidate_flow.js';
 import { selectV12Candidates } from '../research/v11-short-alpha/v12_universe.js';
@@ -28,6 +27,35 @@ function parseBody(name, result) {
   }
   try { return JSON.parse(result.body); }
   catch (error) { throw new Error(name + ' invalid JSON: ' + error.message); }
+}
+
+function median(values) {
+  const sorted=[...values].sort((a,b)=>a-b);
+  if(!sorted.length)return null;
+  const mid=Math.floor(sorted.length/2);
+  return sorted.length%2?sorted[mid]:(sorted[mid-1]+sorted[mid])/2;
+}
+
+function buildRankedSectorProxy(candidates) {
+  const groups=new Map();
+  for(const row of candidates){
+    const industry=String(row?.f100??row?.industry??'').trim();
+    const pct=Number(row?.f3??row?.pct??row?.changePct);
+    if(!industry||!Number.isFinite(pct))continue;
+    const bucket=groups.get(industry)||[];
+    bucket.push(pct);
+    groups.set(industry,bucket);
+  }
+  const sectors=[...groups.entries()]
+    .map(([industry,pcts])=>({industry,medianPct:median(pcts),sampleCount:pcts.length}))
+    .filter(row=>row.medianPct!==null)
+    .sort((a,b)=>b.medianPct-a.medianPct||b.sampleCount-a.sampleCount||a.industry.localeCompare(b.industry));
+  return {
+    qualifiedForDiscovery:sectors.length>=5,
+    quality:{qualified:sectors.length>=5},
+    source:'ranked-candidate-sector-proxy-v1',
+    sectorResearch:{sectors}
+  };
 }
 
 function parseCodes(raw) {
@@ -152,14 +180,13 @@ export default async function handler(req, res) {
     }
 
     const query = encodeURIComponent(codes.join(','));
-    const [deep, discovery, psychology] = await Promise.all([
+    const [deep, psychology] = await Promise.all([
       invoke(marketHandler, '/api/market?action=deep_batch&codes=' + query),
-      invoke(discoveryHandler, '/api/discovery_universe'),
       invoke(psychologyHandler, '/api/psychology_universe?codes=' + query)
     ]);
 
     const deepPayload = parseBody('deep_batch', deep);
-    const discoveryPayload = parseBody('discovery_universe', discovery);
+    const discoveryPayload = buildRankedSectorProxy(candidates);
     const psychologyPayload = parseBody('psychology_universe', psychology);
 
     const evaluationRows = [
@@ -202,7 +229,8 @@ export default async function handler(req, res) {
         requestedMissingCount:missingRequested.length,
         requestedQuoteCount:requestedQuoteRows.length,
         providerFallback:ranked?.data?.providerFallback ?? null,
-        degraded:ranked?.data?.degraded === true
+        degraded:ranked?.data?.degraded === true,
+        sectorSource:discoveryPayload.source
       },
       ranking:top
     });
