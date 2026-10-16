@@ -1,4 +1,5 @@
 import handler from '../../api/psychology_universe.js';
+import marketHandler from '../../api/market.js';
 
 function invoke(url) {
   return new Promise((resolve, reject) => {
@@ -16,7 +17,17 @@ function invoke(url) {
   });
 }
 
-const codes = process.env.V12_PROBE_CODES || '600519,000001';
+const marketResult = await invoke('/api/market?action=ranked_candidates');
+if (marketResult.statusCode !== 200) {
+  throw new Error('market ranked_candidates returned HTTP ' + marketResult.statusCode + ': ' + marketResult.body);
+}
+const marketPayload = JSON.parse(marketResult.body);
+const liveCodes = (marketPayload?.data?.candidates ?? [])
+  .map(row => String(row?.f12 ?? ''))
+  .filter(code => /^(00|60)\d{4}$/.test(code))
+  .slice(0, 8);
+const codes = process.env.V12_PROBE_CODES ||
+  (liveCodes.length >= 2 ? liveCodes.join(',') : '600519,000001');
 const result = await invoke('/api/psychology_universe?codes=' + encodeURIComponent(codes));
 
 if (result.statusCode !== 200) {
@@ -39,6 +50,10 @@ const quality = themes.map(theme => ({
 if (payload.schema !== 'v12-psychology-source-v1') {
   throw new Error('unexpected schema: ' + payload.schema);
 }
+if ((marketPayload?.data?.listsOk ?? 0) < 3) {
+  throw new Error('live market ranking sources insufficient: ' +
+    JSON.stringify({listsOk:marketPayload?.data?.listsOk, listsTotal:marketPayload?.data?.listsTotal, failures:marketPayload?.data?.failures}));
+}
 if ((diagnostics.conceptRows ?? 0) <= 0) {
   throw new Error('live concept-board source returned zero rows');
 }
@@ -51,6 +66,12 @@ if (quality.every(item => item.newsCount === 0)) {
 
 console.log(JSON.stringify({
   status:'LIVE_SOURCE_OK',
+  market:{
+    candidateCount:marketPayload?.data?.candidateCount ?? 0,
+    listsOk:marketPayload?.data?.listsOk ?? 0,
+    listsTotal:marketPayload?.data?.listsTotal ?? 0,
+    failures:marketPayload?.data?.failures ?? []
+  },
   schema:payload.schema,
   asOf:payload.asOf,
   requestedCodes:diagnostics.requestedCodes,
