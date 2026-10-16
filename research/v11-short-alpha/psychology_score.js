@@ -517,7 +517,9 @@ function scoreTheme(theme, candidate, marketEmotion = {}) {
     fomoRisk:{score:metric(fomo.score), candidateScore:metric(fomo.candidateScore), label:fomo.label},
     components:Object.fromEntries(Object.entries(parts).map(([key, item]) => [key, {
       score:metric(item.score), confidence:item.confidence,
-      source:item.source ?? 'market-derived', reasons:item.reasons
+      source:item.source ?? 'market-derived', reasons:item.reasons,
+      components:item.components ?? null,
+      detail:item.detail ?? null
     }])),
     evidence:{
       narrative:narrative.evidence ?? [],
