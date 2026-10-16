@@ -58,7 +58,7 @@ function validBars(rawBars, options = {}) {
     }
     // A date-only snapshot represents a completed session. An intraday timestamp
     // must opt in to the current daily bar explicitly.
-    if (!dateOnly && row.date === cutoff && !barComplete) {
+    if ((!dateOnly || options.barComplete === false) && row.date === cutoff && !barComplete) {
       sameDayRowsIgnored += 1;
       continue;
     }
