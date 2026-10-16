@@ -101,8 +101,15 @@ const psychologyPayload = parseResult('psychology_universe', psychology);
 
 assertQualifiedDiscovery(discoveryPayload);
 
+const rankedForV12 = {
+  ...ranked,
+  data:{
+    ...ranked.data,
+    candidates:rankedCandidates.filter(row => codes.includes(String(row?.f12 ?? '')))
+  }
+};
 const decision = integrateCandidateFlow({
-  ranked,
+  ranked:rankedForV12,
   deep:deepPayload,
   discovery:discoveryPayload,
   psychology:psychologyPayload?.data ?? psychologyPayload
