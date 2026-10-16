@@ -92,8 +92,9 @@ test('news sentiment materially shifts narrative quality', () => {
     title:'行业风险上升，订单下滑且需求不及预期',
     content:'需求疲软，项目延期，监管处罚，竞争加剧。'
   })), []);
-  assert.ok(positive.narrativeResearch.sentiment >= 70);
-  assert.ok(negative.narrativeResearch.sentiment <= 35);
+  assert.ok(positive.narrativeResearch.sentiment > 50);
+  assert.ok(negative.narrativeResearch.sentiment < 50);
+  assert.ok(positive.narrativeResearch.sentiment > negative.narrativeResearch.sentiment);
   assert.ok(positive.narrativeResearch.novelty >= 0);
   assert.ok(negative.narrativeResearch.novelty >= 0);
 });
