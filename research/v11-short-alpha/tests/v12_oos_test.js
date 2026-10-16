@@ -37,11 +37,14 @@ test('walk-forward V12 OOS reports gross and net costs by regime', () => {
     trainSize:2, testSize:2, step:2,
     costs:{commissionBps:3,stampTaxBps:5,slippageBps:5}
   });
-  assert.equal(result.schema, 'v12-trade-oos-v1');
+  assert.equal(result.schema, 'v12-trade-oos-v2');
+  assert.deepEqual(result.config.strategies, ['composite','v12']);
   assert.equal(result.diagnostics.foldCount, 8);
+  assert.ok(result.diagnostics.top1SelectionChangedCount > 0);
+  assert.ok(result.diagnostics.top1SelectionOverlapPct < 100);
   assert.deepEqual(result.config.regimes, ['bull','bear','sideways','unknown']);
   for (const regime of ['overall','bull','bear','sideways']) {
-    const metrics = result.aggregate[regime].top1['T+3'];
+    const metrics = result.aggregate.composite[regime].top1['T+3'];
     assert.ok(metrics.gross.averageReturnPct !== null);
     assert.ok(metrics.net.averageReturnPct !== null);
     assert.ok(metrics.net.averageReturnPct <= metrics.gross.averageReturnPct);
@@ -49,10 +52,17 @@ test('walk-forward V12 OOS reports gross and net costs by regime', () => {
     assert.ok(metrics.net.buyNowAccuracyPct === null ||
       typeof metrics.net.buyNowAccuracyPct === 'number');
   }
-  assert.ok(result.aggregate.bull.top1['T+3'].net.averageReturnPct >
-    result.aggregate.bear.top1['T+3'].net.averageReturnPct);
-  assert.ok(result.aggregate.bull.top1['T+3'].net.winRatePct >
-    result.aggregate.bear.top1['T+3'].net.winRatePct);
+  assert.ok(result.aggregate.composite.bull.top1['T+3'].net.averageReturnPct >
+    result.aggregate.composite.bear.top1['T+3'].net.averageReturnPct);
+  assert.ok(result.aggregate.composite.bull.top1['T+3'].net.winRatePct >
+    result.aggregate.composite.bear.top1['T+3'].net.winRatePct);
+  const v12 = result.aggregate.v12.overall.top1['T+3'].net;
+  const composite = result.aggregate.composite.overall.top1['T+3'].net;
+  assert.equal(v12.sampleCount, composite.sampleCount);
+  assert.ok(Math.abs(
+    result.deltaVsComposite.overall.top1['T+3'].averageReturnPct -
+    (v12.averageReturnPct - composite.averageReturnPct)
+  ) < 1e-9);
 });
 
 test('zero costs preserve gross and net returns', () => {
@@ -60,7 +70,7 @@ test('zero costs preserve gross and net returns', () => {
     trainSize:2, testSize:2, step:2,
     costs:{commissionBps:0,stampTaxBps:0,slippageBps:0}
   });
-  const metric = result.aggregate.overall.top5['T+5'];
+  const metric = result.aggregate.v12.overall.top5['T+5'];
   assert.equal(metric.gross.averageReturnPct, metric.net.averageReturnPct);
   assert.equal(metric.gross.maxDrawdownPct, metric.net.maxDrawdownPct);
 });
@@ -91,10 +101,10 @@ test('costs reduce a positive trade and worsen a negative trade', () => {
     trainSize:1,testSize:1,step:1,
     costs:{commissionBps:3,stampTaxBps:5,slippageBps:5}
   });
-  const trade = result.aggregate.overall.top1['T+1'];
+  const trade = result.aggregate.composite.overall.top1['T+1'];
   assert.ok(trade.net.averageReturnPct < trade.gross.averageReturnPct);
   assert.ok(trade.net.maxDrawdownPct >= 0);
   assert.ok(first.scores.v12TradeRaw > 0);
-  const detail = result.aggregate.overall.top1['T+1'];
+  const detail = result.aggregate.composite.overall.top1['T+1'];
   assert.ok(detail.net.averageReturnPct < detail.gross.averageReturnPct);
 });

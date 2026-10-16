@@ -255,3 +255,104 @@ not daily marked-to-market NAV. The fixture uses synthetic as-of labels.
 
 Default costs are 3bps commission per side, 5bps sell stamp tax, and 5bps slippage
 per side. Production page, API, and main are unchanged.
+
+## V12 live snapshot capture
+
+The capture workflow is intentionally separate from production and records a point-in-time artifact for forward validation.
+
+The research branch includes a live capture CLI that runs the existing market, discovery, and
+V12 psychology handlers from a reachable Node environment. It does not connect to a broker,
+place orders, or modify production.
+
+Run during a continuous A-share trading session:
+
+    node research/v11-short-alpha/capture_v12_snapshot.js
+
+Optional output path:
+
+    node research/v11-short-alpha/capture_v12_snapshot.js ./my-snapshot.json
+
+The capture:
+
+1. obtains the current ranked candidate universe;
+2. selects the first 30 eligible 00/60 main-board candidates;
+3. fetches deep kline/flow data for those candidates;
+4. fetches the independent discovery universe;
+5. fetches V12 theme membership, theme flow, leader, and dated news evidence;
+6. runs integrateCandidateFlow with the captured V12 psychology context;
+7. writes an immutable, dated JSON snapshot containing the raw inputs, model versions,
+   as-of timestamp, diagnostics, and Top20 V12 trade ranking.
+
+A same-day snapshot must not be edited after capture. Forward T+1/T+3/T+5 outcomes are
+measured only after the corresponding future bars exist. The snapshot itself is evidence
+of what the model knew at capture time, not evidence of profitability.
+
+### Live source probe
+
+live_source_probe.js and .github/workflows/v12-live-source-probe.yml provide a
+non-production connectivity check. The probe is informational and is allowed to fail
+without making the deterministic research suite fail.
+
+At present, GitHub-hosted runners may receive HTTP 502/fetch failures from Eastmoney.
+That result is treated as an environment/upstream connectivity limitation, not as proof
+that the local live capture path works. A real capture must therefore be run from an
+environment that can actually reach the upstream sources.
+
+### Live-money validation boundary
+
+The research system deliberately stops before brokerage execution. Actual money, if used
+for validation, must be tied to a previously captured signal snapshot and recorded with
+the real order/fill timestamp, quantity, price, fees, slippage, rejection/cancellation
+status, and exit details. No same-day outcome may be fed back into that day's signal.
+\n
+
+### Forward-outcome evaluation
+
+After a snapshot is captured, do not edit the snapshot. Once future trading-day bars exist,
+run:
+
+    node research/v11-short-alpha/evaluate_v12_snapshot.js ./live_snapshots/v12-YYYYMMDD-HHMM.json
+
+The evaluator re-fetches current historical daily bars, then strictly excludes every bar whose
+date is on or before the snapshot as-of date. It reports T+1/T+3/T+5 close returns, 5-day
+maximum favorable/adverse excursion, win/loss rates, and Top1/Top5/Top10/Top20 summaries.
+
+This is a research measurement, not a broker-fill simulation. Entry price is the snapshot
+decision price; fees, slippage, queue position, suspension, limit-up/limit-down execution,
+and actual fill probability are not inferred. Actual-money validation uses a separate execution
+ledger and the real fill price.
+
+
+## V12 Short-Horizon Selection Validation
+
+V12 selection research is centered on cross-sectional stock selection for the next
+one to five trading sessions. It preserves the frozen Alpha 60%, Timing 25%, and
+Psychology 15% baseline and exposes the compatible V12SelectionScore; it does
+not introduce a new factor or change weights.
+
+`evaluate_v12_snapshot.js` evaluates every available
+`decision.datasetCandidates` row, with legacy `tradeRanking` fallback. It
+records T+1 through T+5 absolute returns, market and sector excess returns when
+point-in-time benchmark histories are supplied, per-horizon MFE/MAE, win/loss,
+`horizonProfile`, `bestHorizon`, and a diagnostic short-horizon pattern.
+Future bars require a trading date strictly after the Asia/Shanghai snapshot date.
+Missing benchmark, high, or low data remains `null`.
+
+`analyze_v12_selection.js` reports per-horizon Rank IC, Spearman correlation,
+Top 5/10/20% versus Bottom 20% spreads, win rate, MFE, MAE, and absolute/market/
+sector excess returns. It also splits results by Bull/Neutral/Bear, market emotion
+High/Normal/Low, and 11:15/13:30/14:45 snapshot buckets. Per-snapshot quantile
+cuts prevent mixing ranks across dates. These are validation statistics only; ML
+does not change the rule model.
+
+Live snapshot capture retains legacy Top20 `tradeRanking` and now stores the full
+`decision.datasetCandidates` for future selection validation. No production page,
+API, broker, automatic order placement, or training-data mixing is changed.
+
+### Trend Structure research factor
+
+trend_structure.js computes a standalone 0-100 Trend Structure score from point-in-time bars. It preserves raw trend direction, moving-average alignment and slopes, higher-high/lower-low structure, persistence, pullback quality, volume confirmation, and overextension diagnostics under candidate.features.trendStructure.
+
+The factor is research-only. It is not part of ALPHA_WEIGHTS, Alpha, Timing, Psychology, V12TradeScore, or V12SelectionScore. Candidate history is filtered to bar.date <= snapshot asOf; an intraday same-day bar is excluded unless explicitly marked complete.
+
+analyze_trend_structure.js evaluates the factor against T+1 through T+5 outcomes with per-snapshot rank metrics and independent quantile cuts. It also reports research-only combinations for trend strength with emotion stage, capital timing, theme presence, leader, imagination, and FOMO. These results must accumulate real forward samples before any production score decision.

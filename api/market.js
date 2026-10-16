@@ -1,15 +1,22 @@
 export const config = { maxDuration: 30 };
 
 const EM_HOSTS = [
+  'https://push2delay.eastmoney.com',
   'https://push2.eastmoney.com',
   'https://7.push2.eastmoney.com',
   'https://43.push2.eastmoney.com',
   'https://89.push2.eastmoney.com'
 ];
+const HIST_HOSTS = [
+  'https://push2his.eastmoney.com',
+  'https://7.push2his.eastmoney.com',
+  'https://43.push2his.eastmoney.com'
+];
 
 const UA = 'Mozilla/5.0 AShareQuant/10.1.8-S';
 const MARKET_FS = 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048';
 const MARKET_FIELDS = 'f12,f14,f2,f3,f5,f6,f8,f9,f10,f20,f21,f23,f24,f25,f62,f184,f100';
+const SINA_MARKET_URL = 'https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeData';
 
 function secid(code) {
   return /^(6|68)/.test(code) ? `1.${code}` : `0.${code}`;
@@ -58,21 +65,34 @@ function ymdDaysAgo(days) {
   return d.toISOString().slice(0, 10).replace(/-/g, '');
 }
 
-function klineUrl(code) {
+function klineUrl(code, host = HIST_HOSTS[0]) {
   const p = new URLSearchParams({
     secid: secid(code), klt: '101', fqt: '1', beg: ymdDaysAgo(300), end: '20500101', lmt: '180',
     fields1: 'f1,f2,f3,f4,f5,f6',
     fields2: 'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61'
   });
-  return `https://push2his.eastmoney.com/api/qt/stock/kline/get?${p}`;
+  return `${host}/api/qt/stock/kline/get?${p}`;
 }
-function flowUrl(code) {
+function flowUrl(code, host = HIST_HOSTS[0]) {
   const p = new URLSearchParams({
     lmt: '30', klt: '101', secid: secid(code),
     fields1: 'f1,f2,f3,f7',
     fields2: 'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63'
   });
-  return `https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get?${p}`;
+  return `${host}/api/qt/stock/fflow/daykline/get?${p}`;
+}
+
+async function fetchHistoricalWithHosts(builder, timeout = 3200) {
+  let lastError = null;
+  for (const host of HIST_HOSTS) {
+    try {
+      const result = await fetchParsed(builder(host), timeout);
+      if (result?.data) return result;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error('all historical hosts failed');
 }
 
 
@@ -167,7 +187,7 @@ async function fetchDeepOne(code) {
   let klineSource = 'eastmoney';
 
   try {
-    kline = await fetchParsed(klineUrl(code), 3200);
+    kline = await fetchHistoricalWithHosts(host => klineUrl(code, host), 3200);
   } catch {
     kline = await fetchTencentKline(code, 5500);
     klineSource = 'tencent';
@@ -177,7 +197,7 @@ async function fetchDeepOne(code) {
   let flowSource = 'eastmoney';
 
   try {
-    flow = await fetchParsed(flowUrl(code), 2600);
+    flow = await fetchHistoricalWithHosts(host => flowUrl(code, host), 2600);
   } catch {
     flow = neutralFlowFromKline(kline);
     flowSource = 'neutral';
@@ -228,6 +248,77 @@ function send(res, status, data, maxAge = 20) {
 }
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+async function fetchSinaMomentumFallback(pages = 3) {
+  const rows = [];
+  for (let page = 1; page <= pages; page++) {
+    const p = new URLSearchParams({
+      page:String(page),
+      num:'100',
+      sort:'changepercent',
+      asc:'0',
+      node:'hs_a',
+      symbol:'',
+      _s_r_a:'setlen'
+    });
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 5000);
+    try {
+      const response = await fetch(SINA_MARKET_URL + '?' + p, {
+        signal:ctrl.signal,
+        headers:{
+          'user-agent':UA,
+          'accept':'application/json,text/plain,*/*;q=0.8',
+          'referer':'https://vip.stock.finance.sina.com.cn/'
+        }
+      });
+      if (!response.ok) throw new Error('sina HTTP ' + response.status);
+      const parsed = JSON.parse(await response.text());
+      if (!Array.isArray(parsed)) throw new Error('sina returned non-array data');
+      rows.push(...parsed);
+    } finally {
+      clearTimeout(timer);
+    }
+    await sleep(120);
+  }
+
+  const merged = new Map();
+  for (const raw of rows) {
+    const code = String(raw?.code ?? '');
+    if (!/^(00|60)\d{4}$/.test(code)) continue;
+    if (merged.has(code)) continue;
+    const row = {
+      f12:code,
+      f14:String(raw?.name ?? ''),
+      f2:Number(raw?.trade),
+      f3:Number(raw?.changepercent),
+      f5:Number(raw?.volume),
+      f6:Number(raw?.amount),
+      f8:Number(raw?.turnoverratio),
+      f9:Number(raw?.per),
+      f20:Number(raw?.mktcap) * 10000,
+      f21:Number(raw?.nmc) * 10000,
+      f23:Number(raw?.pb),
+      f24:null,
+      f25:null,
+      f62:null,
+      f184:null,
+      f100:null,
+      _rankPoints:0,
+      _rankHits:1,
+      _ranks:{sinaMomentum:merged.size + 1}
+    };
+    if (!Number.isFinite(row.f2) || !Number.isFinite(row.f3)) continue;
+    merged.set(code,row);
+  }
+
+  return [...merged.values()].slice(0, 300).map((row, index) => ({
+    ...row,
+    rankScore:Math.max(0, 100 - index * 0.25),
+    rankHits:1,
+    ranks:{sinaMomentum:index + 1}
+  }));
+}
 
 async function fetchMarketRank(fid, page = 1, pz = 100, seed = 0) {
   let last;
@@ -345,6 +436,36 @@ async function rankedCandidates() {
   }
 
   if (okLists < 3) {
+    try {
+      const fallbackRows = await fetchSinaMomentumFallback(3);
+      if (fallbackRows.length >= 30) {
+        const indexSettled = await indexPromise;
+        const indices = indexSettled
+          .filter(x => x.status === 'fulfilled' && Number.isFinite(x.value?.pct))
+          .map(x => x.value);
+        const value = {
+          data: {
+            universeTotal:fallbackRows.length,
+            candidates:fallbackRows,
+            candidateCount:fallbackRows.length,
+            listsOk:okLists,
+            listsTotal:specs.length,
+            failures,
+            indices,
+            generatedAt:new Date().toISOString(),
+            method:'sina-momentum-degraded-fallback-v1',
+            providerFallback:'sina',
+            degraded:true,
+            serverStale:false
+          }
+        };
+        rankedMemory = {t:now,value};
+        return value;
+      }
+    } catch (fallbackError) {
+      failures.push({key:'sinaFallback',error:fallbackError?.message || String(fallbackError)});
+    }
+
     if (rankedMemory && now - rankedMemory.t < 30 * 60 * 1000) {
       return {
         data: {
@@ -389,6 +510,10 @@ async function rankedCandidates() {
   rankedMemory = { t: now, value };
   return value;
 }
+export const _internal = {
+  fetchSinaMomentumFallback
+};
+
 export default async function handler(req, res) {
   const u = new URL(req.url, 'http://localhost');
   const action = u.searchParams.get('action') || '';

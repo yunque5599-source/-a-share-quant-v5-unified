@@ -1,0 +1,93 @@
+name: V12 Live Snapshot Capture
+
+on:
+  push:
+    branches:
+      - research/v12-psychology-narrative
+  schedule:
+    - cron: '15 3 * * 1-5'
+    - cron: '30 5 * * 1-5'
+    - cron: '45 6 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check continuous A-share trading session
+        id: session
+        run: |
+          node <<'NODE'
+          const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone:'Asia/Shanghai', year:'numeric', month:'2-digit', day:'2-digit',
+            hour:'2-digit', minute:'2-digit', hourCycle:'h23'
+          }).formatToParts(new Date());
+          const get = t => parts.find(x => x.type === t)?.value;
+          const h = Number(get('hour')), m = Number(get('minute'));
+          const wd = new Intl.DateTimeFormat('en-US', {
+            timeZone:'Asia/Shanghai', weekday:'short'
+          }).format(new Date());
+          const minute = h * 60 + m;
+          const inSession = ['Mon','Tue','Wed','Thu','Fri'].includes(wd) &&
+            ((minute >= 570 && minute < 690) || (minute >= 780 && minute < 900));
+          console.log('China time:', get('year')+'-'+get('month')+'-'+get('day'), h+':'+String(m).padStart(2,'0'), 'inSession=', inSession);
+          require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'in_session='+inSession+'\\n');
+          NODE
+
+      - name: Capture point-in-time V12 snapshot
+        if: steps.session.outputs.in_session == 'true'
+        run: |
+          mkdir -p live-snapshot
+          node research/v11-short-alpha/capture_v12_snapshot.js live-snapshot/v12-live-snapshot.json
+
+      - name: Skip outside continuous session
+        if: steps.session.outputs.in_session != 'true'
+        run: |
+          echo "Outside continuous A-share trading session; no synchronous live snapshot is certified."
+
+      - name: Print snapshot summary
+        if: steps.session.outputs.in_session == 'true'
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const x = JSON.parse(fs.readFileSync('live-snapshot/v12-live-snapshot.json', 'utf8'));
+          console.log(JSON.stringify({
+            schema:x.schema,
+            capturedAt:x.capturedAt,
+            asOf:x.asOf,
+            rankedUniverse:x.inputs?.ranked?.data?.candidateCount ?? null,
+            selectedDeepPool:x.inputs?.psychology?.data?.diagnostics?.requestedCodes ??
+              x.inputs?.psychology?.diagnostics?.requestedCodes ?? null,
+            psychologyComplete:x.decision?.diagnostics?.psychologyComplete ?? null,
+            v12Eligible:x.decision?.diagnostics?.v12Eligible ?? null,
+            top5:x.decision?.tradeRanking?.slice(0,5).map(row => ({
+              rank:row.tradeRank,
+              symbol:row.symbol,
+              name:row.name,
+              v12Trade:row.v12Trade ?? null,
+              psychologyStage:row.psychologyStage ?? null,
+              primaryTheme:row.primaryTheme ?? null
+            }))
+          }, null, 2));
+          NODE
+
+      - name: Upload immutable V12 snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v12-live-snapshot-${{ github.run_id }}
+          path: live-snapshot/
+          if-no-files-found: warn
+          retention-days: 30

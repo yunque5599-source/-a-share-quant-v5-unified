@@ -1,5 +1,5 @@
 {
-  "description": "Synthetic V12 OOS fixture with distinct bull, sideways, and bear price paths.",
+  "description": "Synthetic V12 OOS fixture with distinct bull, sideways, and bear price paths plus deliberate regime-dependent psychology ranking divergence. It is a research harness, not a claim of real-market performance.",
   "predictions": [
     {
       "asOf": "2026-01-06",
@@ -898,12 +898,12 @@
             "alphaRaw": 95,
             "timing": 90,
             "timingRaw": 90,
-            "psychology": 80,
-            "psychologyRaw": 80,
+            "psychology": 20,
+            "psychologyRaw": 20,
             "composite": 93.5,
             "compositeRaw": 93.5,
-            "v12Trade": 91.5,
-            "v12TradeRaw": 91.5
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
           },
           "quality": {
             "complete": true
@@ -1006,19 +1006,19 @@
           "rank": 6,
           "price": 112.566525,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
-            "alpha": 80,
-            "alphaRaw": 80,
+            "alpha": 100,
+            "alphaRaw": 100,
             "timing": 68,
             "timingRaw": 68,
-            "psychology": 55,
-            "psychologyRaw": 55,
-            "composite": 76.4,
-            "compositeRaw": 76.4,
-            "v12Trade": 73.25,
-            "v12TradeRaw": 73.25
+            "psychology": 100,
+            "psychologyRaw": 100,
+            "composite": 90.4,
+            "compositeRaw": 90.4,
+            "v12Trade": 92,
+            "v12TradeRaw": 92
           },
           "quality": {
             "complete": true
@@ -1045,12 +1045,12 @@
             "alphaRaw": 95,
             "timing": 90,
             "timingRaw": 90,
-            "psychology": 80,
-            "psychologyRaw": 80,
+            "psychology": 20,
+            "psychologyRaw": 20,
             "composite": 93.5,
             "compositeRaw": 93.5,
-            "v12Trade": 91.5,
-            "v12TradeRaw": 91.5
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
           },
           "quality": {
             "complete": true
@@ -1153,19 +1153,19 @@
           "rank": 6,
           "price": 112.647105,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
-            "alpha": 80,
-            "alphaRaw": 80,
+            "alpha": 100,
+            "alphaRaw": 100,
             "timing": 68,
             "timingRaw": 68,
-            "psychology": 55,
-            "psychologyRaw": 55,
-            "composite": 76.4,
-            "compositeRaw": 76.4,
-            "v12Trade": 73.25,
-            "v12TradeRaw": 73.25
+            "psychology": 100,
+            "psychologyRaw": 100,
+            "composite": 90.4,
+            "compositeRaw": 90.4,
+            "v12Trade": 92,
+            "v12TradeRaw": 92
           },
           "quality": {
             "complete": true
@@ -1192,12 +1192,12 @@
             "alphaRaw": 95,
             "timing": 90,
             "timingRaw": 90,
-            "psychology": 80,
-            "psychologyRaw": 80,
+            "psychology": 20,
+            "psychologyRaw": 20,
             "composite": 93.5,
             "compositeRaw": 93.5,
-            "v12Trade": 91.5,
-            "v12TradeRaw": 91.5
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
           },
           "quality": {
             "complete": true
@@ -1300,19 +1300,19 @@
           "rank": 6,
           "price": 112.933721,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
-            "alpha": 80,
-            "alphaRaw": 80,
+            "alpha": 100,
+            "alphaRaw": 100,
             "timing": 68,
             "timingRaw": 68,
-            "psychology": 55,
-            "psychologyRaw": 55,
-            "composite": 76.4,
-            "compositeRaw": 76.4,
-            "v12Trade": 73.25,
-            "v12TradeRaw": 73.25
+            "psychology": 100,
+            "psychologyRaw": 100,
+            "composite": 90.4,
+            "compositeRaw": 90.4,
+            "v12Trade": 92,
+            "v12TradeRaw": 92
           },
           "quality": {
             "complete": true
@@ -1339,12 +1339,12 @@
             "alphaRaw": 95,
             "timing": 90,
             "timingRaw": 90,
-            "psychology": 80,
-            "psychologyRaw": 80,
+            "psychology": 20,
+            "psychologyRaw": 20,
             "composite": 93.5,
             "compositeRaw": 93.5,
-            "v12Trade": 91.5,
-            "v12TradeRaw": 91.5
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
           },
           "quality": {
             "complete": true
@@ -1447,19 +1447,19 @@
           "rank": 6,
           "price": 113.037873,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
-            "alpha": 80,
-            "alphaRaw": 80,
+            "alpha": 100,
+            "alphaRaw": 100,
             "timing": 68,
             "timingRaw": 68,
-            "psychology": 55,
-            "psychologyRaw": 55,
-            "composite": 76.4,
-            "compositeRaw": 76.4,
-            "v12Trade": 73.25,
-            "v12TradeRaw": 73.25
+            "psychology": 100,
+            "psychologyRaw": 100,
+            "composite": 90.4,
+            "compositeRaw": 90.4,
+            "v12Trade": 92,
+            "v12TradeRaw": 92
           },
           "quality": {
             "complete": true
@@ -1486,12 +1486,12 @@
             "alphaRaw": 95,
             "timing": 90,
             "timingRaw": 90,
-            "psychology": 80,
-            "psychologyRaw": 80,
+            "psychology": 20,
+            "psychologyRaw": 20,
             "composite": 93.5,
             "compositeRaw": 93.5,
-            "v12Trade": 91.5,
-            "v12TradeRaw": 91.5
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
           },
           "quality": {
             "complete": true
@@ -1594,19 +1594,19 @@
           "rank": 6,
           "price": 113.175084,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
-            "alpha": 80,
-            "alphaRaw": 80,
+            "alpha": 100,
+            "alphaRaw": 100,
             "timing": 68,
             "timingRaw": 68,
-            "psychology": 55,
-            "psychologyRaw": 55,
-            "composite": 76.4,
-            "compositeRaw": 76.4,
-            "v12Trade": 73.25,
-            "v12TradeRaw": 73.25
+            "psychology": 100,
+            "psychologyRaw": 100,
+            "composite": 90.4,
+            "compositeRaw": 90.4,
+            "v12Trade": 92,
+            "v12TradeRaw": 92
           },
           "quality": {
             "complete": true
@@ -1633,12 +1633,12 @@
             "alphaRaw": 95,
             "timing": 90,
             "timingRaw": 90,
-            "psychology": 80,
-            "psychologyRaw": 80,
+            "psychology": 20,
+            "psychologyRaw": 20,
             "composite": 93.5,
             "compositeRaw": 93.5,
-            "v12Trade": 91.5,
-            "v12TradeRaw": 91.5
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
           },
           "quality": {
             "complete": true
@@ -1741,19 +1741,19 @@
           "rank": 6,
           "price": 113.452885,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
-            "alpha": 80,
-            "alphaRaw": 80,
+            "alpha": 100,
+            "alphaRaw": 100,
             "timing": 68,
             "timingRaw": 68,
-            "psychology": 55,
-            "psychologyRaw": 55,
-            "composite": 76.4,
-            "compositeRaw": 76.4,
-            "v12Trade": 73.25,
-            "v12TradeRaw": 73.25
+            "psychology": 100,
+            "psychologyRaw": 100,
+            "composite": 90.4,
+            "compositeRaw": 90.4,
+            "v12Trade": 92,
+            "v12TradeRaw": 92
           },
           "quality": {
             "complete": true
@@ -1780,12 +1780,12 @@
             "alphaRaw": 95,
             "timing": 90,
             "timingRaw": 90,
-            "psychology": 80,
-            "psychologyRaw": 80,
+            "psychology": 20,
+            "psychologyRaw": 20,
             "composite": 93.5,
             "compositeRaw": 93.5,
-            "v12Trade": 91.5,
-            "v12TradeRaw": 91.5
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
           },
           "quality": {
             "complete": true
@@ -1888,19 +1888,19 @@
           "rank": 6,
           "price": 112.605175,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
-            "alpha": 80,
-            "alphaRaw": 80,
+            "alpha": 100,
+            "alphaRaw": 100,
             "timing": 68,
             "timingRaw": 68,
-            "psychology": 55,
-            "psychologyRaw": 55,
-            "composite": 76.4,
-            "compositeRaw": 76.4,
-            "v12Trade": 73.25,
-            "v12TradeRaw": 73.25
+            "psychology": 100,
+            "psychologyRaw": 100,
+            "composite": 90.4,
+            "compositeRaw": 90.4,
+            "v12Trade": 92,
+            "v12TradeRaw": 92
           },
           "quality": {
             "complete": true
@@ -1927,12 +1927,12 @@
             "alphaRaw": 95,
             "timing": 90,
             "timingRaw": 90,
-            "psychology": 80,
-            "psychologyRaw": 80,
+            "psychology": 20,
+            "psychologyRaw": 20,
             "composite": 93.5,
             "compositeRaw": 93.5,
-            "v12Trade": 91.5,
-            "v12TradeRaw": 91.5
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
           },
           "quality": {
             "complete": true
@@ -2035,19 +2035,19 @@
           "rank": 6,
           "price": 111.204631,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
-            "alpha": 80,
-            "alphaRaw": 80,
+            "alpha": 100,
+            "alphaRaw": 100,
             "timing": 68,
             "timingRaw": 68,
-            "psychology": 55,
-            "psychologyRaw": 55,
-            "composite": 76.4,
-            "compositeRaw": 76.4,
-            "v12Trade": 73.25,
-            "v12TradeRaw": 73.25
+            "psychology": 100,
+            "psychologyRaw": 100,
+            "composite": 90.4,
+            "compositeRaw": 90.4,
+            "v12Trade": 92,
+            "v12TradeRaw": 92
           },
           "quality": {
             "complete": true
@@ -2074,12 +2074,12 @@
             "alphaRaw": 95,
             "timing": 90,
             "timingRaw": 90,
-            "psychology": 80,
-            "psychologyRaw": 80,
+            "psychology": 20,
+            "psychologyRaw": 20,
             "composite": 93.5,
             "compositeRaw": 93.5,
-            "v12Trade": 91.5,
-            "v12TradeRaw": 91.5
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
           },
           "quality": {
             "complete": true
@@ -2182,19 +2182,19 @@
           "rank": 6,
           "price": 109.821506,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
-            "alpha": 80,
-            "alphaRaw": 80,
+            "alpha": 100,
+            "alphaRaw": 100,
             "timing": 68,
             "timingRaw": 68,
-            "psychology": 55,
-            "psychologyRaw": 55,
-            "composite": 76.4,
-            "compositeRaw": 76.4,
-            "v12Trade": 73.25,
-            "v12TradeRaw": 73.25
+            "psychology": 100,
+            "psychologyRaw": 100,
+            "composite": 90.4,
+            "compositeRaw": 90.4,
+            "v12Trade": 92,
+            "v12TradeRaw": 92
           },
           "quality": {
             "complete": true
@@ -2221,12 +2221,12 @@
             "alphaRaw": 95,
             "timing": 90,
             "timingRaw": 90,
-            "psychology": 80,
-            "psychologyRaw": 80,
+            "psychology": 20,
+            "psychologyRaw": 20,
             "composite": 93.5,
             "compositeRaw": 93.5,
-            "v12Trade": 91.5,
-            "v12TradeRaw": 91.5
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
           },
           "quality": {
             "complete": true
@@ -2329,19 +2329,19 @@
           "rank": 6,
           "price": 108.455584,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
-            "alpha": 80,
-            "alphaRaw": 80,
+            "alpha": 100,
+            "alphaRaw": 100,
             "timing": 68,
             "timingRaw": 68,
-            "psychology": 55,
-            "psychologyRaw": 55,
-            "composite": 76.4,
-            "compositeRaw": 76.4,
-            "v12Trade": 73.25,
-            "v12TradeRaw": 73.25
+            "psychology": 100,
+            "psychologyRaw": 100,
+            "composite": 90.4,
+            "compositeRaw": 90.4,
+            "v12Trade": 92,
+            "v12TradeRaw": 92
           },
           "quality": {
             "complete": true
@@ -2368,12 +2368,12 @@
             "alphaRaw": 95,
             "timing": 90,
             "timingRaw": 90,
-            "psychology": 80,
-            "psychologyRaw": 80,
+            "psychology": 20,
+            "psychologyRaw": 20,
             "composite": 93.5,
             "compositeRaw": 93.5,
-            "v12Trade": 91.5,
-            "v12TradeRaw": 91.5
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
           },
           "quality": {
             "complete": true
@@ -2476,19 +2476,19 @@
           "rank": 6,
           "price": 107.106651,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
-            "alpha": 80,
-            "alphaRaw": 80,
+            "alpha": 100,
+            "alphaRaw": 100,
             "timing": 68,
             "timingRaw": 68,
-            "psychology": 55,
-            "psychologyRaw": 55,
-            "composite": 76.4,
-            "compositeRaw": 76.4,
-            "v12Trade": 73.25,
-            "v12TradeRaw": 73.25
+            "psychology": 100,
+            "psychologyRaw": 100,
+            "composite": 90.4,
+            "compositeRaw": 90.4,
+            "v12Trade": 92,
+            "v12TradeRaw": 92
           },
           "quality": {
             "complete": true
@@ -2515,12 +2515,12 @@
             "alphaRaw": 95,
             "timing": 90,
             "timingRaw": 90,
-            "psychology": 80,
-            "psychologyRaw": 80,
+            "psychology": 20,
+            "psychologyRaw": 20,
             "composite": 93.5,
             "compositeRaw": 93.5,
-            "v12Trade": 91.5,
-            "v12TradeRaw": 91.5
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
           },
           "quality": {
             "complete": true
@@ -2623,19 +2623,19 @@
           "rank": 6,
           "price": 105.774495,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
-            "alpha": 80,
-            "alphaRaw": 80,
+            "alpha": 100,
+            "alphaRaw": 100,
             "timing": 68,
             "timingRaw": 68,
-            "psychology": 55,
-            "psychologyRaw": 55,
-            "composite": 76.4,
-            "compositeRaw": 76.4,
-            "v12Trade": 73.25,
-            "v12TradeRaw": 73.25
+            "psychology": 100,
+            "psychologyRaw": 100,
+            "composite": 90.4,
+            "compositeRaw": 90.4,
+            "v12Trade": 92,
+            "v12TradeRaw": 92
           },
           "quality": {
             "complete": true
@@ -7005,5 +7005,6 @@
         "close": 84.438858
       }
     ]
-  }
+  },
+  "validationPurpose": "Ensure V12 selection can diverge from the legacy Composite when psychology evidence changes the ranking, while preserving strict chronological OOS replay."
 }

@@ -33,6 +33,14 @@ function scoreBlock(block, weights, requiredCount = Object.keys(weights).length)
     components[key] = {score, weight};
   }
   const evidence = evidenceList(block.evidence ?? block.sources ?? block.researchEvidence);
+  if (block.complete === false) {
+    const evidenceConfidence = evidence.length >= 2 ? 0.68 : evidence.length === 1 ? 0.55 : 0.40;
+    return {
+      score:null,
+      confidence:Math.min(evidenceConfidence, available / Object.keys(weights).length),
+      complete:false, components, evidence
+    };
+  }
   if (available < requiredCount) {
     const evidenceConfidence = evidence.length >= 2 ? 1 : evidence.length === 1 ? 0.80 : 0.55;
     return {

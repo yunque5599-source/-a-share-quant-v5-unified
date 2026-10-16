@@ -4,7 +4,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <meta name="theme-color" content="#f7f8fb"/>
-<title>A股短线量化决策台 V10.2.4-S</title>
+<title>A股短线量化决策台 V12</title>
 <style>
 :root{--bg:#f5f6f8;--card:#fff;--ink:#111827;--muted:#6b7280;--line:#e5e7eb;--dark:#0f172a;--green:#087f5b;--red:#c92a2a;--amber:#b26a00;--soft:#f1f5f9;--blue:#1d4ed8}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif}.wrap{max-width:860px;margin:auto;padding:18px 14px 60px}h1{font-size:24px;margin:0}.sub{color:var(--muted);font-size:13px;margin-top:5px}.hero{background:linear-gradient(135deg,#fff,#eef5ff);border:1px solid #dbeafe;border-radius:22px;padding:18px;margin-bottom:14px}.hero p{margin:10px 0 0;line-height:1.65;font-size:14px}.nav{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0 16px}.nav button,.btn{border:0;border-radius:15px;background:#e9edf3;color:#111827;font-weight:700;padding:13px 10px;font-size:14px}.nav button.on,.btn.primary{background:var(--dark);color:#fff}.btn.blue{background:#dbeafe;color:#1e40af}.btn.warn{background:#fff3bf;color:#8a4b00}.btn:disabled{opacity:.45}.view{display:none}.view.on{display:block}.card{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:18px;margin-bottom:14px;box-shadow:0 1px 2px rgba(0,0,0,.02)}.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}.between{justify-content:space-between}.small{font-size:13px;color:var(--muted);line-height:1.55}.status{margin:10px 0 0;font-size:13px;line-height:1.55}.bar{height:8px;background:#edf0f4;border-radius:99px;overflow:hidden;margin-top:10px}.bar i{display:block;height:100%;background:#111827;width:0%;transition:.2s}.grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}.metric{background:#f7f8fa;border-radius:16px;padding:14px;text-align:center}.metric b{font-size:22px;display:block}.metric span{font-size:12px;color:var(--muted)}.signal{border-radius:20px;padding:18px;background:#0f172a;color:#fff;margin-top:12px}.signal.cash{background:#374151}.signal .ticker{font-size:28px;font-weight:800}.signal .name{font-size:17px;font-weight:700;margin-left:8px}.grade{display:inline-block;padding:5px 9px;border-radius:99px;background:#d1fae5;color:#065f46;font-weight:800;font-size:12px;margin-left:8px}.grade.b{background:#fef3c7;color:#92400e}.grade.c{background:#fee2e2;color:#991b1b}.signalGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px}.signalBox{background:rgba(255,255,255,.09);border-radius:14px;padding:12px}.signalBox b{font-size:18px;display:block}.signalBox span{font-size:12px;color:#cbd5e1}.reason{margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,.14);font-size:13px;line-height:1.65}.chips{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}.chip{padding:6px 9px;border-radius:99px;background:#eef2f7;font-size:12px}.chip.green{background:#d1fae5;color:#065f46}.chip.red{background:#fee2e2;color:#991b1b}.chip.amber{background:#fef3c7;color:#92400e}.cand{display:grid;grid-template-columns:1fr auto;gap:8px;padding:13px 0;border-top:1px solid var(--line)}.cand:first-child{border-top:0}.cand b{font-size:15px}.score{font-size:20px;font-weight:800}.kicker{font-size:12px;color:#64748b}.news{padding:10px 0;border-top:1px solid var(--line)}.news:first-child{border-top:0}.news b{font-size:14px}.news div{font-size:12px;color:var(--muted);margin-top:4px}.inputGrid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.field label{font-size:12px;color:var(--muted);display:block;margin-bottom:6px}.field input{width:100%;padding:13px;border-radius:13px;border:1px solid #d8dde5;background:#fff;font-size:16px}.action{border-radius:18px;padding:16px;margin-top:12px;background:#f8fafc;border:1px solid #e2e8f0}.action strong{font-size:22px}.action.hold strong{color:#166534}.action.exit strong{color:#b91c1c}.action.reduce strong{color:#92400e}.table{width:100%;border-collapse:collapse;font-size:12px}.table th,.table td{text-align:left;padding:9px 6px;border-top:1px solid var(--line);white-space:nowrap}.table th{color:var(--muted);font-weight:600}.note{background:#eff6ff;border:1px solid #bfdbfe;border-radius:16px;padding:13px;font-size:13px;line-height:1.65;color:#1e3a8a}.danger{background:#fff1f2;border-color:#fecdd3;color:#9f1239}.hidden{display:none!important}.footer{font-size:12px;color:#94a3b8;line-height:1.6;margin:20px 4px}.pill{font-size:12px;padding:5px 8px;border-radius:99px;background:#eef2ff;color:#3730a3;font-weight:700}
@@ -14,7 +14,7 @@
 <body>
 <div class="wrap">
   <div class="hero">
-    <div class="row between"><div><h1>A股短线量化决策台</h1><div class="sub">V10.2.4-S · 主模型冻结 + 强势突破影子通道 + 盘前观察 · 仅深沪主板可交易 · 2–5日主周期 · 本金80,000元</div></div><span class="pill">SHORT ALPHA</span></div>
+    <div class="row between"><div><h1>A股短线量化决策台</h1><div class="sub">V12 · V10.2.4-S主模型 + 心理/题材决策层 + 强势突破影子通道 · 仅深沪主板可交易 · 2–5日主周期</div></div><span class="pill">SHORT ALPHA</span></div>
     <p><b>主任务只有两件：</b>今天从全A股里找最有短线上涨潜力的一只；买入后每天复核，明确告诉你继续持有、减仓还是退出。模型把价格动量、量价、资金流持续性、行业强弱、市场环境、最新新闻催化与风险合并评分。历史回测不再塞进手机页面。</p>
   </div>
 
@@ -45,6 +45,18 @@
     </div>
 
     <div class="card">
+      <div class="row between"><div><b>V12 心理/题材决策层</b><div class="small">独立于 V10 主信号运行，用真实题材、资金、龙头、新闻叙事、想象空间与群体情绪重新验证短线优势。证据不完整时只显示“证据不足”，不会强行生成买入信号。</div></div><button class="btn" id="v12Btn">运行 V12</button></div>
+      <div class="status" id="v12Status">尚未运行。</div>
+      <div id="v12Result" class="small" style="margin-top:10px">V12 尚未生成候选。</div>
+    </div>
+
+    <div class="card">
+      <div class="row between"><div><b>V12 真实前向验证</b><div class="small">每次运行 V12 自动记录当时的排名、价格、题材、情绪和评分；后续用真实市场 K 线回填 T+1/T+3/T+5。这里只验证模型，不模拟下单，也不把结果反向改写成“历史正确”。</div></div><button class="btn" id="v12EvalBtn">评估历史信号</button></div>
+      <div class="status" id="v12JournalStatus">尚未建立前向验证记录。</div>
+      <div id="v12JournalResult" class="small" style="margin-top:10px">运行 V12 后会自动留下真实前向样本。</div>
+    </div>
+
+    <div class="card">
       <div class="row between"><div><b>强势突破影子通道</b><div class="small">只做前向观察，不改变今日真实主信号，也不输出买入计划。</div></div><span class="pill">SHADOW</span></div>
       <div id="shadowStatus" class="small" style="margin-top:10px">尚未运行扫描。</div>
     </div>
@@ -72,6 +84,7 @@
 
   <section class="view" id="view-model">
     <div class="card">
+      <div class="note" style="margin-bottom:10px"><b>V12 研究层：</b>Alpha 60% + Timing 25% + Psychology 15%。Psychology 内部进一步拆分情绪热度、情绪加速度、题材叙事、龙头地位、想象空间与行为/人性；行为层加入大单/超大单资金确认、资金进入时序（早期流入/近期流入/高位晚流入/流出）和全市场情绪代理。V12 另外设置“早期埋伏观察”层，只负责在主流化之前发现可能正在点火的标的，永远不等同于确认入场。全市场情绪目前采用“指数方向 + 指数参与度 + 强势候选池热度”的代理指标，不冒充完整市场涨跌家数；资金层也不把公开接口的大单/超大单误称为暗盘。题材板块会主动排除“百元股、低市净率、机构重仓、昨日涨停”等风格/分类板块，避免把选股因子误当成真正的市场叙事。V12 只有在完整证据满足门槛时才进入 V12TradeScore；证据不足不会用默认分数填充。</div>
       <b>V10.2.4-S 评分框架</b>
       <div class="chips"><span class="chip">技术/量价 28%</span><span class="chip">资金流 28%</span><span class="chip">行业/市场 15%</span><span class="chip">新闻催化 14%</span><span class="chip">执行质量 15%</span></div>
       <p class="small">生产主模型继续冻结：第一层使用全市场多因子排名预筛，最终主信号仍由K线、资金持续性、行业、执行质量与新闻共同决定，不因单日涨跌追改参数。V10.2.0新增“强势突破影子通道”，V10.2.1新增“盘前观察模式”，V10.2.2修复盘前空候选误判并只缓存有效候选池：对涨幅、换手、主力流入和板块共振较强的股票额外保留最多5只进行深扫，用来检验旧模型是否过度惩罚高动量，但影子通道不参与真实买入信号。盘前09:30前若实时排名源尚未启动，可读取本机最近有效候选池并重新复核最近收盘K线、资金与新闻，但强制仅观察、不输出买入计划；09:30后必须重新扫描，并且正式交易时段绝不使用盘前/本机旧候选池兜底；若实时全市场排名不可用就直接WAIT。若盘中服务器排名候选池缓存超过20个交易分钟，系统仍强制WAIT。生产信号与影子信号分别冻结前向样本，后续用1/3/5日收益和最大回撤比较。</p>
@@ -81,7 +94,7 @@
     <div class="card"><b>已移除的旧功能</b><p class="small">V6/V7/V8历史实验室、固定12股回测、手机端全市场历史K线下载、OOS按钮矩阵、旧Top40科技榜等都不再出现在主工具。旧版本仍保留在项目备份文件中，方便研究时追溯。</p></div>
   </section>
 
-  <div class="footer">数据主要来自公开行情/资金/新闻接口。V10.2.4-S采用“冻结生产主模型 + 强势突破影子通道”的双轨结构：影子候选只用于前向验证，不触发实盘计划；生产与影子样本分别按当日首个有效信号冻结，不因后续涨跌反向调参。盘前模式允许使用最近有效候选池做非执行观察；实时接口即使返回200，只要价格/成交额等仍是“-”占位数据，也会判定为未就绪并回退有效缓存，绝不污染缓存；09:30后正式交易时段禁止使用任何盘前/本机旧候选池兜底，实时全市场排名不可用就强制WAIT，只有重新取得当日实时排名才允许形成正式信号。盘中服务器排名缓存超过20个交易分钟仍强制WAIT。</div>
+  <div class="footer">数据主要来自公开行情/资金/新闻接口。当前生产结构为V10.2.4-S冻结主模型 + V12心理/题材研究层；V12只在证据门槛满足时参与决策。V10.2.4-S采用“冻结生产主模型 + 强势突破影子通道”的双轨结构：影子候选只用于前向验证，不触发实盘计划；生产与影子样本分别按当日首个有效信号冻结，不因后续涨跌反向调参。盘前模式允许使用最近有效候选池做非执行观察；实时接口即使返回200，只要价格/成交额等仍是“-”占位数据，也会判定为未就绪并回退有效缓存，绝不污染缓存；09:30后正式交易时段禁止使用任何盘前/本机旧候选池兜底，实时全市场排名不可用就强制WAIT，只有重新取得当日实时排名才允许形成正式信号。盘中服务器排名缓存超过20个交易分钟仍强制WAIT。</div>
 </div>
 <script>
 'use strict';
@@ -184,9 +197,196 @@ function renderCandidates(rows,reg){$('candidateList').innerHTML=rows.slice(0,3)
 function renderNews(x){if(!x){$('newsBadge').textContent='—';$('newsList').textContent='暂无';return}$('newsBadge').textContent=`新闻分 ${x.N.toFixed(0)}`;$('newsList').innerHTML=(x.news?.items||[]).slice(0,5).map(n=>`<div class="news"><b>${n.title||'无标题'}</b><div>${n.date||''} ${n.source?'· '+n.source:''}</div></div>`).join('')||'<div class="small">未取得最新新闻，新闻因子按中性50分处理。</div>'}
 async function runScan(){const btn=$('scanBtn');btn.disabled=true;$('scanBar').style.width='2%';const pre=isPremarket();$('scanStatus').textContent=pre?'盘前模式：尝试读取最近成功排名池并复核最近收盘数据…':'读取全市场多因子排名…';$('shadowStatus').textContent=pre?'盘前影子观察：仅供参考，不写入前向样本。':'同步寻找强势突破影子候选…';try{const market=await loadRankedMarket((p,n)=>{$('scanBar').style.width=(2+Math.round(p/n*18))+'%';$('scanStatus').textContent='服务器生成全市场排名候选池…'});lastMarket=market;const filtered=hardFilter(market),reg=marketRegime(market);lastRegime=reg;const s1=stage1Score(filtered,reg),prodTop=s1.slice(0,30),prodCodes=new Set(prodTop.map(x=>x.code)),shadowPre=breakoutStage1Score(filtered).slice(0,8),shadowOnly=shadowPre.filter(x=>!prodCodes.has(x.code)).slice(0,5),shadowCodes=new Set(shadowOnly.map(x=>x.code)),scanSet=[...prodTop,...shadowOnly];$('scanMetrics').innerHTML=`<div class="metric"><b>${lastMarketMeta.total||'—'}</b><span>全市场排名基数</span></div><div class="metric"><b>${filtered.length}</b><span>可执行候选</span></div><div class="metric"><b>${prodTop.length}+${shadowOnly.length}</b><span>主模型+影子深扫</span></div><div class="metric"><b>${reg.label}</b><span>${reg.basis}</span></div>`;$('scanStatus').textContent=`深扫主模型30只 + 影子${shadowOnly.length}只：K线 + 资金持续性…`;const deepAll=await deepBatch(scanSet,(i,n,ok)=>{$('scanBar').style.width=(22+Math.round(i/n*50))+'%';$('scanStatus').textContent=`服务器深扫 ${i}/${n} · 成功${ok}`});const deep=deepAll.filter(x=>prodCodes.has(x.code)),shadowDeep=deepAll.filter(x=>shadowCodes.has(x.code));if(deep.length<8)throw Error('深度数据可用候选不足8只');lastDeep=deep;const shadowFinal=shadowFinalBase(shadowDeep);renderShadow(shadowFinal);recordShadowSignal(shadowFinal[0]);let base=finalBase(deep,reg);$('scanStatus').textContent='给主模型最强8只补最新新闻与风险词…';const final=await addNews(base,(i,n)=>{$('scanBar').style.width=(73+Math.round(i/n*24))+'%'});lastFinal=final;const primary=final[0];renderPrimary(primary,reg);renderCandidates(final,reg);renderNews(primary);recordForwardSignal(primary,reg);$('scanBar').style.width='100%';const cacheNote=lastMarketMeta.stale?(pre?` · 盘前使用最近成功候选池（约${(lastMarketMeta.staleAgeMin/60).toFixed(1)}小时前；仅观察不可执行）`:` · 排名池使用${Math.max(1,Math.round(lastMarketMeta.staleAgeMin||0))}分钟前缓存（约${Math.max(0,Math.round(lastMarketMeta.staleTradeAgeMin||0))}个交易分钟；深扫/新闻仍取当前数据）${freshnessBlocked()?' · 已触发新鲜度闸门':''}`):'',intradayNote=primary?.intraday?' · 盘中量能已按交易进度归一化':'';$('scanStatus').textContent=`完成：全市场排名基数${lastMarketMeta.total||'—'}只 → 多因子候选${lastMarketMeta.ranked}只 → 可执行${filtered.length}只 → 主模型深扫${deep.length}只 + 影子${shadowDeep.length}只 → ${pre?'盘前观察':'主信号'}${pre?'（不可执行）':planFor(primary,reg).pass?primary.code:'WAIT'}${cacheNote}${intradayNote}。`;try{localStorage.v10_last=JSON.stringify({time:Date.now(),reg,top:final.slice(0,5).map(x=>({code:x.code,name:x.name,price:x.price,final:x.final,T:x.T,F:x.F,M:x.M,N:x.N})),shadow:shadowFinal.slice(0,3).map(x=>({code:x.code,name:x.name,price:x.price,score:x.shadowFinal}))})}catch{}}catch(e){$('scanStatus').textContent='扫描失败：'+(e?.message||e);$('shadowStatus').textContent='影子通道本次未完成。';$('scanBar').style.width='0%'}finally{btn.disabled=false}}
 function quoteUrl(code){const p=new URLSearchParams({secid:secid(code),fields:'f43,f57,f58,f169,f170,f46,f44,f45,f47,f48,f60,f62,f184,f168,f100',fltt:'2',invt:'2'});return'https://push2.eastmoney.com/api/qt/stock/get?'+p}
-async function reviewHolding(){const code=$('posCode').value.trim(),entry=+$('posEntry').value,shares=+$('posShares').value,days=+$('posDays').value||1;if(!/^\d{6}$/.test(code)||!(entry>0)){ $('positionStatus').textContent='请填写6位代码和买入价。';return}if(/^3/.test(code)||/^688/.test(code)){ $('positionStatus').textContent='当前账户无科创板/创业板权限，请输入可交易的深沪主板股票。';return}const btn=$('reviewBtn');btn.disabled=true;$('positionStatus').textContent='正在读取当前价格、资金、K线和新闻…';try{const q=await apiCall('quote',{code},10000),d=q?.data||{},base={code,name:d.f58||code,price:+d.f43,pct:+d.f170,turn:+d.f168,mainNet:+d.f62,mainPct:+d.f184,industry:String(d.f100||'未知'),amount:+d.f48,vr:1,mcap:NaN,pct60:0};const x=await deepOne(base),nw=await getNews(x),reg=lastRegime||{label:'中性',up:.5,med:0,minScore:77,maxPos:.30};x.C=chasePenalty(x);x.T=technicalScore(x);x.F=flowScore(x);x.E=executionScore(x);x.M=lastMarket.length?(sectorMap(lastMarket).get(x.industry)?clamp(50+sectorMap(lastMarket).get(x.industry).medPct*1700+(sectorMap(lastMarket).get(x.industry).posFlow-.5)*45,0,100):50):50;x.N=nw.score;x.news=nw;x.final=clamp(.28*x.T+.28*x.F+.15*x.M+.15*x.E+.14*x.N-(x.C||0)-(nw.veto?35:0),0,100);const pnl=x.price/entry-1,atr=Number.isFinite(x.atr)?x.atr:.045,hard=entry*(1-clamp(atr*1.4,.045,.07));let action='HOLD',cls='hold',why=[];if(x.price<=hard||nw.veto||(x.final<55&&x.flow5<0)){action='EXIT';cls='exit';why.push(x.price<=hard?'触及动态硬止损':'评分/资金/新闻风险达到退出条件')}else if((x.final<64&&days>=2)||(x.flow3<0&&pnl>.02)){action='REDUCE';cls='reduce';why.push('短线优势下降，建议先减半锁定风险')}else{why.push(x.final>=78?'信号仍强，继续持有':'信号尚未破坏，暂持');if(pnl>=.06)why.push('已进入盈利保护区，建议将保护线抬到成本价上方约1%或距近期高点约3%') ;if(days>=5&&pnl<.03)why.push('持有已到时间止损窗口，若下一交易日仍无加速应退出')}const mv=Number.isFinite(shares)?shares*x.price:NaN;$('positionResult').innerHTML=`<div class="action ${cls}"><strong>${action}</strong><div class="small" style="margin-top:6px">${x.name} ${code} · 当前${x.price.toFixed(2)} · 持仓收益${pct(pnl)} · V10.1.9评分${x.final.toFixed(1)} · ${days}日</div><div class="chips"><span class="chip">T ${x.T.toFixed(0)}</span><span class="chip green">F ${x.F.toFixed(0)}</span><span class="chip">新闻 ${x.N.toFixed(0)}</span>${(x.C||0)>0?`<span class="chip amber">追高-${x.C.toFixed(0)}</span>`:""}<span class="chip">硬止损 ${hard.toFixed(2)}</span></div><div class="small" style="margin-top:10px">${why.map(s=>'• '+s).join('<br>')}${Number.isFinite(mv)?`<br>• 当前市值约 ${yuan(mv)}`:''}</div></div>`;$('positionStatus').textContent='复核完成。'}catch(e){$('positionStatus').textContent='复核失败：'+(e?.message||e)}finally{btn.disabled=false}}
+async function getV12Holding(code){
+  try{
+    const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),30000);
+    let r;
+    try{r=await fetch('/api/v12_decision?codes='+encodeURIComponent(code),{signal:ctrl.signal,cache:'no-store',credentials:'same-origin'})}
+    finally{clearTimeout(timer)}
+    const txt=await r.text();let j=null;try{j=JSON.parse(txt)}catch{}
+    if(!r.ok)return null;
+    return (j&&j.ranking||[]).find(row=>row.symbol===code)||null;
+  }catch{return null}
+}
+async function reviewHolding(){const code=$('posCode').value.trim(),entry=+$('posEntry').value,shares=+$('posShares').value,days=+$('posDays').value||1;if(!/^\d{6}$/.test(code)||!(entry>0)){ $('positionStatus').textContent='请填写6位代码和买入价。';return}if(/^3/.test(code)||/^688/.test(code)){ $('positionStatus').textContent='当前账户无科创板/创业板权限，请输入可交易的深沪主板股票。';return}const btn=$('reviewBtn');btn.disabled=true;$('positionStatus').textContent='正在读取当前价格、资金、K线和新闻…';try{const q=await apiCall('quote',{code},10000),d=q?.data||{},base={code,name:d.f58||code,price:+d.f43,pct:+d.f170,turn:+d.f168,mainNet:+d.f62,mainPct:+d.f184,industry:String(d.f100||'未知'),amount:+d.f48,vr:1,mcap:NaN,pct60:0};const x=await deepOne(base),[nw,v12]=await Promise.all([getNews(x),getV12Holding(code)]),reg=lastRegime||{label:'中性',up:.5,med:0,minScore:77,maxPos:.30};x.C=chasePenalty(x);x.T=technicalScore(x);x.F=flowScore(x);x.E=executionScore(x);x.M=lastMarket.length?(sectorMap(lastMarket).get(x.industry)?clamp(50+sectorMap(lastMarket).get(x.industry).medPct*1700+(sectorMap(lastMarket).get(x.industry).posFlow-.5)*45,0,100):50):50;x.N=nw.score;x.news=nw;x.final=clamp(.28*x.T+.28*x.F+.15*x.M+.15*x.E+.14*x.N-(x.C||0)-(nw.veto?35:0),0,100);const pnl=x.price/entry-1,atr=Number.isFinite(x.atr)?x.atr:.045,hard=entry*(1-clamp(atr*1.4,.045,.07));let action='HOLD',cls='hold',why=[];if(x.price<=hard||nw.veto||(x.final<55&&x.flow5<0)){action='EXIT';cls='exit';why.push(x.price<=hard?'触及动态硬止损':'评分/资金/新闻风险达到退出条件')}else if((x.final<64&&days>=2)||(x.flow3<0&&pnl>.02)){action='REDUCE';cls='reduce';why.push('短线优势下降，建议先减半锁定风险')}else{why.push(x.final>=78?'信号仍强，继续持有':'信号尚未破坏，暂持');if(pnl>=.06)why.push('已进入盈利保护区，建议将保护线抬到成本价上方约1%或距近期高点约3%') ;if(days>=5&&pnl<.03)why.push('持有已到时间止损窗口，若下一交易日仍无加速应退出')}
+if(v12?.quality?.complete===true&&v12?.psychology?.complete===true){
+  const v=Number(v12.scores?.v12Trade),tier=v12.executionTier||'OBSERVE';
+  if(action==='HOLD'&&tier==='OBSERVE'&&Number.isFinite(v)&&v<60){
+    action='REDUCE';cls='reduce';why.push('V12心理/题材优势不足，短线预期收益下降，优先降低仓位');
+  }else if(tier==='WATCH_PULLBACK'){
+    why.push('V12仍有优势，但当前更偏观察/等回踩，不宜因情绪追高');
+  }else if(tier==='CONFIRM_ENTRY'){
+    why.push('V12心理/题材、时机与动量均通过确认层');
+  }
+}
+const mv=Number.isFinite(shares)?shares*x.price:NaN;$('positionResult').innerHTML=`<div class="action ${cls}"><strong>${action}</strong><div class="small" style="margin-top:6px">${x.name} ${code} · 当前${x.price.toFixed(2)} · 持仓收益${pct(pnl)} · V10.1.9评分${x.final.toFixed(1)} · ${days}日</div><div class="chips"><span class="chip">T ${x.T.toFixed(0)}</span><span class="chip green">F ${x.F.toFixed(0)}</span><span class="chip">新闻 ${x.N.toFixed(0)}</span>${(x.C||0)>0?`<span class="chip amber">追高-${x.C.toFixed(0)}</span>`:""}<span class="chip">硬止损 ${hard.toFixed(2)}</span>${v12?'<span class="chip">V12 '+(v12.scores?.v12Trade==null?'—':Number(v12.scores.v12Trade).toFixed(1))+' · '+(v12.executionTier==='CONFIRM_ENTRY'?'确认':v12.executionTier==='EARLY_WATCH'?'提前':v12.executionTier==='WATCH_PULLBACK'?'等回踩':'观察')+'</span>':''}</div><div class="small" style="margin-top:10px">${why.map(s=>'• '+s).join('<br>')}${v12?'<br>• V12题材：'+(v12.psychology?.primaryTheme?.name||'—')+' · 阶段：'+(v12.psychology?.stage||'—')+' · FOMO：'+(v12.psychology?.fomoRisk?.score==null?'—':Number(v12.psychology.fomoRisk.score).toFixed(0)):''}${Number.isFinite(mv)?`<br>• 当前市值约 ${yuan(mv)}`:''}</div></div>`;$('positionStatus').textContent='复核完成。'}catch(e){$('positionStatus').textContent='复核失败：'+(e?.message||e)}finally{btn.disabled=false}}
 function savePos(){try{localStorage.v10_pos=JSON.stringify({code:$('posCode').value,entry:$('posEntry').value,shares:$('posShares').value,days:$('posDays').value});$('positionStatus').textContent='持仓已保存在本机。'}catch{}}function loadPos(){try{const p=JSON.parse(localStorage.v10_pos||'null');if(p){$('posCode').value=p.code||'';$('posEntry').value=p.entry||'';$('posShares').value=p.shares||'';$('posDays').value=p.days||'1'}}catch{}}function clearPos(){try{localStorage.removeItem('v10_pos')}catch{};$('posCode').value='';$('posEntry').value='';$('posShares').value='';$('posDays').value='1';$('positionResult').innerHTML='';$('positionStatus').textContent='已清空。'}
-document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('on',x===b));document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));$('view-'+b.dataset.view).classList.add('on')});if(isPremarket()){$('scanBtn').textContent='盘前扫描';$('scanStatus').textContent='盘前观察模式：09:30前若实时排名源尚未启动，可使用本机最近有效候选池复核最近收盘数据；所有结果仅观察，不可执行。09:30后请重新扫描，正式交易时段不会使用盘前/本机旧候选池兜底。'}$('scanBtn').onclick=runScan;$('reviewBtn').onclick=reviewHolding;$('savePosBtn').onclick=savePos;$('clearPosBtn').onclick=clearPos;loadPos();
+function readV12Journal(){
+  try{
+    const value=JSON.parse(localStorage.getItem('v12_forward_journal_v1')||'[]');
+    return Array.isArray(value)?value:[];
+  }catch{return []}
+}
+function writeV12Journal(rows){
+  try{
+    localStorage.setItem('v12_forward_journal_v1',JSON.stringify(rows.slice(-500)));
+  }catch{}
+}
+function saveV12Journal(rows,asOf){
+  const journal=readV12Journal();
+  const stamp=String(asOf||new Date().toISOString());
+  const added=(rows||[]).slice(0,20).map(row=>({
+    id:stamp+'|'+row.symbol,
+    asOf:stamp,
+    symbol:row.symbol,
+    name:row.name,
+    price:Number(row.price),
+    scores:row.scores||{},
+    executionTier:row.executionTier||'OBSERVE',
+    timingStage:row.timing?.stage||'unknown',
+    timingSignal:row.timing?.signal||'UNKNOWN',
+    psychologyStage:row.psychology?.stage||'unknown',
+    primaryTheme:row.psychology?.primaryTheme?.name||null,
+    fomo:Number(row.psychology?.fomoRisk?.score),
+    outcomes:row.outcomes||{}
+  }));
+  const map=new Map(journal.map(row=>[row.id,row]));
+  for(const row of added){
+    if(!Number.isFinite(row.price)||!row.symbol)continue;
+    const old=map.get(row.id);
+    map.set(row.id,{...(old||{}),...row,outcomes:old?.outcomes||{}}); 
+  }
+  writeV12Journal([...map.values()]);
+  $('v12JournalStatus').textContent='已记录 '+map.size+' 个 V12 前向样本。';
+}
+function parseJournalBars(item){
+  const raw=item?.kline?.data?.klines||[];
+  return (Array.isArray(raw)?raw:[]).map(line=>{
+    const a=String(line).split(',');
+    const date=a[0],close=Number(a[2]),high=Number(a[3]),low=Number(a[4]);
+    return {date,close,high,low};
+  }).filter(row=>/^\d{4}-\d{2}-\d{2}$/.test(row.date)&&Number.isFinite(row.close)&&row.close>0)
+    .sort((a,b)=>a.date.localeCompare(b.date));
+}
+function journalOutcome(record,bars){
+  const asOfDate=String(record.asOf||'').slice(0,10);
+  const future=bars.filter(row=>row.date>asOfDate);
+  const entry=Number(record.price);
+  if(!asOfDate||!(entry>0)||!future.length)return record.outcomes||{};
+  const out={...(record.outcomes||{})};
+  for(const [key,index] of [['t1',0],['t3',2],['t5',4]]){
+    if(!out[key]&&future[index]&&Number.isFinite(future[index].close)){
+      out[key]={
+        date:future[index].date,
+        returnPct:(future[index].close/entry-1)*100
+      };
+    }
+  }
+  if(!out.mfe5&&future.length>=5){
+    const window=future.slice(0,5);
+    const highs=window.map(row=>row.high).filter(value=>Number.isFinite(value)&&value>0);
+    const lows=window.map(row=>row.low).filter(value=>Number.isFinite(value)&&value>0);
+    if(highs.length&&lows.length){
+      out.mfe5=Math.max(...highs)/entry*100-100;
+      out.mae5=Math.min(...lows)/entry*100-100;
+    }
+  }
+  return out;
+}
+function aggregateJournal(rows){
+  const tiers=['CONFIRM_ENTRY','EARLY_WATCH','EARLY_SETUP','WATCH_PULLBACK','OBSERVE'];
+  const summarize=(items,key)=>{
+    const values=items.map(row=>Number(row.outcomes?.[key]?.returnPct)).filter(Number.isFinite);
+    if(!values.length)return null;
+    return {n:values.length,avg:values.reduce((a,b)=>a+b,0)/values.length,
+      win:values.filter(v=>v>0).length/values.length*100};
+  };
+  return tiers.map(tier=>{
+    const items=rows.filter(row=>row.executionTier===tier);
+    return {tier,n:items.length,t1:summarize(items,'t1'),t3:summarize(items,'t3'),t5:summarize(items,'t5')};
+  }).filter(row=>row.n);
+}
+async function evaluateV12Journal(){
+  const btn=$('v12EvalBtn');btn.disabled=true;
+  const journal=readV12Journal();
+  if(!journal.length){
+    $('v12JournalStatus').textContent='暂无历史 V12 样本。';
+    $('v12JournalResult').innerHTML='<div class="note">先运行一次 V12；以后每次运行都会自动累计真实前向样本。</div>';
+    btn.disabled=false;return;
+  }
+  $('v12JournalStatus').textContent='正在读取历史样本对应的真实后续 K 线…';
+  try{
+    const pending=journal.filter(row=>!(row.outcomes?.t5&&row.outcomes?.mfe5)).slice(-30);
+    const codes=[...new Set(pending.map(row=>row.symbol).filter(code=>/^\d{6}$/.test(code)))];
+    if(!codes.length){renderV12Journal(journal);return;}
+    const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),30000);
+    let r;
+    try{r=await fetch('/api/market?action=deep_batch&codes='+encodeURIComponent(codes.join(',')),{signal:ctrl.signal,cache:'no-store',credentials:'same-origin'})}
+    finally{clearTimeout(timer)}
+    const txt=await r.text();let payload=null;try{payload=JSON.parse(txt)}catch{}
+    if(!r.ok)throw Error((payload&&payload.error)||txt.slice(0,200)||('HTTP '+r.status));
+    const items=payload?.items||[];
+    const byCode=new Map(items.map(item=>[String(item?.code||''),item]));
+    const updated=journal.map(row=>{
+      const item=byCode.get(row.symbol);
+      return item?{...row,outcomes:journalOutcome(row,parseJournalBars(item))}:row;
+    });
+    writeV12Journal(updated);
+    renderV12Journal(updated);
+  }catch(e){
+    $('v12JournalStatus').textContent='历史样本评估失败：'+(e?.name==='AbortError'?'超过30秒':e?.message||e);
+  }finally{btn.disabled=false}
+}
+function renderV12Journal(rows){
+  const complete=rows.filter(row=>row.outcomes?.t5&&row.outcomes?.mfe5).length;
+  const groups=aggregateJournal(rows);
+  $('v12JournalStatus').textContent='样本 '+rows.length+' 个 · 已完成 T+5 '+complete+' 个';
+  if(!groups.length){
+    $('v12JournalResult').innerHTML='<div class="note">已有信号记录，但目前还没有足够的后续交易日完成 T+1/T+3/T+5 统计。</div>';
+    return;
+  }
+  $('v12JournalResult').innerHTML='<div class="chips"><span class="chip">总样本 '+rows.length+'</span><span class="chip">T+5完整 '+complete+'</span></div>'+
+    groups.map(g=>'<div style="padding:8px 0;border-top:1px solid var(--line)"><b>'+g.tier+'</b> · '+g.n+'个'+
+      ['t1','t3','t5'].map(k=>g[k]?' · '+k.toUpperCase()+'均值 '+g[k].avg.toFixed(2)+'% / 胜率 '+g[k].win.toFixed(0)+'%':'').join('')+
+      '</div>').join('')+
+    '<div class="small" style="margin-top:8px">统计对象是模型历史信号的真实后续价格，不代表实际成交收益；样本不足时不做参数调整。</div>';
+}
+async function runV12(){
+  const btn=$('v12Btn');btn.disabled=true;
+  $('v12Status').textContent='正在读取 V12 实时题材、资金、龙头与新闻证据…';$('v12Result').textContent='计算中…';
+  try{
+    const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),30000);
+    let r;
+    try{r=await fetch('/api/v12_decision',{signal:ctrl.signal,cache:'no-store',credentials:'same-origin'})}
+    finally{clearTimeout(timer)}
+    const txt=await r.text();let j=null;try{j=JSON.parse(txt)}catch{}
+    if(!r.ok)throw Error((j&&j.error)||txt.slice(0,200)||('HTTP '+r.status));
+    const rows=j&&j.ranking||[];
+    const status=j&&j.status||'UNKNOWN';
+    saveV12Journal(rows,j&&j.asOf);
+    const statusText=status==='READY'?'可进入前向验证':status==='PSYCHOLOGY_PARTIAL'?'心理证据部分完整，暂不执行':'证据不足，仅观察';
+    const marketEmotion=j&&j.market&&j.market.emotion?j.market.emotion:null;
+    const emotionText=marketEmotion&&Number.isFinite(Number(marketEmotion.score))
+      ? ' · 市场情绪 '+marketEmotion.label+' '+Number(marketEmotion.score).toFixed(0) : '';
+    $('v12Status').textContent=statusText+' · asOf '+((j&&j.asOf)||'—')+' · 完整心理 '+((j&&j.diagnostics&&j.diagnostics.psychologyComplete)||0)+' · V12可用 '+((j&&j.diagnostics&&j.diagnostics.v12Eligible)||0)+emotionText;
+    if(!rows.length){$('v12Result').innerHTML='<div class="note danger">当前没有满足 V12 完整证据门槛的候选。不要为了交易降低门槛。</div>';return}
+    $('v12Result').innerHTML=rows.slice(0,5).map(x=>{
+      const s=x.scores||{},p=x.psychology||{};
+      const theme=(p.primaryTheme&&p.primaryTheme.name)||'题材证据不足';
+      const fomo=p.fomoRisk&&p.fomoRisk.score!=null?Number(p.fomoRisk.score).toFixed(0):'—';
+      const v=s.v12Trade==null?'—':Number(s.v12Trade).toFixed(1);
+      const tier=x.executionTier||'OBSERVE';
+      const tierLabel=tier==='CONFIRM_ENTRY'?'确认入场':tier==='EARLY_WATCH'?'提前关注':tier==='EARLY_SETUP'?'早期埋伏观察':tier==='WATCH_PULLBACK'?'观察/等回踩':'仅观察';
+      const timingSignal=x.timing&&x.timing.signal?x.timing.signal:'UNKNOWN';
+      const me=x.marketEmotion&&Number.isFinite(Number(x.marketEmotion.score))
+        ? ' · 市场情绪 '+x.marketEmotion.label+' '+Number(x.marketEmotion.score).toFixed(0) : '';
+      return '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>#'+(x.tradeRank==null?'—':x.tradeRank)+' '+(x.name||x.symbol)+'</b> <span class="pill">'+(v==='—'?'WAIT':v)+'</span> <span class="pill">'+tierLabel+'</span><div class="small" style="margin-top:5px">'+x.symbol+' · 题材 '+theme+' · 阶段 '+(p.stage||'unknown')+' · FOMO '+fomo+' · Alpha '+(s.alpha==null?'—':s.alpha)+' · Timing '+(s.timing==null?'—':s.timing)+' ('+timingSignal+') · Psychology '+(s.psychology==null?'—':s.psychology)+me+'</div><div class="small" style="margin-top:5px">'+((p.reasons||[]).slice(0,3).join(' · '))+'</div></div>';
+    }).join('');
+  }catch(e){
+    $('v12Status').textContent='V12运行失败：'+(e&&e.name==='AbortError'?'超过30秒':'');
+    $('v12Result').innerHTML='<div class="note danger">V12 本次未完成。保持 V10 主模型独立运行，不用不完整的 V12 结果替代主信号。</div>';
+  }finally{btn.disabled=false}
+}document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>{document.querySelectorAll('#nav button').forEach(x=>x.classList.toggle('on',x===b));document.querySelectorAll('.view').forEach(v=>v.classList.remove('on'));$('view-'+b.dataset.view).classList.add('on')});if(isPremarket()){$('scanBtn').textContent='盘前扫描';$('scanStatus').textContent='盘前观察模式：09:30前若实时排名源尚未启动，可使用本机最近有效候选池复核最近收盘数据；所有结果仅观察，不可执行。09:30后请重新扫描，正式交易时段不会使用盘前/本机旧候选池兜底。'}$('scanBtn').onclick=runScan;$('reviewBtn').onclick=reviewHolding;$('v12Btn').onclick=runV12;$('v12EvalBtn').onclick=evaluateV12Journal;renderV12Journal(readV12Journal());$('savePosBtn').onclick=savePos;$('clearPosBtn').onclick=clearPos;loadPos();
 </script>
 </body>
 </html>

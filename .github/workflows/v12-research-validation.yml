@@ -1,0 +1,139 @@
+name: V12 Research Validation
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/v12-psychology-narrative
+  pull_request:
+    branches:
+      - research/v11-short-alpha
+      - main
+    paths:
+      - 'research/v11-short-alpha/**'
+      - 'api/**'
+      - 'index.html'
+      - '.github/workflows/v12-research-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  research-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check V12 runtime source syntax
+        run: |
+          for file in api/v12_decision.js api/market.js api/psychology_universe.js; do
+            node --check "$file"
+          done
+
+      - name: Run full research test suite
+        run: node --test research/v11-short-alpha/tests/*.js
+
+      - name: Run V12 benchmark fixture
+        run: |
+          node research/v11-short-alpha/backtest/v12_benchmark.js \
+            --input research/v11-short-alpha/tests/fixtures/v12_benchmark.json \
+            > v12-benchmark-result.json
+          node <<'NODE'
+          const r = JSON.parse(require('fs').readFileSync('v12-benchmark-result.json', 'utf8'));
+          for (const s of ['composite', 'v12']) {
+            for (const n of ['top1', 'top5']) {
+              for (const h of ['T+1', 'T+3', 'T+5']) {
+                const m = r.aggregate[s][n][h];
+                console.log(s, n, h,
+                  'avg=' + m.averageReturnPct,
+                  'win=' + m.winRatePct,
+                  'dd=' + m.maxDrawdownPct,
+                  'payoff=' + m.payoffRatio);
+              }
+            }
+          }
+          NODE
+
+      - name: Run V12 OOS fixture
+        run: |
+          node research/v11-short-alpha/backtest/v12_oos.js \
+            --input research/v11-short-alpha/tests/fixtures/v12_oos.json \
+            > v12-oos-result.json
+          node <<'NODE'
+          const r = JSON.parse(require('fs').readFileSync('v12-oos-result.json', 'utf8'));
+          console.log(JSON.stringify({
+            schema: r.schema,
+            folds: r.diagnostics.foldCount,
+            overallTop1T1: r.aggregate.v12.overall.top1['T+1'].net,
+            overallTop1T3: r.aggregate.v12.overall.top1['T+3'].net,
+            overallTop1T5: r.aggregate.v12.overall.top1['T+5'].net,
+            bullTop1T3: r.aggregate.v12.bull.top1['T+3'].net,
+            bearTop1T3: r.aggregate.v12.bear.top1['T+3'].net
+          }, null, 2));
+          NODE
+
+      - name: Publish validation summary
+        if: always()
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const b = JSON.parse(fs.readFileSync('v12-benchmark-result.json', 'utf8'));
+          const o = JSON.parse(fs.readFileSync('v12-oos-result.json', 'utf8'));
+          const lines = [
+            '## V12 Research Validation',
+            '',
+            '| Strategy | Universe | Horizon | Avg net % | Win rate % | Max DD % | Payoff |',
+            '|---|---|---|---:|---:|---:|---:|'
+          ];
+
+          for (const s of ['composite', 'v12']) {
+            for (const n of ['top1', 'top5']) {
+              for (const h of ['T+1', 'T+3', 'T+5']) {
+                const m = b.aggregate[s][n][h];
+                lines.push(
+                  '|' + s + '|' + n + '|' + h + '|' +
+                  m.averageReturnPct + '|' + m.winRatePct + '|' +
+                  m.maxDrawdownPct + '|' + m.payoffRatio + '|'
+                );
+              }
+            }
+          }
+
+          lines.push('');
+          lines.push('OOS folds: ' + o.diagnostics.foldCount);
+          lines.push(
+            'OOS overall V12 Top1 T+3 net avg: ' +
+            o.aggregate.v12.overall.top1['T+3'].net.averageReturnPct + '%'
+          );
+          lines.push(
+            'OOS bull V12 Top1 T+3 net avg: ' +
+            o.aggregate.v12.bull.top1['T+3'].net.averageReturnPct + '%'
+          );
+          lines.push(
+            'OOS bear V12 Top1 T+3 net avg: ' +
+            o.aggregate.v12.bear.top1['T+3'].net.averageReturnPct + '%'
+          );
+          lines.push(
+            'V12 minus Composite Top1 T+3 avg: ' +
+            o.deltaVsComposite.overall.top1['T+3'].averageReturnPct + '%'
+          );
+
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
+          NODE
+
+      - name: Upload research reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v12-research-validation
+          path: |
+            v12-benchmark-result.json
+            v12-oos-result.json
+          if-no-files-found: warn
