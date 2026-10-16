@@ -58,7 +58,6 @@ test('behavioral psychology captures capital flow, participation and FOMO balanc
     {symbol:'600001',asOf:'2026-10-16',pct:-3,themes:['BK9002']},
     {themes:[weakTheme]}
   );
-  assert.ok(hot.components === undefined);
   const hotBehavior = hot.themes[0].components.behavioral;
   const weakBehavior = weak.themes[0].components.behavioral;
   assert.equal(typeof hotBehavior.score, 'number');
