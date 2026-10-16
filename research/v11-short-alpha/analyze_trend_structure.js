@@ -132,10 +132,6 @@ function perSnapshotCorrelations(rows, horizon, field) {
 
 function rankMetrics(rows, horizon) {
   const pairs = validRows(rows, horizon);
-  const scores = pairs.map(row => trendScoreOf(row));
-  const outcomes = pairs.map(row => n(horizonOf(row, horizon)?.returnPct));
-  const scoreRanks = ranks(scores);
-  const outcomeRanks = ranks(outcomes);
   const top5 = metricBlock(quantileRowsBySnapshot(pairs, 0.05), horizon);
   const top10 = metricBlock(quantileRowsBySnapshot(pairs, 0.10), horizon);
   const top20 = metricBlock(quantileRowsBySnapshot(pairs, 0.20), horizon);
@@ -148,9 +144,7 @@ function rankMetrics(rows, horizon) {
     pairCount:pairs.length,
     snapshotCount:new Set(pairs.map(row => row.__snapshotId ?? 'single')).size,
     rankIC:metric(mean(perSnapshotCorrelations(pairs, horizon, 'returnPct'))),
-    spearman:metric(mean(perSnapshotCorrelations(
-      pairs.map(row => ({...row, __rankScore:ranks([trendScoreOf(row)])[0]}),
-      horizon, 'returnPct'))),
+    spearman:null,
     rankICMarketExcess:excessIC('marketExcessReturnPct'),
     rankICSectorExcess:excessIC('sectorExcessReturnPct'),
     top5, top10, top20, bottom20,
