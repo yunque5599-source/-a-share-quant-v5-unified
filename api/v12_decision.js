@@ -116,6 +116,34 @@ export default async function handler(req, res) {
       });
     }
 
+    const missingRequested = requestedCodes.filter(code =>
+      !candidates.some(row => String(row?.f12 ?? '') === code)
+    );
+    let requestedQuoteRows = [];
+    if (missingRequested.length) {
+      const quoted = await Promise.all(missingRequested.slice(0, 3).map(async code => {
+        const result = await invoke(marketHandler, '/api/market?action=quote&code=' + encodeURIComponent(code));
+        if (result.statusCode !== 200) return null;
+        try {
+          const data = JSON.parse(result.body)?.data ?? {};
+          return {
+            f12:code,
+            f14:data.f58 ?? code,
+            f2:data.f43,
+            f3:data.f170,
+            f6:data.f48,
+            f8:data.f168,
+            f62:data.f62,
+            f184:data.f184,
+            f100:data.f100
+          };
+        } catch {
+          return null;
+        }
+      }));
+      requestedQuoteRows = quoted.filter(Boolean);
+    }
+
     const query = encodeURIComponent(codes.join(','));
     const [deep, discovery, psychology] = await Promise.all([
       invoke(marketHandler, '/api/market?action=deep_batch&codes=' + query),
@@ -127,11 +155,15 @@ export default async function handler(req, res) {
     const discoveryPayload = parseBody('discovery_universe', discovery);
     const psychologyPayload = parseBody('psychology_universe', psychology);
 
+    const evaluationRows = [
+      ...candidates.filter(row => codes.includes(String(row?.f12 ?? ''))),
+      ...requestedQuoteRows
+    ];
     const rankedForV12 = {
       ...ranked,
       data:{
         ...ranked.data,
-        candidates:candidates.filter(row => codes.includes(String(row?.f12 ?? '')))
+        candidates:evaluationRows
       }
     };
     const decision = integrateCandidateFlow({
@@ -160,6 +192,8 @@ export default async function handler(req, res) {
         rankedCandidateCount:candidates.length,
         requestedCodes:requestedCodes.length,
         evaluatedCodes:codes.length,
+        requestedMissingCount:missingRequested.length,
+        requestedQuoteCount:requestedQuoteRows.length,
         providerFallback:ranked?.data?.providerFallback ?? null,
         degraded:ranked?.data?.degraded === true
       },
