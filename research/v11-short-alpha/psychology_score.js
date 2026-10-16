@@ -311,10 +311,14 @@ function scoreBehavioral(theme = {}, candidate = {}) {
   const leaderChange = n(theme.leaderChangePct);
   const parts = [];
 
+  const change = n(theme.changePct ?? theme.themeChangePct);
   if (flow !== null) {
+    const flowScore = clamp(50 + flow * 8);
+    const priceScore = change === null ? 50 : clamp(50 + change * 5);
+    const directionBonus = change === null || flow * change >= 0 ? 10 : -10;
     parts.push({
       key:'capitalEmotionAlignment',
-      score:clamp(50 + flow * 8),
+      score:clamp(flowScore * 0.60 + priceScore * 0.40 + directionBonus),
       weight:0.35
     });
   }
