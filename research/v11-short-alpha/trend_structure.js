@@ -43,12 +43,14 @@ function validBars(rawBars, options = {}) {
   const dateOnly = typeof rawAsOf === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(rawAsOf);
   const barComplete = options.barComplete === true;
   const seen = new Set();
+  const seenDates = new Set();
   let futureRowsIgnored = 0;
   let sameDayRowsIgnored = 0;
   const bars = [];
   for (const raw of list(rawBars)) {
     const row = normalizeBar(raw);
-    if (!row || seen.has(row.date)) continue;
+    if (!row || seenDates.has(row.date)) continue;
+    seenDates.add(row.date);
     if (!cutoff) continue;
     if (row.date > cutoff) {
       futureRowsIgnored += 1;
