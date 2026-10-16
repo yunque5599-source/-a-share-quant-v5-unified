@@ -102,26 +102,44 @@ function conceptRankingUrl() {
 }
 
 async function fetchConceptRanking() {
-  const spec = conceptRankingUrl();
-  const json = await fetchFromHosts(PUSH_HOSTS, spec.path, spec.params, 9000);
-  const diff = json?.data?.diff;
-  const rows = Array.isArray(diff) ? diff : diff && typeof diff === 'object' ? Object.values(diff) : [];
-  return rows.map(row => ({
-    code:String(row?.f12 ?? ''),
-    name:String(row?.f14 ?? ''),
-    changePct:n(row?.f3),
-    amountCny:n(row?.f6),
-    mainNetCny:n(row?.f62),
-    mainNetPct:n(row?.f184),
-    upCount:n(row?.f104),
-    downCount:n(row?.f105),
-    flatCount:n(row?.f106),
-    memberCount:n(row?.f134),
-    leaderName:String(row?.f128 ?? ''),
-    leaderCode:String(row?.f140 ?? ''),
-    leaderChangePct:n(row?.f136),
-    quoteTimestamp:n(row?.f124)
-  })).filter(row => /^BK\d+$/.test(row.code));
+  const firstSpec = conceptRankingUrl();
+  const first = await fetchFromHosts(PUSH_HOSTS, firstSpec.path, firstSpec.params, 9000);
+  const total = n(first?.data?.total) ?? 0;
+  const pageCount = Math.max(1, Math.min(6, Math.ceil(total / 100)));
+  const pages = [first];
+  if (pageCount > 1) {
+    const rest = await mapLimit(
+      Array.from({length:pageCount - 1}, (_, index) => index + 2),
+      2,
+      async page => {
+        await sleep(120);
+        return fetchFromHosts(PUSH_HOSTS, firstSpec.path,
+          {...firstSpec.params, pn:String(page)}, 9000);
+      }
+    );
+    pages.push(...rest);
+  }
+  return pages.flatMap(json => {
+    const diff = json?.data?.diff;
+    const rows = Array.isArray(diff) ? diff :
+      diff && typeof diff === 'object' ? Object.values(diff) : [];
+    return rows.map(row => ({
+      code:String(row?.f12 ?? ''),
+      name:String(row?.f14 ?? ''),
+      changePct:n(row?.f3),
+      amountCny:n(row?.f6),
+      mainNetCny:n(row?.f62),
+      mainNetPct:n(row?.f184),
+      upCount:n(row?.f104),
+      downCount:n(row?.f105),
+      flatCount:n(row?.f106),
+      memberCount:n(row?.f134),
+      leaderName:String(row?.f128 ?? ''),
+      leaderCode:String(row?.f140 ?? ''),
+      leaderChangePct:n(row?.f136),
+      quoteTimestamp:n(row?.f124)
+    })).filter(row => /^BK\d+$/.test(row.code));
+  });
 }
 
 async function fetchStockConcepts(code) {
@@ -183,8 +201,9 @@ function priorCumulativeReturn(rows) {
 }
 
 function averageMainPct(rows, start, end) {
-  const slice = rows.slice(start, end).map(row => row.mainNetPct).filter(value => value !== null);
-  return slice.length === end - start
+  const slice = rows.slice(start, end).map(row => row.mainNetPct)
+    .filter(value => value !== null);
+  return slice.length >= Math.min(4, Math.max(1, end - start))
     ? slice.reduce((sum, value) => sum + value, 0) / slice.length : null;
 }
 
@@ -202,7 +221,11 @@ function themeStrength(row) {
 }
 
 function enrichTheme(base, flowRows, candidatePct, asOf) {
-  const rows = [...flowRows].sort((a,b) => a.date.localeCompare(b.date));
+  const snapshotDate = Number.isFinite(base.quoteTimestamp) &&
+    base.quoteTimestamp >= 1e9 && base.quoteTimestamp <= 2.2e9
+    ? new Date(base.quoteTimestamp * 1000).toISOString().slice(0,10) : asOf;
+  const rows = [...flowRows].filter(row => !snapshotDate || row.date <= snapshotDate)
+    .sort((a,b) => a.date.localeCompare(b.date));
   const memberCount = base.memberCount ??
     ((base.upCount ?? 0) + (base.downCount ?? 0) + (base.flatCount ?? 0));
   return {
