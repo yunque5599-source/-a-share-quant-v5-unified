@@ -2,14 +2,15 @@ import { clamp, finiteNumber, round, asOfDate } from './schema.js';
 import { scoreNarrativeResearch, scoreImaginationResearch } from './psychology_research.js';
 
 export const PSYCHOLOGY_WEIGHTS = Object.freeze({
-  emotionHeat: 0.25,
+  emotionHeat: 0.20,
   emotionAcceleration: 0.20,
   narrative: 0.20,
   leader: 0.20,
-  imagination: 0.15
+  imagination: 0.10,
+  behavioral: 0.10
 });
 
-export const PSYCHOLOGY_VERSION = 'V12 Psychology Score Phase 2';
+export const PSYCHOLOGY_VERSION = 'V12 Psychology Score Phase 3 Behavioral';
 
 const n = finiteNumber;
 const metric = value => value === null || !Number.isFinite(value) ? null : round(value);
@@ -302,6 +303,69 @@ function fomoRisk(theme = {}, candidate = {}) {
   };
 }
 
+function scoreBehavioral(theme = {}, candidate = {}) {
+  const fomo = fomoRisk(theme, candidate);
+  const flow = n(theme.mainNetPct ?? theme.themeFlowPct);
+  const breadth = breadthPct(theme);
+  const candidateChange = n(candidate.pct ?? candidate.changePct);
+  const leaderChange = n(theme.leaderChangePct);
+  const parts = [];
+
+  if (flow !== null) {
+    parts.push({
+      key:'capitalEmotionAlignment',
+      score:clamp(50 + flow * 8),
+      weight:0.35
+    });
+  }
+  if (breadth !== null) {
+    parts.push({
+      key:'crowdParticipation',
+      score:breadth,
+      weight:0.30
+    });
+  }
+  if (fomo.score !== null) {
+    // Moderate excitement is constructive; both panic and euphoria are penalized.
+    const fomoQuality = clamp(100 - Math.abs(fomo.score - 55) * 1.8);
+    parts.push({
+      key:'fomoBalance',
+      score:fomoQuality,
+      weight:0.25
+    });
+  }
+  if (candidateChange !== null && leaderChange !== null) {
+    const alignment = clamp(100 - Math.abs(candidateChange - leaderChange) * 6);
+    parts.push({
+      key:'leaderAlignment',
+      score:alignment,
+      weight:0.10
+    });
+  }
+
+  if (parts.length < 2) {
+    return {
+      score:null,
+      confidence:0,
+      components:{},
+      reasons:['behavioral-evidence-incomplete']
+    };
+  }
+  const weightSum = parts.reduce((sum, item) => sum + item.weight, 0);
+  const score = parts.reduce((sum, item) => sum + item.score * item.weight, 0) / weightSum;
+  return {
+    score:clamp(score),
+    confidence:parts.length >= 3 ? 1 : 0.80,
+    components:Object.fromEntries(parts.map(item => [item.key, {
+      score:item.score, weight:item.weight
+    }])),
+    reasons:[
+      score >= 70 ? 'constructive-crowd-psychology' :
+        score <= 35 ? 'weak-crowd-psychology' : 'mixed-crowd-psychology'
+    ]
+  };
+}
+
 function stageFor(heat, acceleration, fomo) {
   if ([heat, acceleration].some(value => value === null)) return 'unknown';
   if (heat < 40 || acceleration < 35) return 'decay';
@@ -374,7 +438,8 @@ function scoreTheme(theme, candidate) {
   const leader = scoreLeader(theme, candidate);
   const imagination = scoreImagination(theme);
   const fomo = fomoRisk(theme, candidate);
-  const parts = {emotionHeat:heat, emotionAcceleration:acceleration, narrative, leader, imagination};
+  const behavioral = scoreBehavioral(theme, candidate);
+  const parts = {emotionHeat:heat, emotionAcceleration:acceleration, narrative, leader, imagination, behavioral};
   const complete = Object.values(parts).every(item => item.score !== null) &&
     Object.values(parts).every(item => item.confidence >= 0.70);
   const raw = complete
