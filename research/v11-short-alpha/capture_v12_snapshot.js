@@ -174,7 +174,8 @@ const modelTop = decision.ranking.slice(0, 10).map(row => ({
   v12Trade:row.scores?.v12Trade ?? null,
   psychComplete:row.psychology?.complete === true,
   qualityComplete:row.quality?.complete === true,
-  blockedReasons:(row.quality?.blockedReasons ?? []).slice(0, 6)
+  blockedReasons:(row.quality?.blockedReasons ?? []).slice(0, 6),
+  missing:(row.quality?.missing ?? []).slice(0, 6)
 }));
 console.log(JSON.stringify({
   status:'LIVE_SNAPSHOT_CAPTURED',
