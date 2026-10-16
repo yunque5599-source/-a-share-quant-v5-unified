@@ -255,3 +255,51 @@ not daily marked-to-market NAV. The fixture uses synthetic as-of labels.
 
 Default costs are 3bps commission per side, 5bps sell stamp tax, and 5bps slippage
 per side. Production page, API, and main are unchanged.
+
+## V12 live snapshot capture
+
+The research branch includes a live capture CLI that runs the existing market, discovery, and
+V12 psychology handlers from a reachable Node environment. It does not connect to a broker,
+place orders, or modify production.
+
+Run during a continuous A-share trading session:
+
+    node research/v11-short-alpha/capture_v12_snapshot.js
+
+Optional output path:
+
+    node research/v11-short-alpha/capture_v12_snapshot.js ./my-snapshot.json
+
+The capture:
+
+1. obtains the current ranked candidate universe;
+2. selects the first 30 eligible 00/60 main-board candidates;
+3. fetches deep kline/flow data for those candidates;
+4. fetches the independent discovery universe;
+5. fetches V12 theme membership, theme flow, leader, and dated news evidence;
+6. runs integrateCandidateFlow with the captured V12 psychology context;
+7. writes an immutable, dated JSON snapshot containing the raw inputs, model versions,
+   as-of timestamp, diagnostics, and Top20 V12 trade ranking.
+
+A same-day snapshot must not be edited after capture. Forward T+1/T+3/T+5 outcomes are
+measured only after the corresponding future bars exist. The snapshot itself is evidence
+of what the model knew at capture time, not evidence of profitability.
+
+### Live source probe
+
+live_source_probe.js and .github/workflows/v12-live-source-probe.yml provide a
+non-production connectivity check. The probe is informational and is allowed to fail
+without making the deterministic research suite fail.
+
+At present, GitHub-hosted runners may receive HTTP 502/fetch failures from Eastmoney.
+That result is treated as an environment/upstream connectivity limitation, not as proof
+that the local live capture path works. A real capture must therefore be run from an
+environment that can actually reach the upstream sources.
+
+### Live-money validation boundary
+
+The research system deliberately stops before brokerage execution. Actual money, if used
+for validation, must be tied to a previously captured signal snapshot and recorded with
+the real order/fill timestamp, quantity, price, fees, slippage, rejection/cancellation
+status, and exit details. No same-day outcome may be fed back into that day's signal.
+\n
