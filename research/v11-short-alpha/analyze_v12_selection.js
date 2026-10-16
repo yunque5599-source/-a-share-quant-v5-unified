@@ -44,13 +44,36 @@ function horizonOf(row,h) {
   return row?.horizons?.['t'+h] ?? null;
 }
 
+function normalizeMarketRegime(value) {
+  const text=String(value ?? '').toLowerCase();
+  if(text==='bull' || text==='bullish' || text.includes('牛')) return 'bull';
+  if(text==='bear' || text==='bearish' || text.includes('熊') || text==='weak') return 'bear';
+  if(text==='sideways' || text==='neutral' || text==='normal' || text==='elevated' ||
+     text.includes('震荡')) return 'neutral';
+  return 'unknown';
+}
+
+function emotionLabel(snapshot) {
+  return String(snapshot?.marketEmotion?.label ??
+    snapshot?.market?.emotion?.label ??
+    snapshot?.decision?.market?.emotion?.label ??
+    snapshot?.emotion?.label ?? '').toUpperCase();
+}
+
+function candidateEmotionStage(row) {
+  return String(row?.psychology?.stage ?? row?.emotionStage ??
+    row?.features?.psychology?.stage ?? 'unknown').toLowerCase() || 'unknown';
+}
+
 function layerValue(snapshot, layer) {
   if(layer==='marketRegime') {
-    return snapshot?.marketRegime ?? snapshot?.market?.regime ?? snapshot?.regime ?? 'unknown';
+    const raw=snapshot?.marketRegime ?? snapshot?.market?.regime ??
+      snapshot?.decision?.market?.regime ?? snapshot?.decision?.market?.marketRegime ??
+      snapshot?.decision?.market?.marketRisk ?? snapshot?.regime;
+    return normalizeMarketRegime(raw);
   }
   if(layer==='emotion') {
-    const label=String(snapshot?.marketEmotion?.label ?? snapshot?.market?.emotion?.label ??
-      snapshot?.emotion?.label ?? '').toUpperCase();
+    const label=emotionLabel(snapshot);
     if(['FEVER','RISING'].includes(label))return 'high';
     if(label==='NEUTRAL')return 'normal';
     if(['FADING','PANIC'].includes(label))return 'low';
@@ -88,6 +111,11 @@ function metricBlock(rows,horizon) {
     averageSectorExcessReturnPct:metric(mean(sector)),
     winRatePct:returns.length?metric(returns.filter(x=>x>0).length/returns.length*100):null,
     mfeAvgPct:metric(mean(mfe)), maeAvgPct:metric(mean(mae)),
+    riskAdjustedReturnPct:metric(mean(outcomes
+      .map(item => {
+        const ret=n(item.returnPct), adverse=n(item.maePct);
+        return ret===null ? null : ret / Math.max(1, Math.abs(adverse ?? 0));
+      }).filter(value => value!==null))),
     unavailableMarketExcess:outcomes.filter(x=>x.marketExcessReturnPct===null).length,
     unavailableSectorExcess:outcomes.filter(x=>x.sectorExcessReturnPct===null).length
   };
@@ -104,6 +132,12 @@ function rankMetrics(rows,horizon) {
     pairCount:pairs.length,
     rankIC:metric(pearson(scores,outcomes)),
     spearman:metric(pearson(scoreRanks,outcomeRanks)),
+    rankICMarketExcess:metric(pearson(
+      pairs.filter(x=>n(x.outcome.marketExcessReturnPct)!==null).map(x=>x.score),
+      pairs.filter(x=>n(x.outcome.marketExcessReturnPct)!==null).map(x=>n(x.outcome.marketExcessReturnPct)))),
+    rankICSectorExcess:metric(pearson(
+      pairs.filter(x=>n(x.outcome.sectorExcessReturnPct)!==null).map(x=>x.score),
+      pairs.filter(x=>n(x.outcome.sectorExcessReturnPct)!==null).map(x=>n(x.outcome.sectorExcessReturnPct)))),
     top5,top10,top20,bottom20,
     topBottomSpreadPct:metric(top20.averageReturnPct===null||bottom20.averageReturnPct===null?null:top20.averageReturnPct-bottom20.averageReturnPct),
     t1: horizon===1 ? top20 : undefined,
@@ -120,14 +154,20 @@ export function analyzeV12Selection(input={}) {
   const snapshots=Array.isArray(input)?input:list(input?.snapshots ?? input?.predictions ?? [input]);
   const diagnostics={snapshotCount:snapshots.length,emotionFallbackSnapshots:0};
   const overallRows=[];
-  const layers={marketRegime:{},emotion:{},timeBucket:{}};
+  const layers={marketRegime:{},emotion:{},timeBucket:{},emotionStage:{}};
   for(const snapshot of snapshots){
     const rows=signalsOf(snapshot);
     const emotion=layerValue(snapshot,'emotion');
     if(emotion==='unknown')diagnostics.emotionFallbackSnapshots++;
     const meta={marketRegime:layerValue(snapshot,'marketRegime'),emotion,timeBucket:layerValue(snapshot,'timeBucket')};
-    for(const row of rows)overallRows.push({...row,__meta:meta});
-    for(const layer of Object.keys(layers)){
+    for(const row of rows){
+      const enriched={...row,__meta:{...meta,emotionStage:candidateEmotionStage(row)}};
+      overallRows.push(enriched);
+      const stage=candidateEmotionStage(row);
+      layers.emotionStage[stage]??=[];
+      layers.emotionStage[stage].push(enriched);
+    }
+    for(const layer of ['marketRegime','emotion','timeBucket']){
       const value=meta[layer];layers[layer][value]??=[];
       layers[layer][value].push(...rows);
     }
@@ -141,7 +181,8 @@ export function analyzeV12Selection(input={}) {
     overall:analyzeRows(overallRows),
     byMarketRegime:Object.fromEntries(Object.entries(layers.marketRegime).map(([k,v])=>[k,analyzeRows(v)])),
     byEmotion:Object.fromEntries(Object.entries(layers.emotion).map(([k,v])=>[k,analyzeRows(v)])),
-    byTimeBucket:Object.fromEntries(Object.entries(layers.timeBucket).map(([k,v])=>[k,analyzeRows(v)]))
+    byTimeBucket:Object.fromEntries(Object.entries(layers.timeBucket).map(([k,v])=>[k,analyzeRows(v)])),
+    byEmotionStage:Object.fromEntries(Object.entries(layers.emotionStage).map(([k,v])=>[k,analyzeRows(v)]))
   };
 }
 
