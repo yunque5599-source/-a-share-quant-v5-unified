@@ -37,7 +37,8 @@ test('walk-forward V12 OOS reports gross and net costs by regime', () => {
     trainSize:2, testSize:2, step:2,
     costs:{commissionBps:3,stampTaxBps:5,slippageBps:5}
   });
-  assert.equal(result.schema, 'v12-trade-oos-v1');
+  assert.equal(result.schema, 'v12-trade-oos-v2');
+  assert.deepEqual(result.config.strategies, ['composite','v12']);
   assert.equal(result.diagnostics.foldCount, 8);
   assert.deepEqual(result.config.regimes, ['bull','bear','sideways','unknown']);
   for (const regime of ['overall','bull','bear','sideways']) {
@@ -53,6 +54,13 @@ test('walk-forward V12 OOS reports gross and net costs by regime', () => {
     result.aggregate.bear.top1['T+3'].net.averageReturnPct);
   assert.ok(result.aggregate.bull.top1['T+3'].net.winRatePct >
     result.aggregate.bear.top1['T+3'].net.winRatePct);
+  const v12 = result.aggregate.v12.overall.top1['T+3'].net;
+  const composite = result.aggregate.composite.overall.top1['T+3'].net;
+  assert.equal(v12.sampleCount, composite.sampleCount);
+  assert.equal(
+    result.deltaVsComposite.overall.top1['T+3'].averageReturnPct,
+    v12.averageReturnPct - composite.averageReturnPct
+  );
 });
 
 test('zero costs preserve gross and net returns', () => {
@@ -60,7 +68,7 @@ test('zero costs preserve gross and net returns', () => {
     trainSize:2, testSize:2, step:2,
     costs:{commissionBps:0,stampTaxBps:0,slippageBps:0}
   });
-  const metric = result.aggregate.overall.top5['T+5'];
+  const metric = result.aggregate.v12.overall.top5['T+5'];
   assert.equal(metric.gross.averageReturnPct, metric.net.averageReturnPct);
   assert.equal(metric.gross.maxDrawdownPct, metric.net.maxDrawdownPct);
 });
