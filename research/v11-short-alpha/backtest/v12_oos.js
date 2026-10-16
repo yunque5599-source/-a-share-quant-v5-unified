@@ -159,6 +159,13 @@ export function benchmarkV12OutOfSample(input={}, options={}) {
     const regimeByDate=new Map(
       validation.map(snapshot=>[dateOf(snapshot),classifyMarketRegime(snapshot).regime])
     );
+    const selections = Object.fromEntries(strategies.map(strategy => {
+      const ordered = orderedRanking(
+        ranking(validation[0]),
+        strategy === 'composite' ? 'composite' : 'v12'
+      );
+      return [strategy, ordered[0]?.symbol ?? ordered[0]?.code ?? null];
+    }));
     const fold={
       fold:folds.length+1,
       training:{
@@ -166,6 +173,8 @@ export function benchmarkV12OutOfSample(input={}, options={}) {
         end:dateOf(train.at(-1)),
         count:train.length
       },
+      selection:selections,
+      selectionChanged:selections.composite !== selections.v12,
       validation:{
         start:dateOf(validation[0]),
         end:dateOf(validation.at(-1)),
@@ -259,7 +268,11 @@ export function benchmarkV12OutOfSample(input={}, options={}) {
     diagnostics:{
       snapshotCount:raw.length,
       foldCount:folds.length,
-      validationSnapshotCount:folds.reduce((sum,f)=>sum+(f.validation.count??0),0)
+      validationSnapshotCount:folds.reduce((sum,f)=>sum+(f.validation.count??0),0),
+      top1SelectionComparisons:folds.length,
+      top1SelectionChangedCount:folds.filter(f=>f.selectionChanged).length,
+      top1SelectionOverlapPct:folds.length
+        ? metric(folds.filter(f=>!f.selectionChanged).length / folds.length * 100) : null
     }
   };
 }
