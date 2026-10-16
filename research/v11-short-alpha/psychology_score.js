@@ -198,12 +198,18 @@ function scoreImagination(theme = {}) {
   const direct = n(theme.imaginationScore);
   if (direct !== null) {
     const evidence = list(theme.imaginationEvidence ?? theme.spaceEvidence);
+    const suppliedConfidence = n(theme.imaginationConfidence);
+    const confidence = suppliedConfidence !== null
+      ? Math.min(0.90, Math.max(0, suppliedConfidence))
+      : evidence.length ? 1 : 0.60;
     return {
       score:clamp(direct),
-      confidence:evidence.length ? 1 : 0.60,
-      source:evidence.length ? 'explicit-with-evidence' : 'explicit-without-evidence',
+      confidence,
+      source:confidence < 0.90 ? 'structured-research-partial' :
+        evidence.length ? 'explicit-with-evidence' : 'explicit-without-evidence',
       evidence:evidence.slice(0,8),
-      reasons:evidence.length ? ['imagination-evidence-present'] : ['imagination-score-needs-evidence']
+      reasons:confidence < 0.90 ? ['imagination-research-partial'] :
+        evidence.length ? ['imagination-evidence-present'] : ['imagination-score-needs-evidence']
     };
   }
   const parts = [
