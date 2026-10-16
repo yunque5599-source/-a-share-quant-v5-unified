@@ -319,6 +319,7 @@ function scoreBehavioral(theme = {}, candidate = {}, marketEmotion = {}) {
   const capital = candidate?.features?.capital ?? {};
   const largeOrderPct = n(capital.largeOrderNetPct5d);
   const largeOrderPositiveRatio = n(capital.largeOrderPositiveRatio5d);
+  const flowTiming = String(capital.flowTiming ?? '');
   const parts = [];
 
   const change = n(theme.changePct ?? theme.themeChangePct);
@@ -356,7 +357,7 @@ function scoreBehavioral(theme = {}, candidate = {}, marketEmotion = {}) {
     parts.push({
       key:'crowdParticipation',
       score:breadth,
-      weight:0.30
+      weight:0.20
     });
   }
   if (fomo.score !== null) {
@@ -365,7 +366,7 @@ function scoreBehavioral(theme = {}, candidate = {}, marketEmotion = {}) {
     parts.push({
       key:'fomoBalance',
       score:fomoQuality,
-      weight:0.25
+      weight:0.20
     });
   }
   if (candidateChange !== null && leaderChange !== null) {
@@ -376,11 +377,25 @@ function scoreBehavioral(theme = {}, candidate = {}, marketEmotion = {}) {
       weight:0.10
     });
   }
+  if (flowTiming) {
+    const flowTimingScore = {
+      'early-inflow':90,
+      'recent-inflow':68,
+      'late-high-inflow':25,
+      'outflow':20
+    }[flowTiming] ?? 50;
+    const timingPenalty = flowTiming === 'late-high-inflow' ? 8 : 0;
+    parts.push({
+      key:'flowTimingPsychology',
+      score:clamp(flowTimingScore - timingPenalty),
+      weight:0.10
+    });
+  }
   if (globalEmotion !== null) {
     parts.push({
       key:'marketEmotion',
       score:clamp(globalEmotion),
-      weight:0.15
+      weight:0.10
     });
   }
 
