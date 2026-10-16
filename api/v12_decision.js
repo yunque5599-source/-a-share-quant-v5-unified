@@ -95,8 +95,15 @@ export default async function handler(req, res) {
     const discoveryPayload = parseBody('discovery_universe', discovery);
     const psychologyPayload = parseBody('psychology_universe', psychology);
 
+    const rankedForV12 = {
+      ...ranked,
+      data:{
+        ...ranked.data,
+        candidates:candidates.filter(row => codes.includes(String(row?.f12 ?? '')))
+      }
+    };
     const decision = integrateCandidateFlow({
-      ranked,
+      ranked:rankedForV12,
       deep:deepPayload,
       discovery:discoveryPayload,
       psychology:psychologyPayload?.data ?? psychologyPayload
