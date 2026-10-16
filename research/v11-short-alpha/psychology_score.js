@@ -60,7 +60,7 @@ function scoreEmotionHeat(theme = {}) {
     change: {score:pctScore(change, 5), weight:0.20}
   };
   if (strongBreadth !== null) {
-    components.strongBreadth = {score:strongBreadth, weight:0.10};
+    components.strongBreadth = {score:clamp(50 + (strongBreadth - 5) * 5), weight:0.10};
     for (const key of ['flow','breadth','limitUps','change']) components[key].weight *= 0.90;
   }
   const score = Object.values(components).reduce((sum, item) =>
