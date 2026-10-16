@@ -81,7 +81,7 @@ function executionTier(row) {
       v >= 60 && timing >= 75 && psychology >= 65 &&
       Number.isFinite(fomo) && fomo < 65 &&
       ['startup','acceleration'].includes(String(row?.timing?.stage ?? '')) &&
-      ['early','acceleration'].includes(String(row?.psychology?.stage ?? ''))) {
+      ['ignition','acceleration'].includes(String(row?.psychology?.stage ?? ''))) {
     return 'EARLY_WATCH';
   }
   if (Number.isFinite(v) && Number.isFinite(timing) && Number.isFinite(psychology) &&
