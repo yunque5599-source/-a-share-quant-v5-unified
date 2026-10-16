@@ -1,6 +1,7 @@
 name: V12 Research Validation
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - research/v12-psychology-narrative
