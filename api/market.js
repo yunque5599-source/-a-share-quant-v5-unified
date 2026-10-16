@@ -1,6 +1,7 @@
 export const config = { maxDuration: 30 };
 
 const EM_HOSTS = [
+  'https://push2delay.eastmoney.com',
   'https://push2.eastmoney.com',
   'https://7.push2.eastmoney.com',
   'https://43.push2.eastmoney.com',
