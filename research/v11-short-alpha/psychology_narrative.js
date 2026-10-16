@@ -293,35 +293,52 @@ function buildImagination(items, theme, members) {
 
   const values = {marketSize:scale, penetrationGap:penetration,
     policyRunway:policy, technologyOptionality:optionality, companyCapture:capture};
+  const weights = {marketSize:0.25,penetrationGap:0.20,
+    policyRunway:0.20,technologyOptionality:0.20,companyCapture:0.15};
+  const available = Object.entries(values).filter(([, value]) => value !== null);
+  const missing = Object.entries(values).filter(([, value]) => value === null).map(([key]) => key);
 
-  const complete = Object.values(values).every(value => value !== null) &&
+  // Imagination is inherently harder to observe than price/flow. Do not require a
+  // single article to contain all five dimensions. Compute a renormalized partial
+  // score when at least two dimensions have dated evidence, while lowering confidence
+  // as evidence coverage falls. This prevents "unknown" from becoming a fake zero,
+  // but also prevents thin imagination evidence from silently receiving full confidence.
+  const weightSum = available.reduce((sum, [key]) => sum + weights[key], 0);
+  const score = weightSum > 0
+    ? available.reduce((sum, [key, value]) => sum + value * weights[key], 0) / weightSum
+    : null;
+  const evidenceFactor = evidence.length >= 4 ? 1 : evidence.length >= 2 ? 0.90 : 0.65;
+  const coverage = available.length / Object.keys(values).length;
+  const confidence = score === null ? 0 : Math.min(0.90, 0.45 + coverage * 0.45) * evidenceFactor;
+  const complete = available.length === Object.keys(values).length &&
     sources.size >= 2 && evidence.length >= 2;
 
-  if (!complete) {
+  if (score === null || available.length < 2 || evidence.length < 2) {
     return {
-      complete:false, score:null, confidence:0.55,
+      complete:false, score:null, confidence,
       components:Object.fromEntries(Object.entries(values).map(([key, value]) => [key, {
-        score:value, weight:{marketSize:0.25,penetrationGap:0.20,
-          policyRunway:0.20,technologyOptionality:0.20,companyCapture:0.15}[key]
+        score:value, weight:weights[key]
       }])),
       evidence, diagnostics:{
-        articleCount7d:items.length, sourceCount:sources.size,
-        missing:Object.entries(values).filter(([,value]) => value === null).map(([key]) => key)
+        articleCount7d:items.length, sourceCount:sources.size, availableCount:available.length,
+        missing
       },
       reason:'automatic-imagination-evidence-incomplete'
     };
   }
 
-  const score = Object.values(values).reduce((sum, value) => sum + value, 0) / 5;
   return {
-    complete:true, score:round(score), confidence:0.78,
+    complete, score:round(score), confidence,
     components:Object.fromEntries(Object.entries(values).map(([key, value]) => [key, {
-      score:value, weight:{marketSize:0.25,penetrationGap:0.20,
-        policyRunway:0.20,technologyOptionality:0.20,companyCapture:0.15}[key]
+      score:value, weight:weights[key]
     }])),
     evidence,
-    diagnostics:{articleCount7d:items.length, sourceCount:sources.size},
-    reason:'automatic-imagination-news-proxy-complete'
+    diagnostics:{
+      articleCount7d:items.length, sourceCount:sources.size, availableCount:available.length,
+      missing
+    },
+    reason:complete ? 'automatic-imagination-news-proxy-complete' :
+      'automatic-imagination-news-proxy-partial'
   };
 }
 
