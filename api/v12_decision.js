@@ -35,6 +35,25 @@ function parseCodes(raw) {
     .filter(code => /^(00|60)\d{4}$/.test(code)))].slice(0, 15);
 }
 
+function executionTier(row) {
+  const v = Number(row?.scores?.v12Trade);
+  const timing = Number(row?.scores?.timing);
+  const psychology = Number(row?.scores?.psychology);
+  const fomo = Number(row?.psychology?.fomoRisk?.score);
+  const stage = String(row?.psychology?.stage ?? '');
+  if (Number.isFinite(v) && Number.isFinite(timing) && Number.isFinite(psychology) &&
+      v >= 75 && timing >= 75 && psychology >= 70 &&
+      Number.isFinite(fomo) && fomo < 75 &&
+      ['ignition','acceleration','mainstream'].includes(stage)) {
+    return 'CONFIRM_ENTRY';
+  }
+  if (Number.isFinite(v) && Number.isFinite(timing) && Number.isFinite(psychology) &&
+      v >= 65 && timing >= 50 && psychology >= 65) {
+    return 'WATCH_PULLBACK';
+  }
+  return 'OBSERVE';
+}
+
 function compact(row) {
   return {
     tradeRank:row.tradeRank,
@@ -49,6 +68,14 @@ function compact(row) {
       psychology:row.scores?.psychology ?? null,
       v12Trade:row.scores?.v12Trade ?? null
     },
+    timing:{
+      score:row.scores?.timing ?? null,
+      signal:row.timing?.signal ?? null,
+      stage:row.timing?.stage ?? 'unknown',
+      capitalTiming:row.timing?.capitalTiming ?? 'unknown',
+      overboughtRisk:row.timing?.overboughtRisk ?? 'unknown'
+    },
+    executionTier:executionTier(row),
     psychology:{
       complete:row.psychology?.complete === true,
       confidence:row.psychology?.confidence ?? 0,
