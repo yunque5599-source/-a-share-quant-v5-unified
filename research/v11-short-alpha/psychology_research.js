@@ -21,7 +21,7 @@ const n = value => {
 
 const evidenceList = value => Array.isArray(value) ? value.filter(Boolean).slice(0, 12) : [];
 
-function scoreBlock(block, weights, requiredCount = 4) {
+function scoreBlock(block, weights, requiredCount = Object.keys(weights).length) {
   if (!block || typeof block !== 'object') {
     return {score:null, confidence:0, complete:false, components:{}, evidence:[]};
   }
