@@ -1,4 +1,4 @@
-import { clamp, finiteNumber, round } from './schema.js';
+import { clamp, finiteNumber, round, asOfDate } from './schema.js';
 
 export const PSYCHOLOGY_WEIGHTS = Object.freeze({
   emotionHeat: 0.25,
@@ -310,7 +310,12 @@ function matchThemes(candidate = {}, context = {}) {
   const selected = [];
   const seen = new Set();
 
+  const candidateDate = asOfDate(candidate.asOf);
   for (const theme of [...list(bySymbol), ...all]) {
+    const themeAsOf = theme.asOf === undefined || theme.asOf === null || theme.asOf === ''
+      ? null : asOfDate(theme.asOf);
+    if (theme.asOf !== undefined && theme.asOf !== null && theme.asOf !== '' &&
+        (!themeAsOf || !candidateDate || themeAsOf > candidateDate)) continue;
     const key = themeKey(theme);
     const name = String(theme.name ?? '').trim();
     const matched = refs.length === 0
