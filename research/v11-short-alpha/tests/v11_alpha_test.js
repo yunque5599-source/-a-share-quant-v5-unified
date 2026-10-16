@@ -131,9 +131,9 @@ test('capital flow preserves large and super-large order buckets for V12 psychol
   const candidate = first(integrateCandidateFlow(input));
   near(candidate.features.capital.largeOrderNet5dCny, 250000000);
   near(candidate.features.capital.superLargeOrderNet5dCny, 100000000);
-  near(candidate.features.capital.largeOrderNetPct5d, 7);
+  near(candidate.features.capital.largeOrderNetPct5d, 250000000 / 2200000000 * 100);
   near(candidate.features.capital.largeOrderPositiveRatio5d, 1);
-  assert.equal(candidate.features.capital.priorLargeOrderNetPct5d, 7);
+  near(candidate.features.capital.priorLargeOrderNetPct5d, 250000000 / 1500000000 * 100);
 });
 
 test('sector ranking is reproducible from change pct, not supplied array order', () => {
