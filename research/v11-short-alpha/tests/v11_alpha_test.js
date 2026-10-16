@@ -118,6 +118,24 @@ test('capital aligns last-five-session flow and never treats flow[11] price as a
   near(first(integrateCandidateFlow(input)).features.capital.mainNetPct, 10);
 });
 
+test('capital flow preserves large and super-large order buckets for V12 psychology', () => {
+  const input = clone();
+  input.deep.items[0].flow.data.klines = input.deep.items[0].flow.data.klines.map(row => {
+    const fields = row.split(',');
+    fields[4] = '30000000'; // large-order net
+    fields[5] = '20000000'; // super-large-order net
+    fields[9] = '3';         // large-order net pct
+    fields[10] = '2';        // super-large-order net pct
+    return fields.join(',');
+  });
+  const candidate = first(integrateCandidateFlow(input));
+  near(candidate.features.capital.largeOrderNet5dCny, 250000000);
+  near(candidate.features.capital.superLargeOrderNet5dCny, 100000000);
+  near(candidate.features.capital.largeOrderNetPct5d, 7);
+  near(candidate.features.capital.largeOrderPositiveRatio5d, 1);
+  assert.equal(candidate.features.capital.priorLargeOrderNetPct5d, 7);
+});
+
 test('sector ranking is reproducible from change pct, not supplied array order', () => {
   const input = clone();
   const before = first(integrateCandidateFlow(input)).features.sector;
