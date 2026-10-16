@@ -58,9 +58,11 @@ function buildRankedSectorProxy(candidates) {
   };
 }
 
+const MAX_LIVE_CODES = 12;
+
 function parseCodes(raw) {
   return [...new Set(String(raw || '').split(',').map(s => s.trim())
-    .filter(code => /^(00|60)\d{4}$/.test(code)))].slice(0, 15);
+    .filter(code => /^(00|60)\d{4}$/.test(code)))].slice(0, MAX_LIVE_CODES);
 }
 
 function executionTier(row) {
@@ -130,18 +132,19 @@ function compact(row) {
 
 export default async function handler(req, res) {
   const u = new URL(req.url, 'http://localhost');
+  const startedAt = Date.now();
   try {
     const requestedCodes = parseCodes(u.searchParams.get('codes'));
     const ranked = parseBody('ranked_candidates',
       await invoke(marketHandler, '/api/market?action=ranked_candidates'));
     const candidates = ranked?.data?.candidates ?? [];
-    const diversified = selectV12Candidates(candidates, 30);
+    const diversified = selectV12Candidates(candidates, 24);
     const codes = requestedCodes.length
       ? [...new Set([
           ...requestedCodes,
           ...diversified.map(row => String(row?.f12 ?? ''))
-        ])].slice(0, 15)
-      : diversified.slice(0, 15).map(row => String(row?.f12 ?? ''));
+        ])].slice(0, MAX_LIVE_CODES)
+      : diversified.slice(0, MAX_LIVE_CODES).map(row => String(row?.f12 ?? ''));
 
     if (codes.length < 3) {
       return res.status(422).json({
@@ -226,6 +229,8 @@ export default async function handler(req, res) {
         rankedCandidateCount:candidates.length,
         requestedCodes:requestedCodes.length,
         evaluatedCodes:codes.length,
+        liveCodeCap:MAX_LIVE_CODES,
+        elapsedMs:Date.now() - startedAt,
         requestedMissingCount:missingRequested.length,
         requestedQuoteCount:requestedQuoteRows.length,
         providerFallback:ranked?.data?.providerFallback ?? null,
@@ -237,6 +242,7 @@ export default async function handler(req, res) {
   } catch (error) {
     return res.status(502).json({
       schema:'v12-decision-v1',
+      elapsedMs:Date.now() - startedAt,
       status:'SOURCE_OR_COMPUTE_FAILED',
       error:error?.message || String(error)
     });
