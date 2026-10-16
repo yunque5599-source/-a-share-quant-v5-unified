@@ -128,6 +128,23 @@ function ranking(snapshot) {
   return list(snapshot?.ranking ?? snapshot?.candidates ?? snapshot?.stocks);
 }
 
+function topSelectionSymbol(snapshot, strategy) {
+  const rows = ranking(snapshot).map((candidate, index) => {
+    const composite = n(candidate?.scores?.compositeRaw ?? candidate?.scores?.composite);
+    const v12 = n(candidate?.scores?.v12TradeRaw) ??
+      computeV12TradeScore(candidate)?.scoreRaw ?? null;
+    return {candidate, index, value:strategy === 'composite' ? composite : v12};
+  });
+  rows.sort((a,b) => {
+    if (a.value === null && b.value === null) return a.index - b.index;
+    if (a.value === null) return 1;
+    if (b.value === null) return -1;
+    return b.value - a.value || a.index - b.index;
+  });
+  const top = rows[0]?.candidate;
+  return top?.symbol ?? top?.code ?? null;
+}
+
 /**
  * Walk-forward V12 validation against the existing Composite baseline.
  *
@@ -160,11 +177,7 @@ export function benchmarkV12OutOfSample(input={}, options={}) {
       validation.map(snapshot=>[dateOf(snapshot),classifyMarketRegime(snapshot).regime])
     );
     const selections = Object.fromEntries(strategies.map(strategy => {
-      const ordered = orderedRanking(
-        ranking(validation[0]),
-        strategy === 'composite' ? 'composite' : 'v12'
-      );
-      return [strategy, ordered[0]?.symbol ?? ordered[0]?.code ?? null];
+      return [strategy, topSelectionSymbol(validation[0], strategy)];
     }));
     const fold={
       fold:folds.length+1,
