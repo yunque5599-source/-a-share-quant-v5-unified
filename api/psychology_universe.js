@@ -3,6 +3,7 @@ import { buildAutomaticPsychologyResearch } from '../research/v11-short-alpha/ps
 export const config = { maxDuration: 60 };
 
 const PUSH_HOSTS = [
+  'https://push2delay.eastmoney.com',
   'https://push2.eastmoney.com',
   'https://7.push2.eastmoney.com',
   'https://43.push2.eastmoney.com',
@@ -285,6 +286,12 @@ function sourceAsOf(rows, fallback) {
   return dates.at(-1) ?? fallback;
 }
 
+function validCaptureAsOf(value) {
+  if (value === null || value === undefined || value === '') return null;
+  const parsed = new Date(String(value));
+  return Number.isFinite(parsed.getTime()) ? parsed.toISOString() : null;
+}
+
 const NON_NARRATIVE_THEME_PATTERNS = [
   /历史新高/, /昨日打二板/, /融资融券/, /HS300/i, /上证50/, /上证180/,
   /央视50/, /沪股通/, /深股通/, /科创板做市商/, /MSCI/i, /富时罗素/
@@ -414,6 +421,8 @@ export const _internal = {
 export default async function handler(req, res) {
   const url = new URL(req.url, 'http://localhost');
   const codes = parseCodes(url.searchParams.get('codes'), 30);
+  const requestedAsOf = validCaptureAsOf(url.searchParams.get('asOf'));
+  const captureAsOf = requestedAsOf ?? new Date().toISOString();
   if (!codes.length) {
     res.statusCode = 400;
     res.setHeader('content-type','application/json; charset=utf-8');
@@ -430,7 +439,9 @@ export default async function handler(req, res) {
     researchThemes:0,
     researchFailures:0,
     selectedThemesPerStock:2,
-    maxResearchThemes:24
+    maxResearchThemes:24,
+    asOfMode:requestedAsOf ? 'caller-supplied' : 'server-capture',
+    asOf:captureAsOf
   };
 
   try {
@@ -500,7 +511,7 @@ export default async function handler(req, res) {
     });
     diagnostics.researchThemes = rankedResearchThemes.length;
 
-    const fallbackAsOf = new Date().toISOString();
+    const fallbackAsOf = captureAsOf;
     const themeBySymbol = {};
     const allThemes = new Map();
     for (const code of codes) {
@@ -514,9 +525,10 @@ export default async function handler(req, res) {
           return theme;
         }
         const rows = flowMap.get(base.code) ?? [];
-        const asOf = sourceAsOf(rows, fallbackAsOf);
+        const flowAsOf = sourceAsOf(rows, fallbackAsOf);
         const theme = enrichTheme(base, rows, memberMap.get(base.code) ?? [],
-          newsMap.get(base.code) ?? [], candidatePct, code, candidateName, asOf);
+          newsMap.get(base.code) ?? [], candidatePct, code, candidateName, fallbackAsOf);
+        theme.flowAsOf = flowAsOf;
         allThemes.set(theme.code, theme);
         return theme;
       });
@@ -533,7 +545,7 @@ export default async function handler(req, res) {
     res.end(JSON.stringify({
       schema:'v12-psychology-source-v1',
       version:'V12 Psychology Market Evidence Phase 3 Behavioral',
-      asOf:asOfValues.at(-1) ?? fallbackAsOf,
+      asOf:fallbackAsOf,
       data:{
         themeBySymbol,
         themes:[...allThemes.values()]
