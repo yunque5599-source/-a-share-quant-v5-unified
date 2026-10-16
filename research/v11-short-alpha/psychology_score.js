@@ -9,7 +9,7 @@ export const PSYCHOLOGY_WEIGHTS = Object.freeze({
   imagination: 0.15
 });
 
-export const PSYCHOLOGY_VERSION = 'V12 Psychology Score Phase 1';
+export const PSYCHOLOGY_VERSION = 'V12 Psychology Score Phase 2';
 
 const n = finiteNumber;
 const metric = value => value === null || !Number.isFinite(value) ? null : round(value);
