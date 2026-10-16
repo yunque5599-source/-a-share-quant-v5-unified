@@ -158,6 +158,14 @@ const outputFile = snapshotPath(process.argv[2]);
 await mkdir(dirname(outputFile), {recursive:true});
 await writeFile(outputFile, JSON.stringify(output, null, 2) + '\n', 'utf8');
 
+const deepDiagnostics = (deepPayload?.items ?? []).slice(0, 10).map(item => ({
+  code:item?.code ?? null,
+  klineRows:Array.isArray(item?.kline?.data?.klines) ? item.kline.data.klines.length : 0,
+  flowRows:Array.isArray(item?.flow?.data?.klines) ? item.flow.data.klines.length : 0,
+  klineSource:item?.dataQuality?.klineSource ?? null,
+  flowSource:item?.dataQuality?.flowSource ?? null,
+  error:item?.error ?? null
+}));
 const blockCounts = {};
 for (const row of decision.ranking) {
   for (const reason of row.quality?.blockedReasons ?? []) {
@@ -189,6 +197,7 @@ console.log(JSON.stringify({
   v12Scoreable:decision.ranking.filter(row => row.scores?.v12TradeRaw !== null).length,
   v12Eligible:decision.diagnostics.v12Eligible,
   blockedReasonCounts:blockCounts,
+  deepDiagnostics,
   modelTop,
   top5:decision.tradeRanking.slice(0, 5).map(row => ({
     rank:row.tradeRank,
