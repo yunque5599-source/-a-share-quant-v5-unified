@@ -6,6 +6,7 @@ import { withPsychology } from './psychology_score.js';
 import { withV12TradeScore } from './v12_trade_score.js';
 import { withV12SelectionScore } from './v12_selection_score.js';
 import { buildMarketEmotion } from './market_emotion.js';
+import { computeTrendStructure } from './trend_structure.js';
 
 const list = value => Array.isArray(value) ? value : [];
 const mean = values => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
@@ -31,8 +32,10 @@ function parseRows(raw, kind, cutoff) {
       const close = n(array ? fields[2] : fields?.close ?? fields?.price);
       if (!(close > 0)) { blocked.push('kline:invalid-close'); continue; }
       result.push({
-        date, close,
+        date, open: n(array ? fields[1] : fields?.open),
+        close,
         high: n(array ? fields[3] : fields?.high),
+        low: n(array ? fields[4] : fields?.low),
         volume: n(array ? fields[5] : fields?.volume ?? fields?.vol),
         amount: n(array ? fields[6] : fields?.amount ?? fields?.turnover)
       });
@@ -313,7 +316,13 @@ export function integrateCandidateFlow(input = {}, options = {}) {
       flow?.degraded === true || flow?.source === 'neutral-flow-fallback';
     const degraded = flowDegraded || item?.dataQuality?.degraded === true ||
       history?.source === 'tencent-kline-fallback';
-    const frame = features(raw, parsedBars.data, parsedFlows.data, sectors.get(industry), flowDegraded);
+    const frame = {
+      ...features(raw, parsedBars.data, parsedFlows.data, sectors.get(industry), flowDegraded),
+      trendStructure:computeTrendStructure({bars:parsedBars.data, asOf}, {
+        asOf,
+        barComplete:raw?.barComplete ?? item?.barComplete
+      })
+    };
     const price = n(raw?.f2 ?? raw?.price) ?? parsedBars.data.at(-1)?.close ?? null;
     const blockedReasons = [...parsedBars.blocked, ...parsedFlows.blocked];
     if (!cutoff) blockedReasons.push('snapshot-asof-missing-or-invalid');
