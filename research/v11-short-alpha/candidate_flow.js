@@ -301,7 +301,7 @@ export function integrateCandidateFlow(input = {}, options = {}) {
     dataComplete: record.quality.complete
   })), marketRisk);
   return {
-    version: 'V12 Psychology Phase 1', schema: 'v12-psychology-flow-v1',
+    version: 'V11 Short Alpha Phase 1', schema: 'v11-short-alpha-flow-v1',
     asOf, market: { marketRisk }, ranking, candidates: ranking, tradeRanking,
     diagnostics, ...decision
   };
