@@ -235,13 +235,13 @@ async function fetchCandidateQuotes(codes) {
   if (!codes.length) return new Map();
   const json = await fetchFromHosts(PUSH_HOSTS, '/api/qt/ulist.np/get', {
     secids:codes.map(secid).join(','),
-    fields:'f12,f3,f124',
+    fields:'f12,f14,f3,f124',
     fltt:'2', invt:'2', ut:UT
   }, 7000);
   const diff = json?.data?.diff;
   const rows = Array.isArray(diff) ? diff : diff && typeof diff === 'object' ? Object.values(diff) : [];
   return new Map(rows.map(row => [String(row?.f12 ?? ''), {
-    pct:n(row?.f3), quoteTimestamp:n(row?.f124)
+    name:String(row?.f14 ?? ''), pct:n(row?.f3), quoteTimestamp:n(row?.f124)
   }]));
 }
 
@@ -277,7 +277,7 @@ function themeStrength(row) {
   return flow * 0.45 + breadth * 0.30 + change * 0.25;
 }
 
-function enrichTheme(base, flowRows, memberRows, newsRows, candidatePct, candidateName, asOf) {
+function enrichTheme(base, flowRows, memberRows, newsRows, candidatePct, candidateCode, candidateName, asOf) {
   const snapshotDate = Number.isFinite(base.quoteTimestamp) &&
     base.quoteTimestamp >= 1e9 && base.quoteTimestamp <= 2.2e9
     ? new Date(base.quoteTimestamp * 1000).toISOString().slice(0,10) : asOf;
@@ -287,14 +287,14 @@ function enrichTheme(base, flowRows, memberRows, newsRows, candidatePct, candida
     (b.pct ?? -Infinity) - (a.pct ?? -Infinity) || a.code.localeCompare(b.code));
   const memberCount = base.memberCount ??
     ((base.upCount ?? 0) + (base.downCount ?? 0) + (base.flatCount ?? 0));
-  const candidateCode = String(base.candidateCode ?? '').trim();
-  const candidateRankIndex = candidateCode
+  const resolvedCandidateCode = String(candidateCode ?? '').trim();
+  const candidateRankIndex = resolvedCandidateCode
     ? members.findIndex(row => row.code === candidateCode) : -1;
   const memberLeader = members[0] ?? null;
   const leaderCode = base.leaderCode || memberLeader?.code || null;
   const leaderName = base.leaderName || memberLeader?.name || null;
   const leaderChangePct = base.leaderChangePct ?? memberLeader?.pct ?? null;
-  const leaderStatus = candidateCode && candidateCode === leaderCode ? 'leader' :
+  const leaderStatus = resolvedCandidateCode && resolvedCandidateCode === leaderCode ? 'leader' :
     candidateRankIndex >= 0 && candidateRankIndex < 3 ? 'core' :
     candidateRankIndex >= 0 && candidateRankIndex < 5 ? 'front' : 'follower';
   const candidatePremiumPct = candidatePct !== null && base.changePct !== null
@@ -302,7 +302,7 @@ function enrichTheme(base, flowRows, memberRows, newsRows, candidatePct, candida
   const research = buildAutomaticPsychologyResearch({
     ...base,
     asOf,
-    candidateCode,
+    candidateCode:resolvedCandidateCode,
     candidateName,
     leaderCode,
     leaderName,
@@ -470,10 +470,10 @@ export default async function handler(req, res) {
     const allThemes = new Map();
     for (const code of codes) {
       const candidatePct = quotes.get(code)?.pct ?? null;
-      const candidateName = String(codes.find(item => item === code) ?? code);
+      const candidateName = quotes.get(code)?.name ?? null;
       const themes = (selectedByStock.get(code) ?? []).map(base => {
         if (!researchThemeCodes.has(base.code)) {
-          const theme = enrichTheme(base, [], [], [], candidatePct, candidateName, fallbackAsOf);
+          const theme = enrichTheme(base, [], [], [], candidatePct, code, candidateName, fallbackAsOf);
           theme.source.researchRequired = ['research-not-selected'];
           allThemes.set(theme.code, theme);
           return theme;
@@ -481,7 +481,7 @@ export default async function handler(req, res) {
         const rows = flowMap.get(base.code) ?? [];
         const asOf = sourceAsOf(rows, fallbackAsOf);
         const theme = enrichTheme(base, rows, memberMap.get(base.code) ?? [],
-          newsMap.get(base.code) ?? [], candidatePct, candidateName, asOf);
+          newsMap.get(base.code) ?? [], candidatePct, code, candidateName, asOf);
         allThemes.set(theme.code, theme);
         return theme;
       });
