@@ -62,7 +62,7 @@ export function createCandidateRecord(input = {}) {
   };
   quality.complete = input.quality?.complete !== false && missing.length === 0 &&
     blockedReasons.length === 0 && !quality.degraded && !quality.stale;
-  return {
+  const record = {
     schema: V11_SCHEMA, modelVersion: 'V11 Short Alpha Phase 1',
     asOf: input.asOf ?? null, symbol: String(input.symbol ?? input.code ?? '').trim(),
     name: String(input.name ?? input.symbol ?? input.code ?? '').trim(),
@@ -70,4 +70,9 @@ export function createCandidateRecord(input = {}) {
     marketRisk: input.marketRisk ?? 'unknown', source: { ...input.source },
     features, quality, scores: { alpha: null, alphaRaw: null, components: {} }
   };
+  // Research-only fields are preserved without entering ALPHA_WEIGHTS or quality gates.
+  if (input.features?.trendStructure !== undefined) {
+    record.features.trendStructure = input.features.trendStructure;
+  }
+  return record;
 }
