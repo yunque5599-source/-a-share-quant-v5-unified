@@ -2,6 +2,8 @@ import { generateDecision } from '../v1040-core/decision_engine/decision_output.
 import { normalizeMarketRisk } from '../v1040-core/adapter/market_adapter.js';
 import { finiteNumber as n, clamp, round, validDate, asOfDate, createCandidateRecord } from './schema.js';
 import { rankCandidates } from './alpha_score.js';
+import { withPsychology } from './psychology_score.js';
+import { withV12TradeScore } from './v12_trade_score.js';
 
 const list = value => Array.isArray(value) ? value : [];
 const mean = values => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
@@ -213,7 +215,8 @@ export function integrateCandidateFlow(input = {}, options = {}) {
     if (deepMap.has(symbol)) duplicateDeep.add(symbol);
     else deepMap.set(symbol, item);
   }
-  const diagnostics = { inputCount: candidates.length, duplicateCandidates: 0, rejectedCandidates: 0 };
+  const diagnostics = { inputCount: candidates.length, duplicateCandidates: 0, rejectedCandidates: 0,
+    psychologyComplete: 0, v12Eligible: 0 };
   const explicitMarket = options.market ?? input?.market ?? root.marketRisk;
   let marketRisk = normalizeMarketRisk(explicitMarket);
   if (marketRisk === 'unknown' && explicitMarket === undefined) {
@@ -272,15 +275,35 @@ export function integrateCandidateFlow(input = {}, options = {}) {
         warnings: [...new Set(warnings)], degraded, stale, historyRows: parsedBars.data.length }
     }));
   }
-  const ranking = rankCandidates(records);
-  // V11 phase 1 replaces scoring only. Keep the existing CORE decision thresholds.
+  const alphaRanking = rankCandidates(records);
+  const psychologyContext = options.psychology ??
+    input?.psychology ?? discovery?.psychology ?? discovery?.themeResearch ?? null;
+  const ranking = alphaRanking.map(record => {
+    const withPsych = withPsychology(record, psychologyContext ?? {});
+    const withV12 = withV12TradeScore(withPsych);
+    if (withPsych.psychology?.complete === true) diagnostics.psychologyComplete += 1;
+    if (withV12.scores?.v12TradeRaw !== null && record.quality.complete &&
+        withPsych.psychology?.complete === true) diagnostics.v12Eligible += 1;
+    return withV12;
+  });
+  const tradeRanking = ranking
+    .filter(record => record.quality.complete &&
+      record.psychology?.complete === true &&
+      record.scores?.v12TradeRaw !== null)
+    .sort((a, b) =>
+      b.scores.v12TradeRaw - a.scores.v12TradeRaw ||
+      b.scores.alphaRaw - a.scores.alphaRaw ||
+      a.symbol.localeCompare(b.symbol))
+    .map((record, index) => ({...record, tradeRank:index + 1}));
+  // V11/V12 research layers replace selection ranking only. Keep the existing CORE decision thresholds.
   const decision = generateDecision(ranking.map(record => ({
     ...record, adjustedScore: record.scores.alphaRaw,
     dataComplete: record.quality.complete
   })), marketRisk);
   return {
-    version: 'V11 Short Alpha Phase 1', schema: 'v11-short-alpha-flow-v1',
-    asOf, market: { marketRisk }, ranking, candidates: ranking, diagnostics, ...decision
+    version: 'V12 Psychology Phase 1', schema: 'v12-psychology-flow-v1',
+    asOf, market: { marketRisk }, ranking, candidates: ranking, tradeRanking,
+    diagnostics, ...decision
   };
 }
 
