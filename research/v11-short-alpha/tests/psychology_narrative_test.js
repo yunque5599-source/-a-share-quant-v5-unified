@@ -1,0 +1,71 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { buildAutomaticPsychologyResearch } from '../psychology_narrative.js';
+
+const news = [
+  {date:'2026-10-16 09:00:00', title:'国务院发布产业行动方案，推动人工智能应用加速落地', content:'政策明确推进重点场景，市场规模预计达到万亿元，渗透率仍处于早期。', mediaName:'中国政府网', url:'https://example.gov/1'},
+  {date:'2026-10-15 14:00:00', title:'工信部推进人工智能产业化，多个场景进入量产阶段', content:'工信部提出多场景、跨行业应用，产业商业化和量产提速。', mediaName:'工信部', url:'https://example.gov/2'},
+  {date:'2026-10-14 10:00:00', title:'行业订单增长超预期，龙头企业率先受益', content:'产业订单放量，平台生态持续扩张，市场空间广阔。', mediaName:'证券时报', url:'https://example.com/3'},
+  {date:'2026-10-13 11:00:00', title:'人工智能需求持续增长，渗透率仍有提升空间', content:'从工业到医疗、汽车、消费等多个领域扩展，需求空间巨大。', mediaName:'财联社', url:'https://example.com/4'},
+  {date:'2026-10-12 16:00:00', title:'龙头公司签署重大订单，产业链关注度升温', content:'公司商业化加速，出口和国产替代预期增强。', mediaName:'中国证券报', url:'https://example.com/5'}
+];
+
+const theme = {
+  asOf:'2026-10-16',
+  name:'人工智能',
+  code:'BK9001',
+  candidateCode:'600001',
+  candidateName:'龙头科技',
+  leaderCode:'600001',
+  leaderName:'龙头科技',
+  changePct:3.5,
+  candidatePremiumPct:4.5,
+  leaderChangePct:8.5
+};
+
+test('automatic research produces evidence-backed narrative and imagination blocks', () => {
+  const result = buildAutomaticPsychologyResearch(theme, news, [
+    {code:'600001',name:'龙头科技',pct:8.5}
+  ]);
+  assert.equal(result.researchQuality.narrative.complete, true);
+  assert.equal(result.researchQuality.imagination.complete, true);
+  assert.ok(result.narrativeResearch.novelty >= 0);
+  assert.ok(result.narrativeResearch.expectationGap > 50);
+  assert.ok(result.imaginationResearch.marketSize >= 90);
+  assert.ok(result.imaginationResearch.penetrationGap >= 70);
+  assert.ok(result.imaginationResearch.policyRunway >= 70);
+  assert.ok(result.imaginationResearch.technologyOptionality >= 70);
+  assert.ok(result.imaginationResearch.companyCapture >= 80);
+  assert.equal(result.narrativeResearch.evidence.length, 5);
+});
+
+test('future news is excluded by as-of date', () => {
+  const result = buildAutomaticPsychologyResearch(theme, [
+    ...news,
+    {date:'2026-10-17 09:00:00',title:'未来消息不应进入历史样本',content:'万亿市场 渗透率 政策',mediaName:'未来来源'}
+  ], []);
+  assert.equal(result.news.some(item => item.title.includes('未来消息')), false);
+  assert.equal(result.researchQuality.narrative.complete, true);
+});
+
+test('weak evidence remains incomplete instead of fabricating imagination', () => {
+  const result = buildAutomaticPsychologyResearch(
+    {...theme, candidateName:'', leaderName:'', candidateCode:'', leaderCode:''},
+    [{date:'2026-10-16 09:00:00',title:'普通市场新闻',content:'暂无明确产业数据',mediaName:'未知来源'}],
+    []
+  );
+  assert.equal(result.researchQuality.narrative.complete, false);
+  assert.equal(result.researchQuality.imagination.complete, false);
+  assert.equal(result.imaginationResearch.marketSize, null);
+  assert.equal(result.imaginationResearch.companyCapture, null);
+});
+
+test('negative evidence can lower narrative quality rather than becoming bullish by keyword count', () => {
+  const negative = news.map((item, index) => ({
+    ...item,
+    title:index === 0 ? '监管风险上升，订单下滑且需求不及预期' : '行业承压，项目延期，竞争加剧'
+  }));
+  const result = buildAutomaticPsychologyResearch(theme, negative, []);
+  assert.ok(result.researchQuality.narrative.diagnostics.negativeHits >= 5);
+  assert.ok(result.narrativeResearch.novelty >= 0);
+});
