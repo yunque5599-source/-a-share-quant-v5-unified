@@ -8,6 +8,11 @@ function invoke(handler, url) {
     const res = {
       statusCode:200,
       setHeader() {},
+      status(code) { this.statusCode = code; return this; },
+      send(value) {
+        body = typeof value === 'string' ? value : JSON.stringify(value);
+        resolve({statusCode:this.statusCode, body});
+      },
       end(value = '') {
         body = String(value);
         resolve({statusCode:this.statusCode, body});
