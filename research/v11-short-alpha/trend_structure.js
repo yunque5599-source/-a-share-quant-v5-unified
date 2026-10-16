@@ -177,7 +177,7 @@ function pullbackMetrics(bars) {
   const peak = bars[peakIndex].high ?? bars[peakIndex].close;
   const trough = bars[troughIndex].low ?? bars[troughIndex].close;
   const last = bars[end].close;
-  const depth = pct(peak, trough);
+  const depth = peak > trough ? (peak - trough) / peak * 100 : 0;
   const recovery = peak > trough ? (last - trough) / (peak - trough) * 100 : 100;
   const pullbackBars = bars.slice(peakIndex + 1, troughIndex + 1);
   const baselineBars = bars.slice(Math.max(0, peakIndex - 5), peakIndex);
