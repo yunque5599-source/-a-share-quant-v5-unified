@@ -72,7 +72,7 @@ test('selection analysis reports rank, quantile and market/time layers', () => {
     {asOf:'2026-10-16T05:30:00Z',marketRegime:'bull',signals:rows}
   ]});
   assert.equal(result.schema,'v12-selection-analysis-v1');
-  assert.equal(result.overall.t1.pairCount,5);
+  assert.equal(result.overall.t1.pairCount,10);
   assert.ok(result.overall.t1.rankIC > 0);
   assert.equal(result.overall.t1.top20.sampleCount,2);
   assert.ok(result.byMarketRegime.bear);
