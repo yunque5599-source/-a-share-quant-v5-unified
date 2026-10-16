@@ -321,6 +321,7 @@ export function buildAutomaticPsychologyResearch(theme = {}, news = [], members 
     version:PSYCHOLOGY_NARRATIVE_VERSION,
     asOf:asOfDate(theme?.asOf) ?? null,
     narrativeResearch:{
+      complete:narrative.complete,
       novelty:narrative.components?.novelty?.score ?? null,
       credibility:narrative.components?.credibility?.score ?? null,
       propagation:narrative.components?.propagation?.score ?? null,
@@ -329,6 +330,7 @@ export function buildAutomaticPsychologyResearch(theme = {}, news = [], members 
       evidence:narrative.evidence
     },
     imaginationResearch:{
+      complete:imagination.complete,
       marketSize:imagination.components?.marketSize?.score ?? null,
       penetrationGap:imagination.components?.penetrationGap?.score ?? null,
       policyRunway:imagination.components?.policyRunway?.score ?? null,
