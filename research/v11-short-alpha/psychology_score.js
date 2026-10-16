@@ -257,12 +257,13 @@ function fomoRisk(theme = {}, candidate = {}) {
   const breadth = breadthPct(theme);
   const flow = n(theme.mainNetPct ?? theme.themeFlowPct);
   const parts = [];
-  if (change !== null) parts.push(clamp(50 + (change - 5) * 8) * 0.35);
-  if (leaderChange !== null) parts.push(clamp(50 + (leaderChange - 8) * 6) * 0.30);
-  if (breadth !== null) parts.push(breadth * 0.20);
-  if (flow !== null) parts.push(clamp(50 + flow * 8) * 0.15);
-  const score = parts.length ? parts.reduce((sum, value) => sum + value, 0) /
-    (parts.length === 4 ? 1 : parts.reduce((sum) => sum + 1, 0)) : null;
+  if (change !== null) parts.push({value:clamp(50 + (change - 5) * 8), weight:0.35});
+  if (leaderChange !== null) parts.push({value:clamp(50 + (leaderChange - 8) * 6), weight:0.30});
+  if (breadth !== null) parts.push({value:breadth, weight:0.20});
+  if (flow !== null) parts.push({value:clamp(50 + flow * 8), weight:0.15});
+  const weightSum = parts.reduce((sum, item) => sum + item.weight, 0);
+  const score = weightSum ? parts.reduce((sum, item) =>
+    sum + item.value * item.weight, 0) / weightSum : null;
   const candidateChange = n(candidate.pct ?? candidate.changePct);
   const candidateFomo = candidateChange === null ? null :
     clamp(50 + (candidateChange - 5) * 8);
@@ -385,11 +386,9 @@ export function scoreCandidatePsychology(candidate = {}, context = {}) {
     };
   }
   const scored = themes.map(theme => scoreTheme(theme, candidate));
-  const primary = primaryTheme(candidate, scored.map((item, index) => ({
-    ...item, _theme:themes[index]
-  })));
-  const chosen = primary?.theme ?? null;
-  const result = chosen ? {...chosen} : null;
+  const primary = primaryTheme(candidate, themes);
+  const primaryIndex = primary ? themes.indexOf(primary.theme) : -1;
+  const result = primaryIndex >= 0 ? scored[primaryIndex] : null;
   return {
     version:PSYCHOLOGY_VERSION,
     score:result?.score ?? null,
