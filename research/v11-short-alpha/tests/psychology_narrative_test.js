@@ -39,6 +39,21 @@ test('automatic research produces evidence-backed narrative and imagination bloc
   assert.equal(result.narrativeResearch.evidence.length, 5);
 });
 
+test('short-term narrative excludes stale search results while imagination keeps a 30-day window', () => {
+  const stale = [
+    {date:'2026-09-01 09:00:00', title:'旧政策报道', content:'政策 市场规模 万亿 渗透率', mediaName:'中国政府网'},
+    {date:'2026-09-02 09:00:00', title:'旧行业报道', content:'商业化 多场景 订单增长', mediaName:'证券时报'}
+  ];
+  const result = buildAutomaticPsychologyResearch(theme, [
+    ...news.slice(0, 3),
+    ...stale
+  ], []);
+  assert.equal(result.researchWindows.narrative7d, 3);
+  assert.equal(result.researchWindows.imagination30d, 3);
+  assert.equal(result.researchWindows.excludedNarrativeBeyond7d, 2);
+  assert.equal(result.researchQuality.narrative.complete, true);
+});
+
 test('future news is excluded by as-of date', () => {
   const result = buildAutomaticPsychologyResearch(theme, [
     ...news,
