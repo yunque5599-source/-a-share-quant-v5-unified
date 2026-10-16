@@ -222,6 +222,8 @@ export function integrateCandidateFlow(input = {}, options = {}) {
   const evaluationCandidates = deepMap.size > 0
     ? candidates.filter(raw => {
         const symbol = symbolOf(raw);
+        // Keep malformed rows so rejection diagnostics remain observable.
+        if (!symbol) return true;
         return deepMap.has(symbol) ||
           raw?.history || raw?.kline || raw?.k ||
           root.historyBySymbol?.[symbol] || input?.historyBySymbol?.[symbol];
