@@ -141,7 +141,7 @@ async function fetchConceptRanking() {
       leaderCode:String(row?.f140 ?? ''),
       leaderChangePct:n(row?.f136),
       quoteTimestamp:n(row?.f124)
-  })).filter(row => /^\d{6}$/.test(row.code) && row.pct !== null);
+  })).filter(row => row.code.length === 6 && /^[0-9]{6}$/.test(row.code) && row.pct !== null);
   });
 }
 
@@ -155,7 +155,7 @@ async function fetchStockConcepts(code) {
   return rows.map(row => ({
     code:String(row?.f12 ?? ''),
     name:String(row?.f14 ?? '')
-  })).filter(row => /^BK\d+$/.test(row.code));
+  })).filter(row => String(row.code).startsWith('BK'));
 }
 
 async function fetchThemeFlow(boardCode) {
@@ -276,7 +276,7 @@ const NON_NARRATIVE_THEME_PATTERNS = [
 
 function isNarrativeTheme(row = {}) {
   const name = String(row.name ?? '');
-  return /^BK\d+$/.test(row.code ?? '') &&
+  return String(row.code ?? '').startsWith('BK') &&
     !NON_NARRATIVE_THEME_PATTERNS.some(pattern => pattern.test(name));
 }
 
