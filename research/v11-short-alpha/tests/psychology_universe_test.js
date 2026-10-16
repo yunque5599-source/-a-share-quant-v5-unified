@@ -6,7 +6,9 @@ const {
   normalizeConceptRow,
   isConceptBoardRow,
   normalizeThemeMemberRow,
-  isThemeMemberRow
+  isThemeMemberRow,
+  isNarrativeTheme,
+  themeStrength
 } = universe;
 
 test('concept ranking accepts Eastmoney BK concept-board codes and requires price change', () => {
@@ -59,4 +61,13 @@ test('theme member normalization rejects malformed codes and missing change', ()
   assert.equal(isThemeMemberRow({code:'60001',pct:8}), false);
   assert.equal(isThemeMemberRow({code:'BK12345',pct:8}), false);
   assert.equal(isThemeMemberRow({code:'600001',pct:null}), false);
+});
+
+test('narrative theme selector rejects valuation, holder-style and momentum classification boards', () => {
+  for (const name of ['百元股','低市净率','机构重仓','昨日涨停','高股息']) {
+    assert.equal(isNarrativeTheme({code:'BK12345',name}), false, name);
+  }
+  assert.equal(isNarrativeTheme({code:'BK12345',name:'人工智能'}), true);
+  assert.equal(isNarrativeTheme({code:'BK12345',name:'机器人概念'}), true);
+  assert.equal(themeStrength({changePct:5,mainNetPct:3,upCount:80,downCount:20,flatCount:0}) > 80, true);
 });
