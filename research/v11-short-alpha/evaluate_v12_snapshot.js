@@ -89,10 +89,15 @@ function evaluateOne(signal = {}, bars = [], options = {}) {
   const future = forwardBars(bars, cutoff).slice(0, 5);
   const industry = signal?.industry ?? signal?.sector?.industry ?? null;
   const marketSource = options.marketHistory ?? options.marketBars ??
+    signal?.marketHistory ?? signal?.marketBars ??
     options.snapshot?.marketHistory ?? options.snapshot?.marketBars ??
-    options.snapshot?.indexHistory ?? options.snapshot?.indicesHistory;
+    options.snapshot?.inputs?.marketHistory ?? options.snapshot?.inputs?.marketBars ??
+    options.snapshot?.indexHistory ?? options.snapshot?.indicesHistory ??
+    options.snapshot?.inputs?.indexHistory ?? options.snapshot?.inputs?.indicesHistory;
   const sectorSource = options.sectorHistories ?? options.sectorHistory ??
-    options.snapshot?.sectorHistories ?? options.snapshot?.sectorHistory;
+    signal?.sectorHistories ?? signal?.sectorHistory ??
+    options.snapshot?.sectorHistories ?? options.snapshot?.sectorHistory ??
+    options.snapshot?.inputs?.sectorHistories ?? options.snapshot?.inputs?.sectorHistory;
   const profile = {};
   const result = {
     symbol:String(signal?.symbol ?? signal?.code ?? ''),
@@ -196,19 +201,22 @@ function aggregate(rows) {
   for (const [name, fraction] of [['top1pct',0.01],['top5pct',0.05],['top10pct',0.10],['top20pct',0.20]]) {
     const top = quantileRows(usable, fraction);
     const bottom = quantileRows(usable, fraction, 'bottom');
+    const bottomSummary = HORIZONS.reduce((out,h) => {
+      const metricTop = outcomeSummary(top, h);
+      const metricBottom = outcomeSummary(bottom, h);
+      out['t' + h] = {
+        ...metricBottom,
+        topBottomSpreadPct:metric(metricTop.avgReturnPct === null || metricBottom.avgReturnPct === null
+          ? null : metricTop.avgReturnPct - metricBottom.avgReturnPct)
+      };
+      return out;
+    }, {});
     summary.quantiles[name] = {
       n:top.length,
       horizons:Object.fromEntries(HORIZONS.map(h => ['t' + h, outcomeSummary(top, h)])),
-      bottom20:HORIZONS.reduce((out,h) => {
-        const metricTop = outcomeSummary(top, h);
-        const metricBottom = outcomeSummary(bottom, h);
-        out['t' + h] = {
-          ...metricBottom,
-          topBottomSpreadPct:metric(metricTop.avgReturnPct === null || metricBottom.avgReturnPct === null
-            ? null : metricTop.avgReturnPct - metricBottom.avgReturnPct)
-        };
-        return out;
-      }, {})
+      bottom:bottomSummary,
+      // Retain the old alias while making the bottom sample match this quantile.
+      bottom20:bottomSummary
     };
   }
   const maxFav = usable.map(row => row.maxFavorableReturn5d).filter(value => value !== null);
@@ -242,7 +250,7 @@ async function main() {
     evaluatedAt:new Date().toISOString(),
     sourceSnapshot:{capturedAt:snapshot?.capturedAt ?? null,asOf:snapshot?.asOf ?? null,schema:snapshot?.schema ?? null},
     measurementPolicy:{entry:'snapshot decision price; not broker fill',horizons:'T+1..T+5 trading sessions strictly date > Asia/Shanghai snapshot asOf',sameDayBarExcluded:true,benchmarksMissing:'market/sector excess is null; no zero fill'},
-    summary:{top1:aggregate(evaluated.slice(0,1)),top5:aggregate(evaluated.slice(0,5)),top10:aggregate(evaluated.slice(0,10)),top20:aggregate(evaluated.slice(0,20))},
+    summary:aggregate(evaluated),
     signals:evaluated
   };
   const outputFile=resolve(process.argv[3] || inputFile.replace(/\.json$/i,'-outcome.json'));
