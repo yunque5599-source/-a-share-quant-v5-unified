@@ -59,10 +59,10 @@ test('walk-forward V12 OOS reports gross and net costs by regime', () => {
   const v12 = result.aggregate.v12.overall.top1['T+3'].net;
   const composite = result.aggregate.composite.overall.top1['T+3'].net;
   assert.equal(v12.sampleCount, composite.sampleCount);
-  assert.equal(
-    result.deltaVsComposite.overall.top1['T+3'].averageReturnPct,
-    v12.averageReturnPct - composite.averageReturnPct
-  );
+  assert.ok(Math.abs(
+    result.deltaVsComposite.overall.top1['T+3'].averageReturnPct -
+    (v12.averageReturnPct - composite.averageReturnPct)
+  ) < 1e-9);
 });
 
 test('zero costs preserve gross and net returns', () => {
