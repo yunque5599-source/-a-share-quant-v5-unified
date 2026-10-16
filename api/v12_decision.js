@@ -143,6 +143,8 @@ function compact(row) {
   };
 }
 
+export const _internal = { executionTier };
+
 export default async function handler(req, res) {
   const u = new URL(req.url, 'http://localhost');
   const startedAt = Date.now();
