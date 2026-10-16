@@ -35,10 +35,19 @@ function parseRows(raw, kind, cutoff) {
         amount: n(array ? fields[6] : fields?.amount ?? fields?.turnover)
       });
     } else {
+      // Eastmoney fflow daily schema after f51(date):
+      // f52 main, f53 small, f54 medium, f55 large, f56 super-large,
+      // f57 main %, f58 small %, f59 medium %, f60 large %, f61 super-large %,
+      // f62 price, f63 change %. Keep the order-bucket amounts for V12 psychology.
       result.push({
         date,
         net: n(array ? fields[1] : fields?.mainNet ?? fields?.net ?? fields?.main),
-        pct: n(array ? fields[6] : fields?.mainNetPct ?? fields?.netPct ?? fields?.pct)
+        pct: n(array ? fields[6] : fields?.mainNetPct ?? fields?.netPct ?? fields?.pct),
+        smallNet: n(array ? fields[2] : fields?.smallNet ?? fields?.small),
+        mediumNet: n(array ? fields[3] : fields?.mediumNet ?? fields?.mediumNetCny ?? fields?.medium),
+        largeNet: n(array ? fields[4] : fields?.largeNet ?? fields?.largeNetCny ?? fields?.large),
+        superLargeNet: n(array ? fields[5] :
+          fields?.superLargeNet ?? fields?.superLargeNetCny ?? fields?.super_large ?? fields?.superLarge)
         // Flow field[11] is price, never a turnover denominator.
       });
     }
@@ -124,8 +133,33 @@ function features(raw, bars, flows, sector, flowDegraded) {
   const priorFlowComplete = priorFlows.length === 5;
   const recentNet = flowComplete ? recentFlows.reduce((sum, flow) => sum + flow.net, 0) : null;
   const priorNet = priorFlowComplete ? priorFlows.reduce((sum, flow) => sum + flow.net, 0) : null;
+  const recentLargeNet = flowComplete && recentFlows.every(flow => n(flow.largeNet) !== null)
+    ? recentFlows.reduce((sum, flow) => sum + flow.largeNet, 0) : null;
+  const recentSuperLargeNet = flowComplete && recentFlows.every(flow => n(flow.superLargeNet) !== null)
+    ? recentFlows.reduce((sum, flow) => sum + flow.superLargeNet, 0) : null;
+  const priorLargeNet = priorFlowComplete && priorFlows.every(flow => n(flow.largeNet) !== null)
+    ? priorFlows.reduce((sum, flow) => sum + flow.largeNet, 0) : null;
+  const priorSuperLargeNet = priorFlowComplete && priorFlows.every(flow => n(flow.superLargeNet) !== null)
+    ? priorFlows.reduce((sum, flow) => sum + flow.superLargeNet, 0) : null;
+  const recentLargeOrderNet = recentLargeNet !== null && recentSuperLargeNet !== null
+    ? recentLargeNet + recentSuperLargeNet : null;
+  const priorLargeOrderNet = priorLargeNet !== null && priorSuperLargeNet !== null
+    ? priorLargeNet + priorSuperLargeNet : null;
+  const recentLargeOrderPositiveRatio = flowComplete &&
+    recentFlows.every(flow => n(flow.largeNet) !== null && n(flow.superLargeNet) !== null)
+    ? recentFlows.filter(flow => flow.largeNet + flow.superLargeNet > 0).length / 5 : null;
   const earlyPositiveRatio = priorFlowComplete
     ? priorFlows.filter(flow => flow.net > 0).length / 5 : null;
+  const recentAmount5d = bars.length >= 5
+    ? bars.slice(-5).map(bar => bar.amount).filter(value => n(value) !== null && value > 0)
+      .reduce((sum, value) => sum + value, 0) : null;
+  const largeOrderNetPct5d = recentLargeOrderNet !== null && recentAmount5d > 0
+    ? recentLargeOrderNet / recentAmount5d * 100 : null;
+  const priorAmount5d = bars.length >= 10
+    ? bars.slice(-10, -5).map(bar => bar.amount).filter(value => n(value) !== null && value > 0)
+      .reduce((sum, value) => sum + value, 0) : null;
+  const priorLargeOrderNetPct5d = priorLargeOrderNet !== null && priorAmount5d > 0
+    ? priorLargeOrderNet / priorAmount5d * 100 : null;
   const currentFlow = last ? (flowByDate.get(last.date) ?? usableFlows.at(-1)) : usableFlows.at(-1);
   const flowLagDays = currentFlow?.date && last?.date
     ? Math.max(0, (Date.parse(last.date) - Date.parse(currentFlow.date)) / 86400000) : null;
@@ -154,6 +188,12 @@ function features(raw, bars, flows, sector, flowDegraded) {
   const capital = {
     mainNetCny: mainNet, mainNetPct: mainPct, positiveFlowRatio5d: positiveRatio,
     earlyNetCny: priorNet, recentNetCny: recentNet,
+    largeOrderNet5dCny: recentLargeOrderNet,
+    superLargeOrderNet5dCny: recentSuperLargeNet,
+    largeOrderNetPct5d, priorLargeOrderNetPct5d,
+    largeOrderPositiveRatio5d: recentLargeOrderPositiveRatio,
+    priorLargeOrderNetCny: priorLargeOrderNet,
+    priorSuperLargeOrderNetCny: priorSuperLargeNet,
     earlyPositiveFlowRatio5d: earlyPositiveRatio, flowTiming, lateFlowPenalty,
     amountCny: last?.amount ?? n(raw?.f6 ?? raw?.amount),
     score: baseCapitalScore === null || timingScore === null ? null
