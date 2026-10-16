@@ -86,7 +86,10 @@ export function buildMarketEmotion(indices = [], candidates = []) {
   const hot = parts.find(([key]) => key === 'hotMoneyBonus')?.[1] ?? 0;
   score = clamp(score + panic + hot);
 
-  const label = score >= 85 ? 'FEVER'
+  const label = (
+    score >= 82 && ((hotRatio !== null && hotRatio >= 0.55) ||
+      (indexPositiveRatio !== null && indexPositiveRatio >= 0.75))
+  ) || score >= 90 ? 'FEVER'
     : score >= 65 ? 'RISING'
       : score >= 55 ? 'NEUTRAL'
         : score >= 45 ? 'FADING' : 'PANIC';
