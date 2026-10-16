@@ -97,7 +97,7 @@ function conceptRankingUrl() {
   return {
     path:'/api/qt/clist/get',
     params:{
-      pn:'1', pz:'600', po:'1', np:'1', fid:'f3',
+      pn:'1', pz:'100', po:'1', np:'1', fid:'f3',
       fs:'m:90+t:3+f:!50',
       fltt:'2', invt:'2', ut:UT,
       fields:'f2,f3,f6,f8,f12,f14,f62,f100,f104,f105,f106,f124,f128,f134,f136,f140,f184'
@@ -137,7 +137,7 @@ async function fetchConceptRanking() {
   if (pageCount > 1) {
     const rest = await mapLimit(
       Array.from({length:pageCount - 1}, (_, index) => index + 2),
-      2,
+      3,
       async page => {
         await sleep(120);
         return fetchFromHosts(PUSH_HOSTS, firstSpec.path,
@@ -448,6 +448,12 @@ export default async function handler(req, res) {
   };
 
   try {
+    const liveMode = url.searchParams.get('mode') === 'live';
+    const selectedThemesPerStock = liveMode ? 1 : 2;
+    const maxResearchThemes = liveMode ? 10 : 24;
+    const membershipConcurrency = liveMode ? 6 : 4;
+    const researchConcurrency = liveMode ? 6 : 4;
+
     const [conceptRows, quotes] = await Promise.all([
       fetchConceptRanking(),
       fetchCandidateQuotes(codes)
@@ -472,7 +478,7 @@ export default async function handler(req, res) {
         .map(ref => conceptMap.get(ref.code))
         .filter(isNarrativeTheme)
         .sort((a,b) => themeStrength(b) - themeStrength(a) || a.code.localeCompare(b.code))
-        .slice(0,2);
+        .slice(0, selectedThemesPerStock);
       selectedByStock.set(membership.code, matched);
       matched.forEach(theme => uniqueThemeCodes.add(theme.code));
     }
@@ -481,11 +487,11 @@ export default async function handler(req, res) {
       .map(code => conceptMap.get(code))
       .filter(Boolean)
       .sort((a,b) => themeStrength(b) - themeStrength(a) || a.code.localeCompare(b.code))
-      .slice(0, diagnostics.maxResearchThemes);
+      .slice(0, maxResearchThemes);
     const researchThemeCodes = new Set(rankedResearchThemes.map(theme => theme.code));
 
     const flowMap = new Map();
-    await mapLimit([...researchThemeCodes], 5, async boardCode => {
+    await mapLimit([...researchThemeCodes], researchConcurrency, async boardCode => {
       await sleep(120);
       try {
         flowMap.set(boardCode, await fetchThemeFlow(boardCode));
@@ -497,17 +503,21 @@ export default async function handler(req, res) {
 
     const memberMap = new Map();
     const newsMap = new Map();
-    await mapLimit(rankedResearchThemes, 4, async base => {
+    await mapLimit(rankedResearchThemes, researchConcurrency, async base => {
       await sleep(120);
-      try {
-        memberMap.set(base.code, await fetchThemeMembers(base.code));
-      } catch {
+      const [membersResult, newsResult] = await Promise.allSettled([
+        fetchThemeMembers(base.code),
+        fetchThemeNews(base.name)
+      ]);
+      if (membersResult.status === 'fulfilled') {
+        memberMap.set(base.code, membersResult.value);
+      } else {
         memberMap.set(base.code, []);
         diagnostics.researchFailures += 1;
       }
-      try {
-        newsMap.set(base.code, await fetchThemeNews(base.name));
-      } catch {
+      if (newsResult.status === 'fulfilled') {
+        newsMap.set(base.code, newsResult.value);
+      } else {
         newsMap.set(base.code, []);
         diagnostics.researchFailures += 1;
       }
