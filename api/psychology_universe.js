@@ -141,7 +141,7 @@ async function fetchConceptRanking() {
       leaderCode:String(row?.f140 ?? ''),
       leaderChangePct:n(row?.f136),
       quoteTimestamp:n(row?.f124)
-    })).filter(row => /^BK\d+$/.test(row.code));
+  })).filter(row => /^\d{6}$/.test(row.code) && row.pct !== null);
   });
 }
 
