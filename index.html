@@ -365,7 +365,10 @@ async function runV12(){
     const status=j&&j.status||'UNKNOWN';
     saveV12Journal(rows,j&&j.asOf);
     const statusText=status==='READY'?'可进入前向验证':status==='PSYCHOLOGY_PARTIAL'?'心理证据部分完整，暂不执行':'证据不足，仅观察';
-    $('v12Status').textContent=statusText+' · asOf '+((j&&j.asOf)||'—')+' · 完整心理 '+((j&&j.diagnostics&&j.diagnostics.psychologyComplete)||0)+' · V12可用 '+((j&&j.diagnostics&&j.diagnostics.v12Eligible)||0);
+    const marketEmotion=j&&j.market&&j.market.emotion?j.market.emotion:null;
+    const emotionText=marketEmotion&&Number.isFinite(Number(marketEmotion.score))
+      ? ' · 市场情绪 '+marketEmotion.label+' '+Number(marketEmotion.score).toFixed(0) : '';
+    $('v12Status').textContent=statusText+' · asOf '+((j&&j.asOf)||'—')+' · 完整心理 '+((j&&j.diagnostics&&j.diagnostics.psychologyComplete)||0)+' · V12可用 '+((j&&j.diagnostics&&j.diagnostics.v12Eligible)||0)+emotionText;
     if(!rows.length){$('v12Result').innerHTML='<div class="note danger">当前没有满足 V12 完整证据门槛的候选。不要为了交易降低门槛。</div>';return}
     $('v12Result').innerHTML=rows.slice(0,5).map(x=>{
       const s=x.scores||{},p=x.psychology||{};
@@ -375,7 +378,9 @@ async function runV12(){
       const tier=x.executionTier||'OBSERVE';
       const tierLabel=tier==='CONFIRM_ENTRY'?'确认入场':tier==='EARLY_WATCH'?'提前关注':tier==='WATCH_PULLBACK'?'观察/等回踩':'仅观察';
       const timingSignal=x.timing&&x.timing.signal?x.timing.signal:'UNKNOWN';
-      return '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>#'+(x.tradeRank==null?'—':x.tradeRank)+' '+(x.name||x.symbol)+'</b> <span class="pill">'+(v==='—'?'WAIT':v)+'</span> <span class="pill">'+tierLabel+'</span><div class="small" style="margin-top:5px">'+x.symbol+' · 题材 '+theme+' · 阶段 '+(p.stage||'unknown')+' · FOMO '+fomo+' · Alpha '+(s.alpha==null?'—':s.alpha)+' · Timing '+(s.timing==null?'—':s.timing)+' ('+timingSignal+') · Psychology '+(s.psychology==null?'—':s.psychology)+'</div><div class="small" style="margin-top:5px">'+((p.reasons||[]).slice(0,3).join(' · '))+'</div></div>';
+      const me=x.marketEmotion&&Number.isFinite(Number(x.marketEmotion.score))
+        ? ' · 市场情绪 '+x.marketEmotion.label+' '+Number(x.marketEmotion.score).toFixed(0) : '';
+      return '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>#'+(x.tradeRank==null?'—':x.tradeRank)+' '+(x.name||x.symbol)+'</b> <span class="pill">'+(v==='—'?'WAIT':v)+'</span> <span class="pill">'+tierLabel+'</span><div class="small" style="margin-top:5px">'+x.symbol+' · 题材 '+theme+' · 阶段 '+(p.stage||'unknown')+' · FOMO '+fomo+' · Alpha '+(s.alpha==null?'—':s.alpha)+' · Timing '+(s.timing==null?'—':s.timing)+' ('+timingSignal+') · Psychology '+(s.psychology==null?'—':s.psychology)+me+'</div><div class="small" style="margin-top:5px">'+((p.reasons||[]).slice(0,3).join(' · '))+'</div></div>';
     }).join('');
   }catch(e){
     $('v12Status').textContent='V12运行失败：'+(e&&e.name==='AbortError'?'超过30秒':'');
