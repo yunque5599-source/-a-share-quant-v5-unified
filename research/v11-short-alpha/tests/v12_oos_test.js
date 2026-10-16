@@ -42,7 +42,7 @@ test('walk-forward V12 OOS reports gross and net costs by regime', () => {
   assert.equal(result.diagnostics.foldCount, 8);
   assert.deepEqual(result.config.regimes, ['bull','bear','sideways','unknown']);
   for (const regime of ['overall','bull','bear','sideways']) {
-    const metrics = result.aggregate[regime].top1['T+3'];
+    const metrics = result.aggregate.composite[regime].top1['T+3'];
     assert.ok(metrics.gross.averageReturnPct !== null);
     assert.ok(metrics.net.averageReturnPct !== null);
     assert.ok(metrics.net.averageReturnPct <= metrics.gross.averageReturnPct);
@@ -50,10 +50,10 @@ test('walk-forward V12 OOS reports gross and net costs by regime', () => {
     assert.ok(metrics.net.buyNowAccuracyPct === null ||
       typeof metrics.net.buyNowAccuracyPct === 'number');
   }
-  assert.ok(result.aggregate.bull.top1['T+3'].net.averageReturnPct >
-    result.aggregate.bear.top1['T+3'].net.averageReturnPct);
-  assert.ok(result.aggregate.bull.top1['T+3'].net.winRatePct >
-    result.aggregate.bear.top1['T+3'].net.winRatePct);
+  assert.ok(result.aggregate.composite.bull.top1['T+3'].net.averageReturnPct >
+    result.aggregate.composite.bear.top1['T+3'].net.averageReturnPct);
+  assert.ok(result.aggregate.composite.bull.top1['T+3'].net.winRatePct >
+    result.aggregate.composite.bear.top1['T+3'].net.winRatePct);
   const v12 = result.aggregate.v12.overall.top1['T+3'].net;
   const composite = result.aggregate.composite.overall.top1['T+3'].net;
   assert.equal(v12.sampleCount, composite.sampleCount);
@@ -99,10 +99,10 @@ test('costs reduce a positive trade and worsen a negative trade', () => {
     trainSize:1,testSize:1,step:1,
     costs:{commissionBps:3,stampTaxBps:5,slippageBps:5}
   });
-  const trade = result.aggregate.overall.top1['T+1'];
+  const trade = result.aggregate.composite.overall.top1['T+1'];
   assert.ok(trade.net.averageReturnPct < trade.gross.averageReturnPct);
   assert.ok(trade.net.maxDrawdownPct >= 0);
   assert.ok(first.scores.v12TradeRaw > 0);
-  const detail = result.aggregate.overall.top1['T+1'];
+  const detail = result.aggregate.composite.overall.top1['T+1'];
   assert.ok(detail.net.averageReturnPct < detail.gross.averageReturnPct);
 });
