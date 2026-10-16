@@ -16,6 +16,10 @@ on:
       - 'research/v11-short-alpha/psychology_narrative.js'
       - 'research/v11-short-alpha/psychology_research.js'
       - 'research/v11-short-alpha/live_source_probe.js'
+      - 'research/v11-short-alpha/candidate_flow.js'
+      - 'research/v11-short-alpha/alpha_score.js'
+      - 'research/v11-short-alpha/psychology_score.js'
+      - 'research/v11-short-alpha/timing_score.js'
       - '.github/workflows/v12-live-source-probe.yml'
 
 permissions:
@@ -35,7 +39,4 @@ jobs:
           node-version: 22
 
       - name: Probe live Eastmoney psychology sources
-        continue-on-error: true
-        env:
-          V12_PROBE_CODES: 600519,000001
         run: node research/v11-short-alpha/live_source_probe.js
