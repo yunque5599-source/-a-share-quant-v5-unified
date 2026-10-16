@@ -4,6 +4,7 @@ import { finiteNumber as n, clamp, round, validDate, asOfDate, createCandidateRe
 import { rankCandidates } from './alpha_score.js';
 import { withPsychology } from './psychology_score.js';
 import { withV12TradeScore } from './v12_trade_score.js';
+import { buildMarketEmotion } from './market_emotion.js';
 
 const list = value => Array.isArray(value) ? value : [];
 const mean = values => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
@@ -264,8 +265,13 @@ export function integrateCandidateFlow(input = {}, options = {}) {
     if (deepMap.has(symbol)) duplicateDeep.add(symbol);
     else deepMap.set(symbol, item);
   }
+  const marketEmotion = buildMarketEmotion(
+    root.indices ?? input?.indices ?? [],
+    candidates
+  );
   const diagnostics = { inputCount: candidates.length, duplicateCandidates: 0,
-    rejectedCandidates: 0, psychologyComplete: 0, v12Eligible: 0 };
+    rejectedCandidates: 0, psychologyComplete: 0, v12Eligible: 0,
+    marketEmotionScore:marketEmotion.score };
   const hasExplicitMarket = options.market !== undefined ||
     input?.market !== undefined || root.marketRisk !== undefined;
   const explicitMarket = options.market ?? input?.market ?? root.marketRisk;
@@ -340,7 +346,13 @@ export function integrateCandidateFlow(input = {}, options = {}) {
   const psychologyContext = options.psychology ??
     input?.psychology ?? discovery?.psychology ?? discovery?.themeResearch ?? null;
   const ranking = alphaRanking.map(record => {
-    const withPsych = withPsychology(record, psychologyContext ?? {});
+    const psychologyInput = psychologyContext && typeof psychologyContext === 'object'
+      ? {...psychologyContext, marketEmotion}
+      : {marketEmotion};
+    const withPsych = withPsychology({
+      ...record,
+      marketEmotion
+    }, psychologyInput);
     const withV12 = withV12TradeScore(withPsych);
     if (withPsych.psychology?.complete === true) diagnostics.psychologyComplete += 1;
     if (withV12.scores?.v12TradeRaw !== null && record.quality.complete &&
@@ -363,7 +375,7 @@ export function integrateCandidateFlow(input = {}, options = {}) {
   })), marketRisk);
   return {
     version: 'V11 Short Alpha Phase 1', schema: 'v11-short-alpha-flow-v1',
-    asOf, market: { marketRisk }, ranking, candidates: ranking, tradeRanking,
+    asOf, market: { marketRisk, emotion:marketEmotion }, ranking, candidates: ranking, tradeRanking,
     diagnostics, ...decision
   };
 }
