@@ -386,12 +386,8 @@ function enrichTheme(base, flowRows, memberRows, newsRows, candidatePct, candida
         research.narrativeResearch.persistence * 0.15 +
         research.narrativeResearch.expectationGap * 0.15 : null,
     narrativeEvidence:research.narrativeResearch.evidence ?? [],
-    imaginationScore:research.researchQuality.imagination.complete
-      ? research.imaginationResearch.marketSize * 0.25 +
-        research.imaginationResearch.penetrationGap * 0.20 +
-        research.imaginationResearch.policyRunway * 0.20 +
-        research.imaginationResearch.technologyOptionality * 0.20 +
-        research.imaginationResearch.companyCapture * 0.15 : null,
+    imaginationScore:research.imaginationResearch.score ?? null,
+    imaginationConfidence:research.imaginationResearch.confidence ?? 0,
     imaginationEvidence:research.imaginationResearch.evidence ?? [],
     researchQuality:research.researchQuality,
     researchVersion:research.version,
@@ -408,7 +404,7 @@ function enrichTheme(base, flowRows, memberRows, newsRows, candidatePct, candida
       news:true,
       flowHistory:rows.length > 0,
       researchRequired:research.researchQuality.narrative.complete &&
-        research.researchQuality.imagination.complete ? [] :
+        research.imaginationResearch.score !== null ? [] :
         ['narrativeScore','imaginationScore']
     },
     flowHistory:rows.slice(-10),
