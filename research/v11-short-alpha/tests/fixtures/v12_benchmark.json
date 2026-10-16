@@ -1,0 +1,5010 @@
+{
+  "description": "Synthetic V12 Composite vs TradeScore multi-period fixture",
+  "periods": [
+    {
+      "name": "early",
+      "start": "2026-01-06",
+      "end": "2026-01-26"
+    },
+    {
+      "name": "mid",
+      "start": "2026-01-30",
+      "end": "2026-02-19"
+    },
+    {
+      "name": "late",
+      "start": "2026-02-23",
+      "end": "2026-03-15"
+    }
+  ],
+  "predictions": [
+    {
+      "asOf": "2026-01-06",
+      "ranking": [
+        {
+          "symbol": "600001",
+          "rank": 1,
+          "price": 99.003992,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 95,
+            "alphaRaw": 95,
+            "timing": 90,
+            "timingRaw": 90,
+            "psychology": 20,
+            "psychologyRaw": 20,
+            "composite": 93.5,
+            "compositeRaw": 93.5,
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600002",
+          "rank": 2,
+          "price": 101.509027,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 90,
+            "alphaRaw": 90,
+            "timing": 85,
+            "timingRaw": 85,
+            "psychology": 90,
+            "psychologyRaw": 90,
+            "composite": 88.5,
+            "compositeRaw": 88.5,
+            "v12Trade": 88.75,
+            "v12TradeRaw": 88.75
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600003",
+          "rank": 3,
+          "price": 100.501001,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 86,
+            "alphaRaw": 86,
+            "timing": 75,
+            "timingRaw": 75,
+            "psychology": 75,
+            "psychologyRaw": 75,
+            "composite": 82.69999999999999,
+            "compositeRaw": 82.69999999999999,
+            "v12Trade": 81.6,
+            "v12TradeRaw": 81.6
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600004",
+          "rank": 4,
+          "price": 99.500999,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 84,
+            "alphaRaw": 84,
+            "timing": 60,
+            "timingRaw": 60,
+            "psychology": 40,
+            "psychologyRaw": 40,
+            "composite": 76.8,
+            "compositeRaw": 76.8,
+            "v12Trade": 71.4,
+            "v12TradeRaw": 71.4
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600005",
+          "rank": 5,
+          "price": 100.800392,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 82,
+            "alphaRaw": 82,
+            "timing": 70,
+            "timingRaw": 70,
+            "psychology": 65,
+            "psychologyRaw": 65,
+            "composite": 78.4,
+            "compositeRaw": 78.4,
+            "v12Trade": 76.44999999999999,
+            "v12TradeRaw": 76.44999999999999
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600006",
+          "rank": 6,
+          "price": 100.752253,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 80,
+            "alphaRaw": 80,
+            "timing": 65,
+            "timingRaw": 65,
+            "psychology": 70,
+            "psychologyRaw": 70,
+            "composite": 75.5,
+            "compositeRaw": 75.5,
+            "v12Trade": 74.75,
+            "v12TradeRaw": 74.75
+          },
+          "quality": {
+            "complete": true
+          }
+        }
+      ]
+    },
+    {
+      "asOf": "2026-01-10",
+      "ranking": [
+        {
+          "symbol": "600001",
+          "rank": 1,
+          "price": 98.214333,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 95,
+            "alphaRaw": 95,
+            "timing": 90,
+            "timingRaw": 90,
+            "psychology": 20,
+            "psychologyRaw": 20,
+            "composite": 93.5,
+            "compositeRaw": 93.5,
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600002",
+          "rank": 2,
+          "price": 102.732628,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 90,
+            "alphaRaw": 90,
+            "timing": 85,
+            "timingRaw": 85,
+            "psychology": 90,
+            "psychologyRaw": 90,
+            "composite": 88.5,
+            "compositeRaw": 88.5,
+            "v12Trade": 88.75,
+            "v12TradeRaw": 88.75
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600003",
+          "rank": 3,
+          "price": 100.903608,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 86,
+            "alphaRaw": 86,
+            "timing": 75,
+            "timingRaw": 75,
+            "psychology": 75,
+            "psychologyRaw": 75,
+            "composite": 82.69999999999999,
+            "compositeRaw": 82.69999999999999,
+            "v12Trade": 81.6,
+            "v12TradeRaw": 81.6
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600004",
+          "rank": 4,
+          "price": 99.103592,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 84,
+            "alphaRaw": 84,
+            "timing": 60,
+            "timingRaw": 60,
+            "psychology": 40,
+            "psychologyRaw": 40,
+            "composite": 76.8,
+            "compositeRaw": 76.8,
+            "v12Trade": 71.4,
+            "v12TradeRaw": 71.4
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600005",
+          "rank": 5,
+          "price": 101.202381,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 82,
+            "alphaRaw": 82,
+            "timing": 70,
+            "timingRaw": 70,
+            "psychology": 65,
+            "psychologyRaw": 65,
+            "composite": 78.4,
+            "compositeRaw": 78.4,
+            "v12Trade": 76.44999999999999,
+            "v12TradeRaw": 76.44999999999999
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600006",
+          "rank": 6,
+          "price": 101.358128,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 80,
+            "alphaRaw": 80,
+            "timing": 65,
+            "timingRaw": 65,
+            "psychology": 70,
+            "psychologyRaw": 70,
+            "composite": 75.5,
+            "compositeRaw": 75.5,
+            "v12Trade": 74.75,
+            "v12TradeRaw": 74.75
+          },
+          "quality": {
+            "complete": true
+          }
+        }
+      ]
+    },
+    {
+      "asOf": "2026-01-14",
+      "ranking": [
+        {
+          "symbol": "600001",
+          "rank": 1,
+          "price": 97.430972,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 95,
+            "alphaRaw": 95,
+            "timing": 90,
+            "timingRaw": 90,
+            "psychology": 20,
+            "psychologyRaw": 20,
+            "composite": 93.5,
+            "compositeRaw": 93.5,
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600002",
+          "rank": 2,
+          "price": 103.970978,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 90,
+            "alphaRaw": 90,
+            "timing": 85,
+            "timingRaw": 85,
+            "psychology": 90,
+            "psychologyRaw": 90,
+            "composite": 88.5,
+            "compositeRaw": 88.5,
+            "v12Trade": 88.75,
+            "v12TradeRaw": 88.75
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600003",
+          "rank": 3,
+          "price": 101.307829,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 86,
+            "alphaRaw": 86,
+            "timing": 75,
+            "timingRaw": 75,
+            "psychology": 75,
+            "psychologyRaw": 75,
+            "composite": 82.69999999999999,
+            "compositeRaw": 82.69999999999999,
+            "v12Trade": 81.6,
+            "v12TradeRaw": 81.6
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600004",
+          "rank": 4,
+          "price": 98.707771,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 84,
+            "alphaRaw": 84,
+            "timing": 60,
+            "timingRaw": 60,
+            "psychology": 40,
+            "psychologyRaw": 40,
+            "composite": 76.8,
+            "compositeRaw": 76.8,
+            "v12Trade": 71.4,
+            "v12TradeRaw": 71.4
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600005",
+          "rank": 5,
+          "price": 101.605973,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 82,
+            "alphaRaw": 82,
+            "timing": 70,
+            "timingRaw": 70,
+            "psychology": 65,
+            "psychologyRaw": 65,
+            "composite": 78.4,
+            "compositeRaw": 78.4,
+            "v12Trade": 76.44999999999999,
+            "v12TradeRaw": 76.44999999999999
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600006",
+          "rank": 6,
+          "price": 101.967647,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 80,
+            "alphaRaw": 80,
+            "timing": 65,
+            "timingRaw": 65,
+            "psychology": 70,
+            "psychologyRaw": 70,
+            "composite": 75.5,
+            "compositeRaw": 75.5,
+            "v12Trade": 74.75,
+            "v12TradeRaw": 74.75
+          },
+          "quality": {
+            "complete": true
+          }
+        }
+      ]
+    },
+    {
+      "asOf": "2026-01-18",
+      "ranking": [
+        {
+          "symbol": "600001",
+          "rank": 1,
+          "price": 96.65386,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 95,
+            "alphaRaw": 95,
+            "timing": 90,
+            "timingRaw": 90,
+            "psychology": 20,
+            "psychologyRaw": 20,
+            "composite": 93.5,
+            "compositeRaw": 93.5,
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600002",
+          "rank": 2,
+          "price": 105.224255,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 90,
+            "alphaRaw": 90,
+            "timing": 85,
+            "timingRaw": 85,
+            "psychology": 90,
+            "psychologyRaw": 90,
+            "composite": 88.5,
+            "compositeRaw": 88.5,
+            "v12Trade": 88.75,
+            "v12TradeRaw": 88.75
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600003",
+          "rank": 3,
+          "price": 101.713668,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 86,
+            "alphaRaw": 86,
+            "timing": 75,
+            "timingRaw": 75,
+            "psychology": 75,
+            "psychologyRaw": 75,
+            "composite": 82.69999999999999,
+            "compositeRaw": 82.69999999999999,
+            "v12Trade": 81.6,
+            "v12TradeRaw": 81.6
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600004",
+          "rank": 4,
+          "price": 98.313532,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 84,
+            "alphaRaw": 84,
+            "timing": 60,
+            "timingRaw": 60,
+            "psychology": 40,
+            "psychologyRaw": 40,
+            "composite": 76.8,
+            "compositeRaw": 76.8,
+            "v12Trade": 71.4,
+            "v12TradeRaw": 71.4
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600005",
+          "rank": 5,
+          "price": 102.011174,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 82,
+            "alphaRaw": 82,
+            "timing": 70,
+            "timingRaw": 70,
+            "psychology": 65,
+            "psychologyRaw": 65,
+            "composite": 78.4,
+            "compositeRaw": 78.4,
+            "v12Trade": 76.44999999999999,
+            "v12TradeRaw": 76.44999999999999
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600006",
+          "rank": 6,
+          "price": 102.580831,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 80,
+            "alphaRaw": 80,
+            "timing": 65,
+            "timingRaw": 65,
+            "psychology": 70,
+            "psychologyRaw": 70,
+            "composite": 75.5,
+            "compositeRaw": 75.5,
+            "v12Trade": 74.75,
+            "v12TradeRaw": 74.75
+          },
+          "quality": {
+            "complete": true
+          }
+        }
+      ]
+    },
+    {
+      "asOf": "2026-01-22",
+      "ranking": [
+        {
+          "symbol": "600001",
+          "rank": 1,
+          "price": 95.882946,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 95,
+            "alphaRaw": 95,
+            "timing": 90,
+            "timingRaw": 90,
+            "psychology": 20,
+            "psychologyRaw": 20,
+            "composite": 93.5,
+            "compositeRaw": 93.5,
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600002",
+          "rank": 2,
+          "price": 106.49264,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 90,
+            "alphaRaw": 90,
+            "timing": 85,
+            "timingRaw": 85,
+            "psychology": 90,
+            "psychologyRaw": 90,
+            "composite": 88.5,
+            "compositeRaw": 88.5,
+            "v12Trade": 88.75,
+            "v12TradeRaw": 88.75
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600003",
+          "rank": 3,
+          "price": 102.121134,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 86,
+            "alphaRaw": 86,
+            "timing": 75,
+            "timingRaw": 75,
+            "psychology": 75,
+            "psychologyRaw": 75,
+            "composite": 82.69999999999999,
+            "compositeRaw": 82.69999999999999,
+            "v12Trade": 81.6,
+            "v12TradeRaw": 81.6
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600004",
+          "rank": 4,
+          "price": 97.920868,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 84,
+            "alphaRaw": 84,
+            "timing": 60,
+            "timingRaw": 60,
+            "psychology": 40,
+            "psychologyRaw": 40,
+            "composite": 76.8,
+            "compositeRaw": 76.8,
+            "v12Trade": 71.4,
+            "v12TradeRaw": 71.4
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600005",
+          "rank": 5,
+          "price": 102.417991,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 82,
+            "alphaRaw": 82,
+            "timing": 70,
+            "timingRaw": 70,
+            "psychology": 65,
+            "psychologyRaw": 65,
+            "composite": 78.4,
+            "compositeRaw": 78.4,
+            "v12Trade": 76.44999999999999,
+            "v12TradeRaw": 76.44999999999999
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600006",
+          "rank": 6,
+          "price": 103.197702,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 80,
+            "alphaRaw": 80,
+            "timing": 65,
+            "timingRaw": 65,
+            "psychology": 70,
+            "psychologyRaw": 70,
+            "composite": 75.5,
+            "compositeRaw": 75.5,
+            "v12Trade": 74.75,
+            "v12TradeRaw": 74.75
+          },
+          "quality": {
+            "complete": true
+          }
+        }
+      ]
+    },
+    {
+      "asOf": "2026-01-26",
+      "ranking": [
+        {
+          "symbol": "600001",
+          "rank": 1,
+          "price": 95.11818,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 95,
+            "alphaRaw": 95,
+            "timing": 90,
+            "timingRaw": 90,
+            "psychology": 20,
+            "psychologyRaw": 20,
+            "composite": 93.5,
+            "compositeRaw": 93.5,
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600002",
+          "rank": 2,
+          "price": 107.776314,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 90,
+            "alphaRaw": 90,
+            "timing": 85,
+            "timingRaw": 85,
+            "psychology": 90,
+            "psychologyRaw": 90,
+            "composite": 88.5,
+            "compositeRaw": 88.5,
+            "v12Trade": 88.75,
+            "v12TradeRaw": 88.75
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600003",
+          "rank": 3,
+          "price": 102.530231,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 86,
+            "alphaRaw": 86,
+            "timing": 75,
+            "timingRaw": 75,
+            "psychology": 75,
+            "psychologyRaw": 75,
+            "composite": 82.69999999999999,
+            "compositeRaw": 82.69999999999999,
+            "v12Trade": 81.6,
+            "v12TradeRaw": 81.6
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600004",
+          "rank": 4,
+          "price": 97.529771,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 84,
+            "alphaRaw": 84,
+            "timing": 60,
+            "timingRaw": 60,
+            "psychology": 40,
+            "psychologyRaw": 40,
+            "composite": 76.8,
+            "compositeRaw": 76.8,
+            "v12Trade": 71.4,
+            "v12TradeRaw": 71.4
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600005",
+          "rank": 5,
+          "price": 102.826431,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 82,
+            "alphaRaw": 82,
+            "timing": 70,
+            "timingRaw": 70,
+            "psychology": 65,
+            "psychologyRaw": 65,
+            "composite": 78.4,
+            "compositeRaw": 78.4,
+            "v12Trade": 76.44999999999999,
+            "v12TradeRaw": 76.44999999999999
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600006",
+          "rank": 6,
+          "price": 103.818283,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 80,
+            "alphaRaw": 80,
+            "timing": 65,
+            "timingRaw": 65,
+            "psychology": 70,
+            "psychologyRaw": 70,
+            "composite": 75.5,
+            "compositeRaw": 75.5,
+            "v12Trade": 74.75,
+            "v12TradeRaw": 74.75
+          },
+          "quality": {
+            "complete": true
+          }
+        }
+      ]
+    },
+    {
+      "asOf": "2026-01-30",
+      "ranking": [
+        {
+          "symbol": "600001",
+          "rank": 1,
+          "price": 94.359514,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 95,
+            "alphaRaw": 95,
+            "timing": 90,
+            "timingRaw": 90,
+            "psychology": 20,
+            "psychologyRaw": 20,
+            "composite": 93.5,
+            "compositeRaw": 93.5,
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600002",
+          "rank": 2,
+          "price": 109.075461,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 90,
+            "alphaRaw": 90,
+            "timing": 85,
+            "timingRaw": 85,
+            "psychology": 90,
+            "psychologyRaw": 90,
+            "composite": 88.5,
+            "compositeRaw": 88.5,
+            "v12Trade": 88.75,
+            "v12TradeRaw": 88.75
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600003",
+          "rank": 3,
+          "price": 102.940968,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 86,
+            "alphaRaw": 86,
+            "timing": 75,
+            "timingRaw": 75,
+            "psychology": 75,
+            "psychologyRaw": 75,
+            "composite": 82.69999999999999,
+            "compositeRaw": 82.69999999999999,
+            "v12Trade": 81.6,
+            "v12TradeRaw": 81.6
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600004",
+          "rank": 4,
+          "price": 97.140237,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 84,
+            "alphaRaw": 84,
+            "timing": 60,
+            "timingRaw": 60,
+            "psychology": 40,
+            "psychologyRaw": 40,
+            "composite": 76.8,
+            "compositeRaw": 76.8,
+            "v12Trade": 71.4,
+            "v12TradeRaw": 71.4
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600005",
+          "rank": 5,
+          "price": 103.236499,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 82,
+            "alphaRaw": 82,
+            "timing": 70,
+            "timingRaw": 70,
+            "psychology": 65,
+            "psychologyRaw": 65,
+            "composite": 78.4,
+            "compositeRaw": 78.4,
+            "v12Trade": 76.44999999999999,
+            "v12TradeRaw": 76.44999999999999
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600006",
+          "rank": 6,
+          "price": 104.442595,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 80,
+            "alphaRaw": 80,
+            "timing": 65,
+            "timingRaw": 65,
+            "psychology": 70,
+            "psychologyRaw": 70,
+            "composite": 75.5,
+            "compositeRaw": 75.5,
+            "v12Trade": 74.75,
+            "v12TradeRaw": 74.75
+          },
+          "quality": {
+            "complete": true
+          }
+        }
+      ]
+    },
+    {
+      "asOf": "2026-02-03",
+      "ranking": [
+        {
+          "symbol": "600001",
+          "rank": 1,
+          "price": 93.6069,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 95,
+            "alphaRaw": 95,
+            "timing": 90,
+            "timingRaw": 90,
+            "psychology": 20,
+            "psychologyRaw": 20,
+            "composite": 93.5,
+            "compositeRaw": 93.5,
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600002",
+          "rank": 2,
+          "price": 110.390269,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 90,
+            "alphaRaw": 90,
+            "timing": 85,
+            "timingRaw": 85,
+            "psychology": 90,
+            "psychologyRaw": 90,
+            "composite": 88.5,
+            "compositeRaw": 88.5,
+            "v12Trade": 88.75,
+            "v12TradeRaw": 88.75
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600003",
+          "rank": 3,
+          "price": 103.35335,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 86,
+            "alphaRaw": 86,
+            "timing": 75,
+            "timingRaw": 75,
+            "psychology": 75,
+            "psychologyRaw": 75,
+            "composite": 82.69999999999999,
+            "compositeRaw": 82.69999999999999,
+            "v12Trade": 81.6,
+            "v12TradeRaw": 81.6
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600004",
+          "rank": 4,
+          "price": 96.752258,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 84,
+            "alphaRaw": 84,
+            "timing": 60,
+            "timingRaw": 60,
+            "psychology": 40,
+            "psychologyRaw": 40,
+            "composite": 76.8,
+            "compositeRaw": 76.8,
+            "v12Trade": 71.4,
+            "v12TradeRaw": 71.4
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600005",
+          "rank": 5,
+          "price": 103.648203,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 82,
+            "alphaRaw": 82,
+            "timing": 70,
+            "timingRaw": 70,
+            "psychology": 65,
+            "psychologyRaw": 65,
+            "composite": 78.4,
+            "compositeRaw": 78.4,
+            "v12Trade": 76.44999999999999,
+            "v12TradeRaw": 76.44999999999999
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600006",
+          "rank": 6,
+          "price": 105.070662,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 80,
+            "alphaRaw": 80,
+            "timing": 65,
+            "timingRaw": 65,
+            "psychology": 70,
+            "psychologyRaw": 70,
+            "composite": 75.5,
+            "compositeRaw": 75.5,
+            "v12Trade": 74.75,
+            "v12TradeRaw": 74.75
+          },
+          "quality": {
+            "complete": true
+          }
+        }
+      ]
+    },
+    {
+      "asOf": "2026-02-07",
+      "ranking": [
+        {
+          "symbol": "600001",
+          "rank": 1,
+          "price": 92.860288,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 95,
+            "alphaRaw": 95,
+            "timing": 90,
+            "timingRaw": 90,
+            "psychology": 20,
+            "psychologyRaw": 20,
+            "composite": 93.5,
+            "compositeRaw": 93.5,
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600002",
+          "rank": 2,
+          "price": 111.720925,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 90,
+            "alphaRaw": 90,
+            "timing": 85,
+            "timingRaw": 85,
+            "psychology": 90,
+            "psychologyRaw": 90,
+            "composite": 88.5,
+            "compositeRaw": 88.5,
+            "v12Trade": 88.75,
+            "v12TradeRaw": 88.75
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600003",
+          "rank": 3,
+          "price": 103.767384,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 86,
+            "alphaRaw": 86,
+            "timing": 75,
+            "timingRaw": 75,
+            "psychology": 75,
+            "psychologyRaw": 75,
+            "composite": 82.69999999999999,
+            "compositeRaw": 82.69999999999999,
+            "v12Trade": 81.6,
+            "v12TradeRaw": 81.6
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600004",
+          "rank": 4,
+          "price": 96.36583,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 84,
+            "alphaRaw": 84,
+            "timing": 60,
+            "timingRaw": 60,
+            "psychology": 40,
+            "psychologyRaw": 40,
+            "composite": 76.8,
+            "compositeRaw": 76.8,
+            "v12Trade": 71.4,
+            "v12TradeRaw": 71.4
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600005",
+          "rank": 5,
+          "price": 104.061549,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 82,
+            "alphaRaw": 82,
+            "timing": 70,
+            "timingRaw": 70,
+            "psychology": 65,
+            "psychologyRaw": 65,
+            "composite": 78.4,
+            "compositeRaw": 78.4,
+            "v12Trade": 76.44999999999999,
+            "v12TradeRaw": 76.44999999999999
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600006",
+          "rank": 6,
+          "price": 105.702506,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 80,
+            "alphaRaw": 80,
+            "timing": 65,
+            "timingRaw": 65,
+            "psychology": 70,
+            "psychologyRaw": 70,
+            "composite": 75.5,
+            "compositeRaw": 75.5,
+            "v12Trade": 74.75,
+            "v12TradeRaw": 74.75
+          },
+          "quality": {
+            "complete": true
+          }
+        }
+      ]
+    },
+    {
+      "asOf": "2026-02-11",
+      "ranking": [
+        {
+          "symbol": "600001",
+          "rank": 1,
+          "price": 92.119632,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 95,
+            "alphaRaw": 95,
+            "timing": 90,
+            "timingRaw": 90,
+            "psychology": 20,
+            "psychologyRaw": 20,
+            "composite": 93.5,
+            "compositeRaw": 93.5,
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600002",
+          "rank": 2,
+          "price": 113.067621,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 90,
+            "alphaRaw": 90,
+            "timing": 85,
+            "timingRaw": 85,
+            "psychology": 90,
+            "psychologyRaw": 90,
+            "composite": 88.5,
+            "compositeRaw": 88.5,
+            "v12Trade": 88.75,
+            "v12TradeRaw": 88.75
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600003",
+          "rank": 3,
+          "price": 104.183076,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 86,
+            "alphaRaw": 86,
+            "timing": 75,
+            "timingRaw": 75,
+            "psychology": 75,
+            "psychologyRaw": 75,
+            "composite": 82.69999999999999,
+            "compositeRaw": 82.69999999999999,
+            "v12Trade": 81.6,
+            "v12TradeRaw": 81.6
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600004",
+          "rank": 4,
+          "price": 95.980944,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 84,
+            "alphaRaw": 84,
+            "timing": 60,
+            "timingRaw": 60,
+            "psychology": 40,
+            "psychologyRaw": 40,
+            "composite": 76.8,
+            "compositeRaw": 76.8,
+            "v12Trade": 71.4,
+            "v12TradeRaw": 71.4
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600005",
+          "rank": 5,
+          "price": 104.476543,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 82,
+            "alphaRaw": 82,
+            "timing": 70,
+            "timingRaw": 70,
+            "psychology": 65,
+            "psychologyRaw": 65,
+            "composite": 78.4,
+            "compositeRaw": 78.4,
+            "v12Trade": 76.44999999999999,
+            "v12TradeRaw": 76.44999999999999
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600006",
+          "rank": 6,
+          "price": 106.33815,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 80,
+            "alphaRaw": 80,
+            "timing": 65,
+            "timingRaw": 65,
+            "psychology": 70,
+            "psychologyRaw": 70,
+            "composite": 75.5,
+            "compositeRaw": 75.5,
+            "v12Trade": 74.75,
+            "v12TradeRaw": 74.75
+          },
+          "quality": {
+            "complete": true
+          }
+        }
+      ]
+    },
+    {
+      "asOf": "2026-02-15",
+      "ranking": [
+        {
+          "symbol": "600001",
+          "rank": 1,
+          "price": 91.384883,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 95,
+            "alphaRaw": 95,
+            "timing": 90,
+            "timingRaw": 90,
+            "psychology": 20,
+            "psychologyRaw": 20,
+            "composite": 93.5,
+            "compositeRaw": 93.5,
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600002",
+          "rank": 2,
+          "price": 114.43055,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 90,
+            "alphaRaw": 90,
+            "timing": 85,
+            "timingRaw": 85,
+            "psychology": 90,
+            "psychologyRaw": 90,
+            "composite": 88.5,
+            "compositeRaw": 88.5,
+            "v12Trade": 88.75,
+            "v12TradeRaw": 88.75
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600003",
+          "rank": 3,
+          "price": 104.600434,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 86,
+            "alphaRaw": 86,
+            "timing": 75,
+            "timingRaw": 75,
+            "psychology": 75,
+            "psychologyRaw": 75,
+            "composite": 82.69999999999999,
+            "compositeRaw": 82.69999999999999,
+            "v12Trade": 81.6,
+            "v12TradeRaw": 81.6
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600004",
+          "rank": 4,
+          "price": 95.597596,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 84,
+            "alphaRaw": 84,
+            "timing": 60,
+            "timingRaw": 60,
+            "psychology": 40,
+            "psychologyRaw": 40,
+            "composite": 76.8,
+            "compositeRaw": 76.8,
+            "v12Trade": 71.4,
+            "v12TradeRaw": 71.4
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600005",
+          "rank": 5,
+          "price": 104.893192,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 82,
+            "alphaRaw": 82,
+            "timing": 70,
+            "timingRaw": 70,
+            "psychology": 65,
+            "psychologyRaw": 65,
+            "composite": 78.4,
+            "compositeRaw": 78.4,
+            "v12Trade": 76.44999999999999,
+            "v12TradeRaw": 76.44999999999999
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600006",
+          "rank": 6,
+          "price": 106.977615,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 80,
+            "alphaRaw": 80,
+            "timing": 65,
+            "timingRaw": 65,
+            "psychology": 70,
+            "psychologyRaw": 70,
+            "composite": 75.5,
+            "compositeRaw": 75.5,
+            "v12Trade": 74.75,
+            "v12TradeRaw": 74.75
+          },
+          "quality": {
+            "complete": true
+          }
+        }
+      ]
+    },
+    {
+      "asOf": "2026-02-19",
+      "ranking": [
+        {
+          "symbol": "600001",
+          "rank": 1,
+          "price": 90.655994,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 95,
+            "alphaRaw": 95,
+            "timing": 90,
+            "timingRaw": 90,
+            "psychology": 20,
+            "psychologyRaw": 20,
+            "composite": 93.5,
+            "compositeRaw": 93.5,
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600002",
+          "rank": 2,
+          "price": 115.809908,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 90,
+            "alphaRaw": 90,
+            "timing": 85,
+            "timingRaw": 85,
+            "psychology": 90,
+            "psychologyRaw": 90,
+            "composite": 88.5,
+            "compositeRaw": 88.5,
+            "v12Trade": 88.75,
+            "v12TradeRaw": 88.75
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600003",
+          "rank": 3,
+          "price": 105.019464,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 86,
+            "alphaRaw": 86,
+            "timing": 75,
+            "timingRaw": 75,
+            "psychology": 75,
+            "psychologyRaw": 75,
+            "composite": 82.69999999999999,
+            "compositeRaw": 82.69999999999999,
+            "v12Trade": 81.6,
+            "v12TradeRaw": 81.6
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600004",
+          "rank": 4,
+          "price": 95.215779,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 84,
+            "alphaRaw": 84,
+            "timing": 60,
+            "timingRaw": 60,
+            "psychology": 40,
+            "psychologyRaw": 40,
+            "composite": 76.8,
+            "compositeRaw": 76.8,
+            "v12Trade": 71.4,
+            "v12TradeRaw": 71.4
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600005",
+          "rank": 5,
+          "price": 105.311503,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 82,
+            "alphaRaw": 82,
+            "timing": 70,
+            "timingRaw": 70,
+            "psychology": 65,
+            "psychologyRaw": 65,
+            "composite": 78.4,
+            "compositeRaw": 78.4,
+            "v12Trade": 76.44999999999999,
+            "v12TradeRaw": 76.44999999999999
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600006",
+          "rank": 6,
+          "price": 107.620927,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 80,
+            "alphaRaw": 80,
+            "timing": 65,
+            "timingRaw": 65,
+            "psychology": 70,
+            "psychologyRaw": 70,
+            "composite": 75.5,
+            "compositeRaw": 75.5,
+            "v12Trade": 74.75,
+            "v12TradeRaw": 74.75
+          },
+          "quality": {
+            "complete": true
+          }
+        }
+      ]
+    },
+    {
+      "asOf": "2026-02-23",
+      "ranking": [
+        {
+          "symbol": "600001",
+          "rank": 1,
+          "price": 89.932919,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 95,
+            "alphaRaw": 95,
+            "timing": 90,
+            "timingRaw": 90,
+            "psychology": 20,
+            "psychologyRaw": 20,
+            "composite": 93.5,
+            "compositeRaw": 93.5,
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600002",
+          "rank": 2,
+          "price": 117.205894,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 90,
+            "alphaRaw": 90,
+            "timing": 85,
+            "timingRaw": 85,
+            "psychology": 90,
+            "psychologyRaw": 90,
+            "composite": 88.5,
+            "compositeRaw": 88.5,
+            "v12Trade": 88.75,
+            "v12TradeRaw": 88.75
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600003",
+          "rank": 3,
+          "price": 105.440172,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 86,
+            "alphaRaw": 86,
+            "timing": 75,
+            "timingRaw": 75,
+            "psychology": 75,
+            "psychologyRaw": 75,
+            "composite": 82.69999999999999,
+            "compositeRaw": 82.69999999999999,
+            "v12Trade": 81.6,
+            "v12TradeRaw": 81.6
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600004",
+          "rank": 4,
+          "price": 94.835486,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 84,
+            "alphaRaw": 84,
+            "timing": 60,
+            "timingRaw": 60,
+            "psychology": 40,
+            "psychologyRaw": 40,
+            "composite": 76.8,
+            "compositeRaw": 76.8,
+            "v12Trade": 71.4,
+            "v12TradeRaw": 71.4
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600005",
+          "rank": 5,
+          "price": 105.731482,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 82,
+            "alphaRaw": 82,
+            "timing": 70,
+            "timingRaw": 70,
+            "psychology": 65,
+            "psychologyRaw": 65,
+            "composite": 78.4,
+            "compositeRaw": 78.4,
+            "v12Trade": 76.44999999999999,
+            "v12TradeRaw": 76.44999999999999
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600006",
+          "rank": 6,
+          "price": 108.268107,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 80,
+            "alphaRaw": 80,
+            "timing": 65,
+            "timingRaw": 65,
+            "psychology": 70,
+            "psychologyRaw": 70,
+            "composite": 75.5,
+            "compositeRaw": 75.5,
+            "v12Trade": 74.75,
+            "v12TradeRaw": 74.75
+          },
+          "quality": {
+            "complete": true
+          }
+        }
+      ]
+    },
+    {
+      "asOf": "2026-02-27",
+      "ranking": [
+        {
+          "symbol": "600001",
+          "rank": 1,
+          "price": 89.215611,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 95,
+            "alphaRaw": 95,
+            "timing": 90,
+            "timingRaw": 90,
+            "psychology": 20,
+            "psychologyRaw": 20,
+            "composite": 93.5,
+            "compositeRaw": 93.5,
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600002",
+          "rank": 2,
+          "price": 118.618706,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 90,
+            "alphaRaw": 90,
+            "timing": 85,
+            "timingRaw": 85,
+            "psychology": 90,
+            "psychologyRaw": 90,
+            "composite": 88.5,
+            "compositeRaw": 88.5,
+            "v12Trade": 88.75,
+            "v12TradeRaw": 88.75
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600003",
+          "rank": 3,
+          "price": 105.862566,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 86,
+            "alphaRaw": 86,
+            "timing": 75,
+            "timingRaw": 75,
+            "psychology": 75,
+            "psychologyRaw": 75,
+            "composite": 82.69999999999999,
+            "compositeRaw": 82.69999999999999,
+            "v12Trade": 81.6,
+            "v12TradeRaw": 81.6
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600004",
+          "rank": 4,
+          "price": 94.456713,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 84,
+            "alphaRaw": 84,
+            "timing": 60,
+            "timingRaw": 60,
+            "psychology": 40,
+            "psychologyRaw": 40,
+            "composite": 76.8,
+            "compositeRaw": 76.8,
+            "v12Trade": 71.4,
+            "v12TradeRaw": 71.4
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600005",
+          "rank": 5,
+          "price": 106.153136,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 82,
+            "alphaRaw": 82,
+            "timing": 70,
+            "timingRaw": 70,
+            "psychology": 65,
+            "psychologyRaw": 65,
+            "composite": 78.4,
+            "compositeRaw": 78.4,
+            "v12Trade": 76.44999999999999,
+            "v12TradeRaw": 76.44999999999999
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600006",
+          "rank": 6,
+          "price": 108.919178,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 80,
+            "alphaRaw": 80,
+            "timing": 65,
+            "timingRaw": 65,
+            "psychology": 70,
+            "psychologyRaw": 70,
+            "composite": 75.5,
+            "compositeRaw": 75.5,
+            "v12Trade": 74.75,
+            "v12TradeRaw": 74.75
+          },
+          "quality": {
+            "complete": true
+          }
+        }
+      ]
+    },
+    {
+      "asOf": "2026-03-03",
+      "ranking": [
+        {
+          "symbol": "600001",
+          "rank": 1,
+          "price": 88.504024,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 95,
+            "alphaRaw": 95,
+            "timing": 90,
+            "timingRaw": 90,
+            "psychology": 20,
+            "psychologyRaw": 20,
+            "composite": 93.5,
+            "compositeRaw": 93.5,
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600002",
+          "rank": 2,
+          "price": 120.048549,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 90,
+            "alphaRaw": 90,
+            "timing": 85,
+            "timingRaw": 85,
+            "psychology": 90,
+            "psychologyRaw": 90,
+            "composite": 88.5,
+            "compositeRaw": 88.5,
+            "v12Trade": 88.75,
+            "v12TradeRaw": 88.75
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600003",
+          "rank": 3,
+          "price": 106.286652,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 86,
+            "alphaRaw": 86,
+            "timing": 75,
+            "timingRaw": 75,
+            "psychology": 75,
+            "psychologyRaw": 75,
+            "composite": 82.69999999999999,
+            "compositeRaw": 82.69999999999999,
+            "v12Trade": 81.6,
+            "v12TradeRaw": 81.6
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600004",
+          "rank": 4,
+          "price": 94.079453,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 84,
+            "alphaRaw": 84,
+            "timing": 60,
+            "timingRaw": 60,
+            "psychology": 40,
+            "psychologyRaw": 40,
+            "composite": 76.8,
+            "compositeRaw": 76.8,
+            "v12Trade": 71.4,
+            "v12TradeRaw": 71.4
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600005",
+          "rank": 5,
+          "price": 106.576471,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 82,
+            "alphaRaw": 82,
+            "timing": 70,
+            "timingRaw": 70,
+            "psychology": 65,
+            "psychologyRaw": 65,
+            "composite": 78.4,
+            "compositeRaw": 78.4,
+            "v12Trade": 76.44999999999999,
+            "v12TradeRaw": 76.44999999999999
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600006",
+          "rank": 6,
+          "price": 109.574165,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 80,
+            "alphaRaw": 80,
+            "timing": 65,
+            "timingRaw": 65,
+            "psychology": 70,
+            "psychologyRaw": 70,
+            "composite": 75.5,
+            "compositeRaw": 75.5,
+            "v12Trade": 74.75,
+            "v12TradeRaw": 74.75
+          },
+          "quality": {
+            "complete": true
+          }
+        }
+      ]
+    },
+    {
+      "asOf": "2026-03-07",
+      "ranking": [
+        {
+          "symbol": "600001",
+          "rank": 1,
+          "price": 87.798113,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 95,
+            "alphaRaw": 95,
+            "timing": 90,
+            "timingRaw": 90,
+            "psychology": 20,
+            "psychologyRaw": 20,
+            "composite": 93.5,
+            "compositeRaw": 93.5,
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600002",
+          "rank": 2,
+          "price": 121.495627,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 90,
+            "alphaRaw": 90,
+            "timing": 85,
+            "timingRaw": 85,
+            "psychology": 90,
+            "psychologyRaw": 90,
+            "composite": 88.5,
+            "compositeRaw": 88.5,
+            "v12Trade": 88.75,
+            "v12TradeRaw": 88.75
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600003",
+          "rank": 3,
+          "price": 106.712437,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 86,
+            "alphaRaw": 86,
+            "timing": 75,
+            "timingRaw": 75,
+            "psychology": 75,
+            "psychologyRaw": 75,
+            "composite": 82.69999999999999,
+            "compositeRaw": 82.69999999999999,
+            "v12Trade": 81.6,
+            "v12TradeRaw": 81.6
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600004",
+          "rank": 4,
+          "price": 93.703699,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 84,
+            "alphaRaw": 84,
+            "timing": 60,
+            "timingRaw": 60,
+            "psychology": 40,
+            "psychologyRaw": 40,
+            "composite": 76.8,
+            "compositeRaw": 76.8,
+            "v12Trade": 71.4,
+            "v12TradeRaw": 71.4
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600005",
+          "rank": 5,
+          "price": 107.001495,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 82,
+            "alphaRaw": 82,
+            "timing": 70,
+            "timingRaw": 70,
+            "psychology": 65,
+            "psychologyRaw": 65,
+            "composite": 78.4,
+            "compositeRaw": 78.4,
+            "v12Trade": 76.44999999999999,
+            "v12TradeRaw": 76.44999999999999
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600006",
+          "rank": 6,
+          "price": 110.233091,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 80,
+            "alphaRaw": 80,
+            "timing": 65,
+            "timingRaw": 65,
+            "psychology": 70,
+            "psychologyRaw": 70,
+            "composite": 75.5,
+            "compositeRaw": 75.5,
+            "v12Trade": 74.75,
+            "v12TradeRaw": 74.75
+          },
+          "quality": {
+            "complete": true
+          }
+        }
+      ]
+    },
+    {
+      "asOf": "2026-03-11",
+      "ranking": [
+        {
+          "symbol": "600001",
+          "rank": 1,
+          "price": 87.097833,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 95,
+            "alphaRaw": 95,
+            "timing": 90,
+            "timingRaw": 90,
+            "psychology": 20,
+            "psychologyRaw": 20,
+            "composite": 93.5,
+            "compositeRaw": 93.5,
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600002",
+          "rank": 2,
+          "price": 122.960148,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 90,
+            "alphaRaw": 90,
+            "timing": 85,
+            "timingRaw": 85,
+            "psychology": 90,
+            "psychologyRaw": 90,
+            "composite": 88.5,
+            "compositeRaw": 88.5,
+            "v12Trade": 88.75,
+            "v12TradeRaw": 88.75
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600003",
+          "rank": 3,
+          "price": 107.139927,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 86,
+            "alphaRaw": 86,
+            "timing": 75,
+            "timingRaw": 75,
+            "psychology": 75,
+            "psychologyRaw": 75,
+            "composite": 82.69999999999999,
+            "compositeRaw": 82.69999999999999,
+            "v12Trade": 81.6,
+            "v12TradeRaw": 81.6
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600004",
+          "rank": 4,
+          "price": 93.329446,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 84,
+            "alphaRaw": 84,
+            "timing": 60,
+            "timingRaw": 60,
+            "psychology": 40,
+            "psychologyRaw": 40,
+            "composite": 76.8,
+            "compositeRaw": 76.8,
+            "v12Trade": 71.4,
+            "v12TradeRaw": 71.4
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600005",
+          "rank": 5,
+          "price": 107.428213,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 82,
+            "alphaRaw": 82,
+            "timing": 70,
+            "timingRaw": 70,
+            "psychology": 65,
+            "psychologyRaw": 65,
+            "composite": 78.4,
+            "compositeRaw": 78.4,
+            "v12Trade": 76.44999999999999,
+            "v12TradeRaw": 76.44999999999999
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600006",
+          "rank": 6,
+          "price": 110.895979,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 80,
+            "alphaRaw": 80,
+            "timing": 65,
+            "timingRaw": 65,
+            "psychology": 70,
+            "psychologyRaw": 70,
+            "composite": 75.5,
+            "compositeRaw": 75.5,
+            "v12Trade": 74.75,
+            "v12TradeRaw": 74.75
+          },
+          "quality": {
+            "complete": true
+          }
+        }
+      ]
+    },
+    {
+      "asOf": "2026-03-15",
+      "ranking": [
+        {
+          "symbol": "600001",
+          "rank": 1,
+          "price": 86.403138,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 95,
+            "alphaRaw": 95,
+            "timing": 90,
+            "timingRaw": 90,
+            "psychology": 20,
+            "psychologyRaw": 20,
+            "composite": 93.5,
+            "compositeRaw": 93.5,
+            "v12Trade": 82.5,
+            "v12TradeRaw": 82.5
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600002",
+          "rank": 2,
+          "price": 124.442323,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 90,
+            "alphaRaw": 90,
+            "timing": 85,
+            "timingRaw": 85,
+            "psychology": 90,
+            "psychologyRaw": 90,
+            "composite": 88.5,
+            "compositeRaw": 88.5,
+            "v12Trade": 88.75,
+            "v12TradeRaw": 88.75
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600003",
+          "rank": 3,
+          "price": 107.56913,
+          "timing": {
+            "signal": "BUY_NOW"
+          },
+          "scores": {
+            "alpha": 86,
+            "alphaRaw": 86,
+            "timing": 75,
+            "timingRaw": 75,
+            "psychology": 75,
+            "psychologyRaw": 75,
+            "composite": 82.69999999999999,
+            "compositeRaw": 82.69999999999999,
+            "v12Trade": 81.6,
+            "v12TradeRaw": 81.6
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600004",
+          "rank": 4,
+          "price": 92.956688,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 84,
+            "alphaRaw": 84,
+            "timing": 60,
+            "timingRaw": 60,
+            "psychology": 40,
+            "psychologyRaw": 40,
+            "composite": 76.8,
+            "compositeRaw": 76.8,
+            "v12Trade": 71.4,
+            "v12TradeRaw": 71.4
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600005",
+          "rank": 5,
+          "price": 107.856633,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 82,
+            "alphaRaw": 82,
+            "timing": 70,
+            "timingRaw": 70,
+            "psychology": 65,
+            "psychologyRaw": 65,
+            "composite": 78.4,
+            "compositeRaw": 78.4,
+            "v12Trade": 76.44999999999999,
+            "v12TradeRaw": 76.44999999999999
+          },
+          "quality": {
+            "complete": true
+          }
+        },
+        {
+          "symbol": "600006",
+          "rank": 6,
+          "price": 111.562854,
+          "timing": {
+            "signal": "WAIT_PULLBACK"
+          },
+          "scores": {
+            "alpha": 80,
+            "alphaRaw": 80,
+            "timing": 65,
+            "timingRaw": 65,
+            "psychology": 70,
+            "psychologyRaw": 70,
+            "composite": 75.5,
+            "compositeRaw": 75.5,
+            "v12Trade": 74.75,
+            "v12TradeRaw": 74.75
+          },
+          "quality": {
+            "complete": true
+          }
+        }
+      ]
+    }
+  ],
+  "histories": {
+    "600001": [
+      {
+        "date": "2026-01-01",
+        "close": 100
+      },
+      {
+        "date": "2026-01-02",
+        "close": 99.8
+      },
+      {
+        "date": "2026-01-03",
+        "close": 99.6004
+      },
+      {
+        "date": "2026-01-04",
+        "close": 99.401199
+      },
+      {
+        "date": "2026-01-05",
+        "close": 99.202397
+      },
+      {
+        "date": "2026-01-06",
+        "close": 99.003992
+      },
+      {
+        "date": "2026-01-07",
+        "close": 98.805984
+      },
+      {
+        "date": "2026-01-08",
+        "close": 98.608372
+      },
+      {
+        "date": "2026-01-09",
+        "close": 98.411155
+      },
+      {
+        "date": "2026-01-10",
+        "close": 98.214333
+      },
+      {
+        "date": "2026-01-11",
+        "close": 98.017904
+      },
+      {
+        "date": "2026-01-12",
+        "close": 97.821869
+      },
+      {
+        "date": "2026-01-13",
+        "close": 97.626225
+      },
+      {
+        "date": "2026-01-14",
+        "close": 97.430972
+      },
+      {
+        "date": "2026-01-15",
+        "close": 97.23611
+      },
+      {
+        "date": "2026-01-16",
+        "close": 97.041638
+      },
+      {
+        "date": "2026-01-17",
+        "close": 96.847555
+      },
+      {
+        "date": "2026-01-18",
+        "close": 96.65386
+      },
+      {
+        "date": "2026-01-19",
+        "close": 96.460552
+      },
+      {
+        "date": "2026-01-20",
+        "close": 96.267631
+      },
+      {
+        "date": "2026-01-21",
+        "close": 96.075096
+      },
+      {
+        "date": "2026-01-22",
+        "close": 95.882946
+      },
+      {
+        "date": "2026-01-23",
+        "close": 95.69118
+      },
+      {
+        "date": "2026-01-24",
+        "close": 95.499797
+      },
+      {
+        "date": "2026-01-25",
+        "close": 95.308798
+      },
+      {
+        "date": "2026-01-26",
+        "close": 95.11818
+      },
+      {
+        "date": "2026-01-27",
+        "close": 94.927944
+      },
+      {
+        "date": "2026-01-28",
+        "close": 94.738088
+      },
+      {
+        "date": "2026-01-29",
+        "close": 94.548612
+      },
+      {
+        "date": "2026-01-30",
+        "close": 94.359514
+      },
+      {
+        "date": "2026-01-31",
+        "close": 94.170795
+      },
+      {
+        "date": "2026-02-01",
+        "close": 93.982454
+      },
+      {
+        "date": "2026-02-02",
+        "close": 93.794489
+      },
+      {
+        "date": "2026-02-03",
+        "close": 93.6069
+      },
+      {
+        "date": "2026-02-04",
+        "close": 93.419686
+      },
+      {
+        "date": "2026-02-05",
+        "close": 93.232847
+      },
+      {
+        "date": "2026-02-06",
+        "close": 93.046381
+      },
+      {
+        "date": "2026-02-07",
+        "close": 92.860288
+      },
+      {
+        "date": "2026-02-08",
+        "close": 92.674568
+      },
+      {
+        "date": "2026-02-09",
+        "close": 92.489219
+      },
+      {
+        "date": "2026-02-10",
+        "close": 92.30424
+      },
+      {
+        "date": "2026-02-11",
+        "close": 92.119632
+      },
+      {
+        "date": "2026-02-12",
+        "close": 91.935392
+      },
+      {
+        "date": "2026-02-13",
+        "close": 91.751522
+      },
+      {
+        "date": "2026-02-14",
+        "close": 91.568019
+      },
+      {
+        "date": "2026-02-15",
+        "close": 91.384883
+      },
+      {
+        "date": "2026-02-16",
+        "close": 91.202113
+      },
+      {
+        "date": "2026-02-17",
+        "close": 91.019709
+      },
+      {
+        "date": "2026-02-18",
+        "close": 90.837669
+      },
+      {
+        "date": "2026-02-19",
+        "close": 90.655994
+      },
+      {
+        "date": "2026-02-20",
+        "close": 90.474682
+      },
+      {
+        "date": "2026-02-21",
+        "close": 90.293732
+      },
+      {
+        "date": "2026-02-22",
+        "close": 90.113145
+      },
+      {
+        "date": "2026-02-23",
+        "close": 89.932919
+      },
+      {
+        "date": "2026-02-24",
+        "close": 89.753053
+      },
+      {
+        "date": "2026-02-25",
+        "close": 89.573547
+      },
+      {
+        "date": "2026-02-26",
+        "close": 89.3944
+      },
+      {
+        "date": "2026-02-27",
+        "close": 89.215611
+      },
+      {
+        "date": "2026-02-28",
+        "close": 89.03718
+      },
+      {
+        "date": "2026-03-01",
+        "close": 88.859105
+      },
+      {
+        "date": "2026-03-02",
+        "close": 88.681387
+      },
+      {
+        "date": "2026-03-03",
+        "close": 88.504024
+      },
+      {
+        "date": "2026-03-04",
+        "close": 88.327016
+      },
+      {
+        "date": "2026-03-05",
+        "close": 88.150362
+      },
+      {
+        "date": "2026-03-06",
+        "close": 87.974061
+      },
+      {
+        "date": "2026-03-07",
+        "close": 87.798113
+      },
+      {
+        "date": "2026-03-08",
+        "close": 87.622517
+      },
+      {
+        "date": "2026-03-09",
+        "close": 87.447272
+      },
+      {
+        "date": "2026-03-10",
+        "close": 87.272378
+      },
+      {
+        "date": "2026-03-11",
+        "close": 87.097833
+      },
+      {
+        "date": "2026-03-12",
+        "close": 86.923637
+      },
+      {
+        "date": "2026-03-13",
+        "close": 86.74979
+      },
+      {
+        "date": "2026-03-14",
+        "close": 86.57629
+      },
+      {
+        "date": "2026-03-15",
+        "close": 86.403138
+      },
+      {
+        "date": "2026-03-16",
+        "close": 86.230331
+      },
+      {
+        "date": "2026-03-17",
+        "close": 86.057871
+      },
+      {
+        "date": "2026-03-18",
+        "close": 85.885755
+      },
+      {
+        "date": "2026-03-19",
+        "close": 85.713984
+      },
+      {
+        "date": "2026-03-20",
+        "close": 85.542556
+      },
+      {
+        "date": "2026-03-21",
+        "close": 85.37147
+      },
+      {
+        "date": "2026-03-22",
+        "close": 85.200727
+      },
+      {
+        "date": "2026-03-23",
+        "close": 85.030326
+      },
+      {
+        "date": "2026-03-24",
+        "close": 84.860265
+      },
+      {
+        "date": "2026-03-25",
+        "close": 84.690545
+      },
+      {
+        "date": "2026-03-26",
+        "close": 84.521164
+      },
+      {
+        "date": "2026-03-27",
+        "close": 84.352121
+      },
+      {
+        "date": "2026-03-28",
+        "close": 84.183417
+      },
+      {
+        "date": "2026-03-29",
+        "close": 84.01505
+      },
+      {
+        "date": "2026-03-30",
+        "close": 83.84702
+      },
+      {
+        "date": "2026-03-31",
+        "close": 83.679326
+      },
+      {
+        "date": "2026-04-01",
+        "close": 83.511968
+      },
+      {
+        "date": "2026-04-02",
+        "close": 83.344944
+      },
+      {
+        "date": "2026-04-03",
+        "close": 83.178254
+      },
+      {
+        "date": "2026-04-04",
+        "close": 83.011897
+      },
+      {
+        "date": "2026-04-05",
+        "close": 82.845873
+      },
+      {
+        "date": "2026-04-06",
+        "close": 82.680182
+      },
+      {
+        "date": "2026-04-07",
+        "close": 82.514821
+      },
+      {
+        "date": "2026-04-08",
+        "close": 82.349792
+      },
+      {
+        "date": "2026-04-09",
+        "close": 82.185092
+      },
+      {
+        "date": "2026-04-10",
+        "close": 82.020722
+      }
+    ],
+    "600002": [
+      {
+        "date": "2026-01-01",
+        "close": 100
+      },
+      {
+        "date": "2026-01-02",
+        "close": 100.3
+      },
+      {
+        "date": "2026-01-03",
+        "close": 100.6009
+      },
+      {
+        "date": "2026-01-04",
+        "close": 100.902703
+      },
+      {
+        "date": "2026-01-05",
+        "close": 101.205411
+      },
+      {
+        "date": "2026-01-06",
+        "close": 101.509027
+      },
+      {
+        "date": "2026-01-07",
+        "close": 101.813554
+      },
+      {
+        "date": "2026-01-08",
+        "close": 102.118995
+      },
+      {
+        "date": "2026-01-09",
+        "close": 102.425352
+      },
+      {
+        "date": "2026-01-10",
+        "close": 102.732628
+      },
+      {
+        "date": "2026-01-11",
+        "close": 103.040826
+      },
+      {
+        "date": "2026-01-12",
+        "close": 103.349948
+      },
+      {
+        "date": "2026-01-13",
+        "close": 103.659998
+      },
+      {
+        "date": "2026-01-14",
+        "close": 103.970978
+      },
+      {
+        "date": "2026-01-15",
+        "close": 104.282891
+      },
+      {
+        "date": "2026-01-16",
+        "close": 104.59574
+      },
+      {
+        "date": "2026-01-17",
+        "close": 104.909527
+      },
+      {
+        "date": "2026-01-18",
+        "close": 105.224255
+      },
+      {
+        "date": "2026-01-19",
+        "close": 105.539928
+      },
+      {
+        "date": "2026-01-20",
+        "close": 105.856548
+      },
+      {
+        "date": "2026-01-21",
+        "close": 106.174118
+      },
+      {
+        "date": "2026-01-22",
+        "close": 106.49264
+      },
+      {
+        "date": "2026-01-23",
+        "close": 106.812118
+      },
+      {
+        "date": "2026-01-24",
+        "close": 107.132554
+      },
+      {
+        "date": "2026-01-25",
+        "close": 107.453952
+      },
+      {
+        "date": "2026-01-26",
+        "close": 107.776314
+      },
+      {
+        "date": "2026-01-27",
+        "close": 108.099643
+      },
+      {
+        "date": "2026-01-28",
+        "close": 108.423942
+      },
+      {
+        "date": "2026-01-29",
+        "close": 108.749213
+      },
+      {
+        "date": "2026-01-30",
+        "close": 109.075461
+      },
+      {
+        "date": "2026-01-31",
+        "close": 109.402687
+      },
+      {
+        "date": "2026-02-01",
+        "close": 109.730896
+      },
+      {
+        "date": "2026-02-02",
+        "close": 110.060088
+      },
+      {
+        "date": "2026-02-03",
+        "close": 110.390269
+      },
+      {
+        "date": "2026-02-04",
+        "close": 110.721439
+      },
+      {
+        "date": "2026-02-05",
+        "close": 111.053604
+      },
+      {
+        "date": "2026-02-06",
+        "close": 111.386764
+      },
+      {
+        "date": "2026-02-07",
+        "close": 111.720925
+      },
+      {
+        "date": "2026-02-08",
+        "close": 112.056088
+      },
+      {
+        "date": "2026-02-09",
+        "close": 112.392256
+      },
+      {
+        "date": "2026-02-10",
+        "close": 112.729433
+      },
+      {
+        "date": "2026-02-11",
+        "close": 113.067621
+      },
+      {
+        "date": "2026-02-12",
+        "close": 113.406824
+      },
+      {
+        "date": "2026-02-13",
+        "close": 113.747044
+      },
+      {
+        "date": "2026-02-14",
+        "close": 114.088285
+      },
+      {
+        "date": "2026-02-15",
+        "close": 114.43055
+      },
+      {
+        "date": "2026-02-16",
+        "close": 114.773842
+      },
+      {
+        "date": "2026-02-17",
+        "close": 115.118163
+      },
+      {
+        "date": "2026-02-18",
+        "close": 115.463518
+      },
+      {
+        "date": "2026-02-19",
+        "close": 115.809908
+      },
+      {
+        "date": "2026-02-20",
+        "close": 116.157338
+      },
+      {
+        "date": "2026-02-21",
+        "close": 116.50581
+      },
+      {
+        "date": "2026-02-22",
+        "close": 116.855328
+      },
+      {
+        "date": "2026-02-23",
+        "close": 117.205894
+      },
+      {
+        "date": "2026-02-24",
+        "close": 117.557511
+      },
+      {
+        "date": "2026-02-25",
+        "close": 117.910184
+      },
+      {
+        "date": "2026-02-26",
+        "close": 118.263914
+      },
+      {
+        "date": "2026-02-27",
+        "close": 118.618706
+      },
+      {
+        "date": "2026-02-28",
+        "close": 118.974562
+      },
+      {
+        "date": "2026-03-01",
+        "close": 119.331486
+      },
+      {
+        "date": "2026-03-02",
+        "close": 119.68948
+      },
+      {
+        "date": "2026-03-03",
+        "close": 120.048549
+      },
+      {
+        "date": "2026-03-04",
+        "close": 120.408694
+      },
+      {
+        "date": "2026-03-05",
+        "close": 120.76992
+      },
+      {
+        "date": "2026-03-06",
+        "close": 121.13223
+      },
+      {
+        "date": "2026-03-07",
+        "close": 121.495627
+      },
+      {
+        "date": "2026-03-08",
+        "close": 121.860114
+      },
+      {
+        "date": "2026-03-09",
+        "close": 122.225694
+      },
+      {
+        "date": "2026-03-10",
+        "close": 122.592371
+      },
+      {
+        "date": "2026-03-11",
+        "close": 122.960148
+      },
+      {
+        "date": "2026-03-12",
+        "close": 123.329029
+      },
+      {
+        "date": "2026-03-13",
+        "close": 123.699016
+      },
+      {
+        "date": "2026-03-14",
+        "close": 124.070113
+      },
+      {
+        "date": "2026-03-15",
+        "close": 124.442323
+      },
+      {
+        "date": "2026-03-16",
+        "close": 124.81565
+      },
+      {
+        "date": "2026-03-17",
+        "close": 125.190097
+      },
+      {
+        "date": "2026-03-18",
+        "close": 125.565667
+      },
+      {
+        "date": "2026-03-19",
+        "close": 125.942364
+      },
+      {
+        "date": "2026-03-20",
+        "close": 126.320192
+      },
+      {
+        "date": "2026-03-21",
+        "close": 126.699152
+      },
+      {
+        "date": "2026-03-22",
+        "close": 127.07925
+      },
+      {
+        "date": "2026-03-23",
+        "close": 127.460487
+      },
+      {
+        "date": "2026-03-24",
+        "close": 127.842869
+      },
+      {
+        "date": "2026-03-25",
+        "close": 128.226397
+      },
+      {
+        "date": "2026-03-26",
+        "close": 128.611077
+      },
+      {
+        "date": "2026-03-27",
+        "close": 128.99691
+      },
+      {
+        "date": "2026-03-28",
+        "close": 129.383901
+      },
+      {
+        "date": "2026-03-29",
+        "close": 129.772052
+      },
+      {
+        "date": "2026-03-30",
+        "close": 130.161368
+      },
+      {
+        "date": "2026-03-31",
+        "close": 130.551853
+      },
+      {
+        "date": "2026-04-01",
+        "close": 130.943508
+      },
+      {
+        "date": "2026-04-02",
+        "close": 131.336339
+      },
+      {
+        "date": "2026-04-03",
+        "close": 131.730348
+      },
+      {
+        "date": "2026-04-04",
+        "close": 132.125539
+      },
+      {
+        "date": "2026-04-05",
+        "close": 132.521915
+      },
+      {
+        "date": "2026-04-06",
+        "close": 132.919481
+      },
+      {
+        "date": "2026-04-07",
+        "close": 133.318239
+      },
+      {
+        "date": "2026-04-08",
+        "close": 133.718194
+      },
+      {
+        "date": "2026-04-09",
+        "close": 134.119349
+      },
+      {
+        "date": "2026-04-10",
+        "close": 134.521707
+      }
+    ],
+    "600003": [
+      {
+        "date": "2026-01-01",
+        "close": 100
+      },
+      {
+        "date": "2026-01-02",
+        "close": 100.1
+      },
+      {
+        "date": "2026-01-03",
+        "close": 100.2001
+      },
+      {
+        "date": "2026-01-04",
+        "close": 100.3003
+      },
+      {
+        "date": "2026-01-05",
+        "close": 100.4006
+      },
+      {
+        "date": "2026-01-06",
+        "close": 100.501001
+      },
+      {
+        "date": "2026-01-07",
+        "close": 100.601502
+      },
+      {
+        "date": "2026-01-08",
+        "close": 100.702104
+      },
+      {
+        "date": "2026-01-09",
+        "close": 100.802806
+      },
+      {
+        "date": "2026-01-10",
+        "close": 100.903608
+      },
+      {
+        "date": "2026-01-11",
+        "close": 101.004512
+      },
+      {
+        "date": "2026-01-12",
+        "close": 101.105517
+      },
+      {
+        "date": "2026-01-13",
+        "close": 101.206622
+      },
+      {
+        "date": "2026-01-14",
+        "close": 101.307829
+      },
+      {
+        "date": "2026-01-15",
+        "close": 101.409137
+      },
+      {
+        "date": "2026-01-16",
+        "close": 101.510546
+      },
+      {
+        "date": "2026-01-17",
+        "close": 101.612056
+      },
+      {
+        "date": "2026-01-18",
+        "close": 101.713668
+      },
+      {
+        "date": "2026-01-19",
+        "close": 101.815382
+      },
+      {
+        "date": "2026-01-20",
+        "close": 101.917197
+      },
+      {
+        "date": "2026-01-21",
+        "close": 102.019114
+      },
+      {
+        "date": "2026-01-22",
+        "close": 102.121134
+      },
+      {
+        "date": "2026-01-23",
+        "close": 102.223255
+      },
+      {
+        "date": "2026-01-24",
+        "close": 102.325478
+      },
+      {
+        "date": "2026-01-25",
+        "close": 102.427803
+      },
+      {
+        "date": "2026-01-26",
+        "close": 102.530231
+      },
+      {
+        "date": "2026-01-27",
+        "close": 102.632762
+      },
+      {
+        "date": "2026-01-28",
+        "close": 102.735394
+      },
+      {
+        "date": "2026-01-29",
+        "close": 102.83813
+      },
+      {
+        "date": "2026-01-30",
+        "close": 102.940968
+      },
+      {
+        "date": "2026-01-31",
+        "close": 103.043909
+      },
+      {
+        "date": "2026-02-01",
+        "close": 103.146953
+      },
+      {
+        "date": "2026-02-02",
+        "close": 103.2501
+      },
+      {
+        "date": "2026-02-03",
+        "close": 103.35335
+      },
+      {
+        "date": "2026-02-04",
+        "close": 103.456703
+      },
+      {
+        "date": "2026-02-05",
+        "close": 103.56016
+      },
+      {
+        "date": "2026-02-06",
+        "close": 103.66372
+      },
+      {
+        "date": "2026-02-07",
+        "close": 103.767384
+      },
+      {
+        "date": "2026-02-08",
+        "close": 103.871151
+      },
+      {
+        "date": "2026-02-09",
+        "close": 103.975022
+      },
+      {
+        "date": "2026-02-10",
+        "close": 104.078997
+      },
+      {
+        "date": "2026-02-11",
+        "close": 104.183076
+      },
+      {
+        "date": "2026-02-12",
+        "close": 104.287259
+      },
+      {
+        "date": "2026-02-13",
+        "close": 104.391547
+      },
+      {
+        "date": "2026-02-14",
+        "close": 104.495938
+      },
+      {
+        "date": "2026-02-15",
+        "close": 104.600434
+      },
+      {
+        "date": "2026-02-16",
+        "close": 104.705034
+      },
+      {
+        "date": "2026-02-17",
+        "close": 104.809739
+      },
+      {
+        "date": "2026-02-18",
+        "close": 104.914549
+      },
+      {
+        "date": "2026-02-19",
+        "close": 105.019464
+      },
+      {
+        "date": "2026-02-20",
+        "close": 105.124483
+      },
+      {
+        "date": "2026-02-21",
+        "close": 105.229608
+      },
+      {
+        "date": "2026-02-22",
+        "close": 105.334837
+      },
+      {
+        "date": "2026-02-23",
+        "close": 105.440172
+      },
+      {
+        "date": "2026-02-24",
+        "close": 105.545612
+      },
+      {
+        "date": "2026-02-25",
+        "close": 105.651158
+      },
+      {
+        "date": "2026-02-26",
+        "close": 105.756809
+      },
+      {
+        "date": "2026-02-27",
+        "close": 105.862566
+      },
+      {
+        "date": "2026-02-28",
+        "close": 105.968428
+      },
+      {
+        "date": "2026-03-01",
+        "close": 106.074397
+      },
+      {
+        "date": "2026-03-02",
+        "close": 106.180471
+      },
+      {
+        "date": "2026-03-03",
+        "close": 106.286652
+      },
+      {
+        "date": "2026-03-04",
+        "close": 106.392938
+      },
+      {
+        "date": "2026-03-05",
+        "close": 106.499331
+      },
+      {
+        "date": "2026-03-06",
+        "close": 106.605831
+      },
+      {
+        "date": "2026-03-07",
+        "close": 106.712437
+      },
+      {
+        "date": "2026-03-08",
+        "close": 106.819149
+      },
+      {
+        "date": "2026-03-09",
+        "close": 106.925968
+      },
+      {
+        "date": "2026-03-10",
+        "close": 107.032894
+      },
+      {
+        "date": "2026-03-11",
+        "close": 107.139927
+      },
+      {
+        "date": "2026-03-12",
+        "close": 107.247067
+      },
+      {
+        "date": "2026-03-13",
+        "close": 107.354314
+      },
+      {
+        "date": "2026-03-14",
+        "close": 107.461668
+      },
+      {
+        "date": "2026-03-15",
+        "close": 107.56913
+      },
+      {
+        "date": "2026-03-16",
+        "close": 107.676699
+      },
+      {
+        "date": "2026-03-17",
+        "close": 107.784376
+      },
+      {
+        "date": "2026-03-18",
+        "close": 107.89216
+      },
+      {
+        "date": "2026-03-19",
+        "close": 108.000052
+      },
+      {
+        "date": "2026-03-20",
+        "close": 108.108052
+      },
+      {
+        "date": "2026-03-21",
+        "close": 108.21616
+      },
+      {
+        "date": "2026-03-22",
+        "close": 108.324377
+      },
+      {
+        "date": "2026-03-23",
+        "close": 108.432701
+      },
+      {
+        "date": "2026-03-24",
+        "close": 108.541134
+      },
+      {
+        "date": "2026-03-25",
+        "close": 108.649675
+      },
+      {
+        "date": "2026-03-26",
+        "close": 108.758324
+      },
+      {
+        "date": "2026-03-27",
+        "close": 108.867083
+      },
+      {
+        "date": "2026-03-28",
+        "close": 108.97595
+      },
+      {
+        "date": "2026-03-29",
+        "close": 109.084926
+      },
+      {
+        "date": "2026-03-30",
+        "close": 109.194011
+      },
+      {
+        "date": "2026-03-31",
+        "close": 109.303205
+      },
+      {
+        "date": "2026-04-01",
+        "close": 109.412508
+      },
+      {
+        "date": "2026-04-02",
+        "close": 109.52192
+      },
+      {
+        "date": "2026-04-03",
+        "close": 109.631442
+      },
+      {
+        "date": "2026-04-04",
+        "close": 109.741074
+      },
+      {
+        "date": "2026-04-05",
+        "close": 109.850815
+      },
+      {
+        "date": "2026-04-06",
+        "close": 109.960666
+      },
+      {
+        "date": "2026-04-07",
+        "close": 110.070626
+      },
+      {
+        "date": "2026-04-08",
+        "close": 110.180697
+      },
+      {
+        "date": "2026-04-09",
+        "close": 110.290878
+      },
+      {
+        "date": "2026-04-10",
+        "close": 110.401169
+      }
+    ],
+    "600004": [
+      {
+        "date": "2026-01-01",
+        "close": 100
+      },
+      {
+        "date": "2026-01-02",
+        "close": 99.9
+      },
+      {
+        "date": "2026-01-03",
+        "close": 99.8001
+      },
+      {
+        "date": "2026-01-04",
+        "close": 99.7003
+      },
+      {
+        "date": "2026-01-05",
+        "close": 99.6006
+      },
+      {
+        "date": "2026-01-06",
+        "close": 99.500999
+      },
+      {
+        "date": "2026-01-07",
+        "close": 99.401498
+      },
+      {
+        "date": "2026-01-08",
+        "close": 99.302097
+      },
+      {
+        "date": "2026-01-09",
+        "close": 99.202794
+      },
+      {
+        "date": "2026-01-10",
+        "close": 99.103592
+      },
+      {
+        "date": "2026-01-11",
+        "close": 99.004488
+      },
+      {
+        "date": "2026-01-12",
+        "close": 98.905484
+      },
+      {
+        "date": "2026-01-13",
+        "close": 98.806578
+      },
+      {
+        "date": "2026-01-14",
+        "close": 98.707771
+      },
+      {
+        "date": "2026-01-15",
+        "close": 98.609064
+      },
+      {
+        "date": "2026-01-16",
+        "close": 98.510455
+      },
+      {
+        "date": "2026-01-17",
+        "close": 98.411944
+      },
+      {
+        "date": "2026-01-18",
+        "close": 98.313532
+      },
+      {
+        "date": "2026-01-19",
+        "close": 98.215219
+      },
+      {
+        "date": "2026-01-20",
+        "close": 98.117003
+      },
+      {
+        "date": "2026-01-21",
+        "close": 98.018886
+      },
+      {
+        "date": "2026-01-22",
+        "close": 97.920868
+      },
+      {
+        "date": "2026-01-23",
+        "close": 97.822947
+      },
+      {
+        "date": "2026-01-24",
+        "close": 97.725124
+      },
+      {
+        "date": "2026-01-25",
+        "close": 97.627399
+      },
+      {
+        "date": "2026-01-26",
+        "close": 97.529771
+      },
+      {
+        "date": "2026-01-27",
+        "close": 97.432241
+      },
+      {
+        "date": "2026-01-28",
+        "close": 97.334809
+      },
+      {
+        "date": "2026-01-29",
+        "close": 97.237474
+      },
+      {
+        "date": "2026-01-30",
+        "close": 97.140237
+      },
+      {
+        "date": "2026-01-31",
+        "close": 97.043097
+      },
+      {
+        "date": "2026-02-01",
+        "close": 96.946054
+      },
+      {
+        "date": "2026-02-02",
+        "close": 96.849108
+      },
+      {
+        "date": "2026-02-03",
+        "close": 96.752258
+      },
+      {
+        "date": "2026-02-04",
+        "close": 96.655506
+      },
+      {
+        "date": "2026-02-05",
+        "close": 96.558851
+      },
+      {
+        "date": "2026-02-06",
+        "close": 96.462292
+      },
+      {
+        "date": "2026-02-07",
+        "close": 96.36583
+      },
+      {
+        "date": "2026-02-08",
+        "close": 96.269464
+      },
+      {
+        "date": "2026-02-09",
+        "close": 96.173194
+      },
+      {
+        "date": "2026-02-10",
+        "close": 96.077021
+      },
+      {
+        "date": "2026-02-11",
+        "close": 95.980944
+      },
+      {
+        "date": "2026-02-12",
+        "close": 95.884963
+      },
+      {
+        "date": "2026-02-13",
+        "close": 95.789078
+      },
+      {
+        "date": "2026-02-14",
+        "close": 95.693289
+      },
+      {
+        "date": "2026-02-15",
+        "close": 95.597596
+      },
+      {
+        "date": "2026-02-16",
+        "close": 95.501998
+      },
+      {
+        "date": "2026-02-17",
+        "close": 95.406496
+      },
+      {
+        "date": "2026-02-18",
+        "close": 95.31109
+      },
+      {
+        "date": "2026-02-19",
+        "close": 95.215779
+      },
+      {
+        "date": "2026-02-20",
+        "close": 95.120563
+      },
+      {
+        "date": "2026-02-21",
+        "close": 95.025442
+      },
+      {
+        "date": "2026-02-22",
+        "close": 94.930417
+      },
+      {
+        "date": "2026-02-23",
+        "close": 94.835486
+      },
+      {
+        "date": "2026-02-24",
+        "close": 94.740651
+      },
+      {
+        "date": "2026-02-25",
+        "close": 94.64591
+      },
+      {
+        "date": "2026-02-26",
+        "close": 94.551264
+      },
+      {
+        "date": "2026-02-27",
+        "close": 94.456713
+      },
+      {
+        "date": "2026-02-28",
+        "close": 94.362256
+      },
+      {
+        "date": "2026-03-01",
+        "close": 94.267894
+      },
+      {
+        "date": "2026-03-02",
+        "close": 94.173626
+      },
+      {
+        "date": "2026-03-03",
+        "close": 94.079453
+      },
+      {
+        "date": "2026-03-04",
+        "close": 93.985373
+      },
+      {
+        "date": "2026-03-05",
+        "close": 93.891388
+      },
+      {
+        "date": "2026-03-06",
+        "close": 93.797496
+      },
+      {
+        "date": "2026-03-07",
+        "close": 93.703699
+      },
+      {
+        "date": "2026-03-08",
+        "close": 93.609995
+      },
+      {
+        "date": "2026-03-09",
+        "close": 93.516385
+      },
+      {
+        "date": "2026-03-10",
+        "close": 93.422869
+      },
+      {
+        "date": "2026-03-11",
+        "close": 93.329446
+      },
+      {
+        "date": "2026-03-12",
+        "close": 93.236116
+      },
+      {
+        "date": "2026-03-13",
+        "close": 93.14288
+      },
+      {
+        "date": "2026-03-14",
+        "close": 93.049737
+      },
+      {
+        "date": "2026-03-15",
+        "close": 92.956688
+      },
+      {
+        "date": "2026-03-16",
+        "close": 92.863731
+      },
+      {
+        "date": "2026-03-17",
+        "close": 92.770867
+      },
+      {
+        "date": "2026-03-18",
+        "close": 92.678096
+      },
+      {
+        "date": "2026-03-19",
+        "close": 92.585418
+      },
+      {
+        "date": "2026-03-20",
+        "close": 92.492833
+      },
+      {
+        "date": "2026-03-21",
+        "close": 92.40034
+      },
+      {
+        "date": "2026-03-22",
+        "close": 92.30794
+      },
+      {
+        "date": "2026-03-23",
+        "close": 92.215632
+      },
+      {
+        "date": "2026-03-24",
+        "close": 92.123416
+      },
+      {
+        "date": "2026-03-25",
+        "close": 92.031293
+      },
+      {
+        "date": "2026-03-26",
+        "close": 91.939262
+      },
+      {
+        "date": "2026-03-27",
+        "close": 91.847322
+      },
+      {
+        "date": "2026-03-28",
+        "close": 91.755475
+      },
+      {
+        "date": "2026-03-29",
+        "close": 91.663719
+      },
+      {
+        "date": "2026-03-30",
+        "close": 91.572056
+      },
+      {
+        "date": "2026-03-31",
+        "close": 91.480484
+      },
+      {
+        "date": "2026-04-01",
+        "close": 91.389003
+      },
+      {
+        "date": "2026-04-02",
+        "close": 91.297614
+      },
+      {
+        "date": "2026-04-03",
+        "close": 91.206317
+      },
+      {
+        "date": "2026-04-04",
+        "close": 91.11511
+      },
+      {
+        "date": "2026-04-05",
+        "close": 91.023995
+      },
+      {
+        "date": "2026-04-06",
+        "close": 90.932971
+      },
+      {
+        "date": "2026-04-07",
+        "close": 90.842038
+      },
+      {
+        "date": "2026-04-08",
+        "close": 90.751196
+      },
+      {
+        "date": "2026-04-09",
+        "close": 90.660445
+      },
+      {
+        "date": "2026-04-10",
+        "close": 90.569784
+      }
+    ],
+    "600005": [
+      {
+        "date": "2026-01-01",
+        "close": 100
+      },
+      {
+        "date": "2026-01-02",
+        "close": 100.4
+      },
+      {
+        "date": "2026-01-03",
+        "close": 100.1992
+      },
+      {
+        "date": "2026-01-04",
+        "close": 100.599997
+      },
+      {
+        "date": "2026-01-05",
+        "close": 100.398797
+      },
+      {
+        "date": "2026-01-06",
+        "close": 100.800392
+      },
+      {
+        "date": "2026-01-07",
+        "close": 100.598791
+      },
+      {
+        "date": "2026-01-08",
+        "close": 101.001186
+      },
+      {
+        "date": "2026-01-09",
+        "close": 100.799184
+      },
+      {
+        "date": "2026-01-10",
+        "close": 101.202381
+      },
+      {
+        "date": "2026-01-11",
+        "close": 100.999976
+      },
+      {
+        "date": "2026-01-12",
+        "close": 101.403976
+      },
+      {
+        "date": "2026-01-13",
+        "close": 101.201168
+      },
+      {
+        "date": "2026-01-14",
+        "close": 101.605973
+      },
+      {
+        "date": "2026-01-15",
+        "close": 101.402761
+      },
+      {
+        "date": "2026-01-16",
+        "close": 101.808372
+      },
+      {
+        "date": "2026-01-17",
+        "close": 101.604755
+      },
+      {
+        "date": "2026-01-18",
+        "close": 102.011174
+      },
+      {
+        "date": "2026-01-19",
+        "close": 101.807152
+      },
+      {
+        "date": "2026-01-20",
+        "close": 102.21438
+      },
+      {
+        "date": "2026-01-21",
+        "close": 102.009951
+      },
+      {
+        "date": "2026-01-22",
+        "close": 102.417991
+      },
+      {
+        "date": "2026-01-23",
+        "close": 102.213155
+      },
+      {
+        "date": "2026-01-24",
+        "close": 102.622008
+      },
+      {
+        "date": "2026-01-25",
+        "close": 102.416764
+      },
+      {
+        "date": "2026-01-26",
+        "close": 102.826431
+      },
+      {
+        "date": "2026-01-27",
+        "close": 102.620778
+      },
+      {
+        "date": "2026-01-28",
+        "close": 103.031261
+      },
+      {
+        "date": "2026-01-29",
+        "close": 102.825199
+      },
+      {
+        "date": "2026-01-30",
+        "close": 103.236499
+      },
+      {
+        "date": "2026-01-31",
+        "close": 103.030026
+      },
+      {
+        "date": "2026-02-01",
+        "close": 103.442147
+      },
+      {
+        "date": "2026-02-02",
+        "close": 103.235262
+      },
+      {
+        "date": "2026-02-03",
+        "close": 103.648203
+      },
+      {
+        "date": "2026-02-04",
+        "close": 103.440907
+      },
+      {
+        "date": "2026-02-05",
+        "close": 103.854671
+      },
+      {
+        "date": "2026-02-06",
+        "close": 103.646961
+      },
+      {
+        "date": "2026-02-07",
+        "close": 104.061549
+      },
+      {
+        "date": "2026-02-08",
+        "close": 103.853426
+      },
+      {
+        "date": "2026-02-09",
+        "close": 104.26884
+      },
+      {
+        "date": "2026-02-10",
+        "close": 104.060302
+      },
+      {
+        "date": "2026-02-11",
+        "close": 104.476543
+      },
+      {
+        "date": "2026-02-12",
+        "close": 104.26759
+      },
+      {
+        "date": "2026-02-13",
+        "close": 104.68466
+      },
+      {
+        "date": "2026-02-14",
+        "close": 104.475291
+      },
+      {
+        "date": "2026-02-15",
+        "close": 104.893192
+      },
+      {
+        "date": "2026-02-16",
+        "close": 104.683406
+      },
+      {
+        "date": "2026-02-17",
+        "close": 105.10214
+      },
+      {
+        "date": "2026-02-18",
+        "close": 104.891935
+      },
+      {
+        "date": "2026-02-19",
+        "close": 105.311503
+      },
+      {
+        "date": "2026-02-20",
+        "close": 105.10088
+      },
+      {
+        "date": "2026-02-21",
+        "close": 105.521284
+      },
+      {
+        "date": "2026-02-22",
+        "close": 105.310241
+      },
+      {
+        "date": "2026-02-23",
+        "close": 105.731482
+      },
+      {
+        "date": "2026-02-24",
+        "close": 105.520019
+      },
+      {
+        "date": "2026-02-25",
+        "close": 105.942099
+      },
+      {
+        "date": "2026-02-26",
+        "close": 105.730215
+      },
+      {
+        "date": "2026-02-27",
+        "close": 106.153136
+      },
+      {
+        "date": "2026-02-28",
+        "close": 105.940829
+      },
+      {
+        "date": "2026-03-01",
+        "close": 106.364593
+      },
+      {
+        "date": "2026-03-02",
+        "close": 106.151864
+      },
+      {
+        "date": "2026-03-03",
+        "close": 106.576471
+      },
+      {
+        "date": "2026-03-04",
+        "close": 106.363318
+      },
+      {
+        "date": "2026-03-05",
+        "close": 106.788771
+      },
+      {
+        "date": "2026-03-06",
+        "close": 106.575194
+      },
+      {
+        "date": "2026-03-07",
+        "close": 107.001495
+      },
+      {
+        "date": "2026-03-08",
+        "close": 106.787492
+      },
+      {
+        "date": "2026-03-09",
+        "close": 107.214642
+      },
+      {
+        "date": "2026-03-10",
+        "close": 107.000212
+      },
+      {
+        "date": "2026-03-11",
+        "close": 107.428213
+      },
+      {
+        "date": "2026-03-12",
+        "close": 107.213357
+      },
+      {
+        "date": "2026-03-13",
+        "close": 107.64221
+      },
+      {
+        "date": "2026-03-14",
+        "close": 107.426926
+      },
+      {
+        "date": "2026-03-15",
+        "close": 107.856633
+      },
+      {
+        "date": "2026-03-16",
+        "close": 107.64092
+      },
+      {
+        "date": "2026-03-17",
+        "close": 108.071484
+      },
+      {
+        "date": "2026-03-18",
+        "close": 107.855341
+      },
+      {
+        "date": "2026-03-19",
+        "close": 108.286762
+      },
+      {
+        "date": "2026-03-20",
+        "close": 108.070189
+      },
+      {
+        "date": "2026-03-21",
+        "close": 108.502469
+      },
+      {
+        "date": "2026-03-22",
+        "close": 108.285465
+      },
+      {
+        "date": "2026-03-23",
+        "close": 108.718606
+      },
+      {
+        "date": "2026-03-24",
+        "close": 108.501169
+      },
+      {
+        "date": "2026-03-25",
+        "close": 108.935174
+      },
+      {
+        "date": "2026-03-26",
+        "close": 108.717303
+      },
+      {
+        "date": "2026-03-27",
+        "close": 109.152173
+      },
+      {
+        "date": "2026-03-28",
+        "close": 108.933868
+      },
+      {
+        "date": "2026-03-29",
+        "close": 109.369604
+      },
+      {
+        "date": "2026-03-30",
+        "close": 109.150865
+      },
+      {
+        "date": "2026-03-31",
+        "close": 109.587468
+      },
+      {
+        "date": "2026-04-01",
+        "close": 109.368293
+      },
+      {
+        "date": "2026-04-02",
+        "close": 109.805766
+      },
+      {
+        "date": "2026-04-03",
+        "close": 109.586155
+      },
+      {
+        "date": "2026-04-04",
+        "close": 110.024499
+      },
+      {
+        "date": "2026-04-05",
+        "close": 109.80445
+      },
+      {
+        "date": "2026-04-06",
+        "close": 110.243668
+      },
+      {
+        "date": "2026-04-07",
+        "close": 110.023181
+      },
+      {
+        "date": "2026-04-08",
+        "close": 110.463274
+      },
+      {
+        "date": "2026-04-09",
+        "close": 110.242347
+      },
+      {
+        "date": "2026-04-10",
+        "close": 110.683316
+      }
+    ],
+    "600006": [
+      {
+        "date": "2026-01-01",
+        "close": 100
+      },
+      {
+        "date": "2026-01-02",
+        "close": 100.15
+      },
+      {
+        "date": "2026-01-03",
+        "close": 100.300225
+      },
+      {
+        "date": "2026-01-04",
+        "close": 100.450675
+      },
+      {
+        "date": "2026-01-05",
+        "close": 100.601351
+      },
+      {
+        "date": "2026-01-06",
+        "close": 100.752253
+      },
+      {
+        "date": "2026-01-07",
+        "close": 100.903382
+      },
+      {
+        "date": "2026-01-08",
+        "close": 101.054737
+      },
+      {
+        "date": "2026-01-09",
+        "close": 101.206319
+      },
+      {
+        "date": "2026-01-10",
+        "close": 101.358128
+      },
+      {
+        "date": "2026-01-11",
+        "close": 101.510166
+      },
+      {
+        "date": "2026-01-12",
+        "close": 101.662431
+      },
+      {
+        "date": "2026-01-13",
+        "close": 101.814925
+      },
+      {
+        "date": "2026-01-14",
+        "close": 101.967647
+      },
+      {
+        "date": "2026-01-15",
+        "close": 102.120598
+      },
+      {
+        "date": "2026-01-16",
+        "close": 102.273779
+      },
+      {
+        "date": "2026-01-17",
+        "close": 102.42719
+      },
+      {
+        "date": "2026-01-18",
+        "close": 102.580831
+      },
+      {
+        "date": "2026-01-19",
+        "close": 102.734702
+      },
+      {
+        "date": "2026-01-20",
+        "close": 102.888804
+      },
+      {
+        "date": "2026-01-21",
+        "close": 103.043137
+      },
+      {
+        "date": "2026-01-22",
+        "close": 103.197702
+      },
+      {
+        "date": "2026-01-23",
+        "close": 103.352498
+      },
+      {
+        "date": "2026-01-24",
+        "close": 103.507527
+      },
+      {
+        "date": "2026-01-25",
+        "close": 103.662789
+      },
+      {
+        "date": "2026-01-26",
+        "close": 103.818283
+      },
+      {
+        "date": "2026-01-27",
+        "close": 103.97401
+      },
+      {
+        "date": "2026-01-28",
+        "close": 104.129971
+      },
+      {
+        "date": "2026-01-29",
+        "close": 104.286166
+      },
+      {
+        "date": "2026-01-30",
+        "close": 104.442595
+      },
+      {
+        "date": "2026-01-31",
+        "close": 104.599259
+      },
+      {
+        "date": "2026-02-01",
+        "close": 104.756158
+      },
+      {
+        "date": "2026-02-02",
+        "close": 104.913292
+      },
+      {
+        "date": "2026-02-03",
+        "close": 105.070662
+      },
+      {
+        "date": "2026-02-04",
+        "close": 105.228268
+      },
+      {
+        "date": "2026-02-05",
+        "close": 105.386111
+      },
+      {
+        "date": "2026-02-06",
+        "close": 105.54419
+      },
+      {
+        "date": "2026-02-07",
+        "close": 105.702506
+      },
+      {
+        "date": "2026-02-08",
+        "close": 105.86106
+      },
+      {
+        "date": "2026-02-09",
+        "close": 106.019851
+      },
+      {
+        "date": "2026-02-10",
+        "close": 106.178881
+      },
+      {
+        "date": "2026-02-11",
+        "close": 106.33815
+      },
+      {
+        "date": "2026-02-12",
+        "close": 106.497657
+      },
+      {
+        "date": "2026-02-13",
+        "close": 106.657403
+      },
+      {
+        "date": "2026-02-14",
+        "close": 106.817389
+      },
+      {
+        "date": "2026-02-15",
+        "close": 106.977615
+      },
+      {
+        "date": "2026-02-16",
+        "close": 107.138082
+      },
+      {
+        "date": "2026-02-17",
+        "close": 107.298789
+      },
+      {
+        "date": "2026-02-18",
+        "close": 107.459737
+      },
+      {
+        "date": "2026-02-19",
+        "close": 107.620927
+      },
+      {
+        "date": "2026-02-20",
+        "close": 107.782358
+      },
+      {
+        "date": "2026-02-21",
+        "close": 107.944032
+      },
+      {
+        "date": "2026-02-22",
+        "close": 108.105948
+      },
+      {
+        "date": "2026-02-23",
+        "close": 108.268107
+      },
+      {
+        "date": "2026-02-24",
+        "close": 108.430509
+      },
+      {
+        "date": "2026-02-25",
+        "close": 108.593155
+      },
+      {
+        "date": "2026-02-26",
+        "close": 108.756044
+      },
+      {
+        "date": "2026-02-27",
+        "close": 108.919178
+      },
+      {
+        "date": "2026-02-28",
+        "close": 109.082557
+      },
+      {
+        "date": "2026-03-01",
+        "close": 109.246181
+      },
+      {
+        "date": "2026-03-02",
+        "close": 109.41005
+      },
+      {
+        "date": "2026-03-03",
+        "close": 109.574165
+      },
+      {
+        "date": "2026-03-04",
+        "close": 109.738527
+      },
+      {
+        "date": "2026-03-05",
+        "close": 109.903134
+      },
+      {
+        "date": "2026-03-06",
+        "close": 110.067989
+      },
+      {
+        "date": "2026-03-07",
+        "close": 110.233091
+      },
+      {
+        "date": "2026-03-08",
+        "close": 110.398441
+      },
+      {
+        "date": "2026-03-09",
+        "close": 110.564038
+      },
+      {
+        "date": "2026-03-10",
+        "close": 110.729884
+      },
+      {
+        "date": "2026-03-11",
+        "close": 110.895979
+      },
+      {
+        "date": "2026-03-12",
+        "close": 111.062323
+      },
+      {
+        "date": "2026-03-13",
+        "close": 111.228917
+      },
+      {
+        "date": "2026-03-14",
+        "close": 111.39576
+      },
+      {
+        "date": "2026-03-15",
+        "close": 111.562854
+      },
+      {
+        "date": "2026-03-16",
+        "close": 111.730198
+      },
+      {
+        "date": "2026-03-17",
+        "close": 111.897793
+      },
+      {
+        "date": "2026-03-18",
+        "close": 112.06564
+      },
+      {
+        "date": "2026-03-19",
+        "close": 112.233738
+      },
+      {
+        "date": "2026-03-20",
+        "close": 112.402089
+      },
+      {
+        "date": "2026-03-21",
+        "close": 112.570692
+      },
+      {
+        "date": "2026-03-22",
+        "close": 112.739548
+      },
+      {
+        "date": "2026-03-23",
+        "close": 112.908658
+      },
+      {
+        "date": "2026-03-24",
+        "close": 113.078021
+      },
+      {
+        "date": "2026-03-25",
+        "close": 113.247638
+      },
+      {
+        "date": "2026-03-26",
+        "close": 113.417509
+      },
+      {
+        "date": "2026-03-27",
+        "close": 113.587635
+      },
+      {
+        "date": "2026-03-28",
+        "close": 113.758017
+      },
+      {
+        "date": "2026-03-29",
+        "close": 113.928654
+      },
+      {
+        "date": "2026-03-30",
+        "close": 114.099547
+      },
+      {
+        "date": "2026-03-31",
+        "close": 114.270696
+      },
+      {
+        "date": "2026-04-01",
+        "close": 114.442102
+      },
+      {
+        "date": "2026-04-02",
+        "close": 114.613765
+      },
+      {
+        "date": "2026-04-03",
+        "close": 114.785686
+      },
+      {
+        "date": "2026-04-04",
+        "close": 114.957864
+      },
+      {
+        "date": "2026-04-05",
+        "close": 115.130301
+      },
+      {
+        "date": "2026-04-06",
+        "close": 115.302997
+      },
+      {
+        "date": "2026-04-07",
+        "close": 115.475951
+      },
+      {
+        "date": "2026-04-08",
+        "close": 115.649165
+      },
+      {
+        "date": "2026-04-09",
+        "close": 115.822639
+      },
+      {
+        "date": "2026-04-10",
+        "close": 115.996373
+      }
+    ]
+  }
+}
