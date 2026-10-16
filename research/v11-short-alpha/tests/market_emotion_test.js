@@ -5,10 +5,10 @@ import { buildMarketEmotion } from '../market_emotion.js';
 test('market emotion is index-dominant and exposes ranked-pool diagnostics', () => {
   const result = buildMarketEmotion(
     [
-      {name:'上证',pct:1.0},
-      {name:'深证',pct:1.2},
-      {name:'创业板',pct:0.8},
-      {name:'科创50',pct:1.1}
+      {name:'上证',pct:0.6},
+      {name:'深证',pct:0.8},
+      {name:'创业板',pct:0.5},
+      {name:'科创50',pct:0.7}
     ],
     Array.from({length:100},(_,i)=>({f3:i<20?6:1}))
   );
