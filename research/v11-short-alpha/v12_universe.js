@@ -24,12 +24,14 @@ export function selectV12Candidates(input = [], max = 30) {
   const selected = [];
   const seen = new Set();
   const add = (rows, take) => {
+    let added = 0;
     for (const row of rows) {
-      if (selected.length >= max) return;
+      if (selected.length >= max || added >= take) return;
       const code = codeOf(row);
       if (!code || seen.has(code)) continue;
       seen.add(code);
       selected.push(row);
+      added += 1;
     }
   };
 
