@@ -4,6 +4,10 @@ on:
   push:
     branches:
       - research/v12-psychology-narrative
+  schedule:
+    - cron: '15 3 * * 1-5'
+    - cron: '30 5 * * 1-5'
+    - cron: '45 6 * * 1-5'
   workflow_dispatch:
 
 permissions:
