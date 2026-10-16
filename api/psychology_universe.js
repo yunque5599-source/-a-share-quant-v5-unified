@@ -104,6 +104,29 @@ function conceptRankingUrl() {
   };
 }
 
+function normalizeConceptRow(row) {
+  return {
+    code:String(row?.f12 ?? ''),
+    name:String(row?.f14 ?? ''),
+    changePct:n(row?.f3),
+    amountCny:n(row?.f6),
+    mainNetCny:n(row?.f62),
+    mainNetPct:n(row?.f184),
+    upCount:n(row?.f104),
+    downCount:n(row?.f105),
+    flatCount:n(row?.f106),
+    memberCount:n(row?.f134),
+    leaderName:String(row?.f128 ?? ''),
+    leaderCode:String(row?.f140 ?? ''),
+    leaderChangePct:n(row?.f136),
+    quoteTimestamp:n(row?.f124)
+  };
+}
+
+function isConceptBoardRow(row = {}) {
+  return String(row.code ?? '').startsWith('BK') && row.changePct !== null;
+}
+
 async function fetchConceptRanking() {
   const firstSpec = conceptRankingUrl();
   const first = await fetchFromHosts(PUSH_HOSTS, firstSpec.path, firstSpec.params, 9000);
@@ -126,22 +149,7 @@ async function fetchConceptRanking() {
     const diff = json?.data?.diff;
     const rows = Array.isArray(diff) ? diff :
       diff && typeof diff === 'object' ? Object.values(diff) : [];
-    return rows.map(row => ({
-      code:String(row?.f12 ?? ''),
-      name:String(row?.f14 ?? ''),
-      changePct:n(row?.f3),
-      amountCny:n(row?.f6),
-      mainNetCny:n(row?.f62),
-      mainNetPct:n(row?.f184),
-      upCount:n(row?.f104),
-      downCount:n(row?.f105),
-      flatCount:n(row?.f106),
-      memberCount:n(row?.f134),
-      leaderName:String(row?.f128 ?? ''),
-      leaderCode:String(row?.f140 ?? ''),
-      leaderChangePct:n(row?.f136),
-      quoteTimestamp:n(row?.f124)
-  })).filter(row => row.code.length === 6 && /^[0-9]{6}$/.test(row.code) && row.pct !== null);
+    return rows.map(normalizeConceptRow).filter(isConceptBoardRow);
   });
 }
 
@@ -177,6 +185,21 @@ async function fetchThemeFlow(boardCode) {
   }).filter(row => row.date && row.mainNetCny !== null && row.changePct !== null);
 }
 
+function normalizeThemeMemberRow(row) {
+  return {
+    code:String(row?.f12 ?? ''),
+    name:String(row?.f14 ?? ''),
+    pct:n(row?.f3),
+    amountCny:n(row?.f6),
+    turnoverPct:n(row?.f8),
+    mainNetCny:n(row?.f62)
+  };
+}
+
+function isThemeMemberRow(row = {}) {
+  return /^\d{6}$/.test(String(row.code ?? '')) && row.pct !== null;
+}
+
 async function fetchThemeMembers(boardCode) {
   const json = await fetchFromHosts(PUSH_HOSTS, '/api/qt/clist/get', {
     pn:'1', pz:'100', po:'1', np:'1', fid:'f3',
@@ -187,14 +210,7 @@ async function fetchThemeMembers(boardCode) {
   const diff = json?.data?.diff;
   const rows = Array.isArray(diff) ? diff :
     diff && typeof diff === 'object' ? Object.values(diff) : [];
-  return rows.map(row => ({
-    code:String(row?.f12 ?? ''),
-    name:String(row?.f14 ?? ''),
-    pct:n(row?.f3),
-    amountCny:n(row?.f6),
-    turnoverPct:n(row?.f8),
-    mainNetCny:n(row?.f62)
-  })).filter(row => /^\\d{6}$/.test(row.code) && row.pct !== null);
+  return rows.map(normalizeThemeMemberRow).filter(isThemeMemberRow);
 }
 
 async function fetchThemeNews(themeName) {
@@ -387,6 +403,13 @@ function enrichTheme(base, flowRows, memberRows, newsRows, candidatePct, candida
     news:research.news.slice(0, 10)
   };
 }
+
+export const _internal = {
+  normalizeConceptRow,
+  isConceptBoardRow,
+  normalizeThemeMemberRow,
+  isThemeMemberRow
+};
 
 export default async function handler(req, res) {
   const url = new URL(req.url, 'http://localhost');
