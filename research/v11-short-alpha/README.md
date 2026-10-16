@@ -322,3 +322,29 @@ decision price; fees, slippage, queue position, suspension, limit-up/limit-down 
 and actual fill probability are not inferred. Actual-money validation uses a separate execution
 ledger and the real fill price.
 
+
+## V12 Short-Horizon Selection Validation
+
+V12 selection research is centered on cross-sectional stock selection for the next
+one to five trading sessions. It preserves the frozen Alpha 60%, Timing 25%, and
+Psychology 15% baseline and exposes the compatible V12SelectionScore; it does
+not introduce a new factor or change weights.
+
+`evaluate_v12_snapshot.js` evaluates every available
+`decision.datasetCandidates` row, with legacy `tradeRanking` fallback. It
+records T+1 through T+5 absolute returns, market and sector excess returns when
+point-in-time benchmark histories are supplied, per-horizon MFE/MAE, win/loss,
+`horizonProfile`, `bestHorizon`, and a diagnostic short-horizon pattern.
+Future bars require a trading date strictly after the Asia/Shanghai snapshot date.
+Missing benchmark, high, or low data remains `null`.
+
+`analyze_v12_selection.js` reports per-horizon Rank IC, Spearman correlation,
+Top 5/10/20% versus Bottom 20% spreads, win rate, MFE, MAE, and absolute/market/
+sector excess returns. It also splits results by Bull/Neutral/Bear, market emotion
+High/Normal/Low, and 11:15/13:30/14:45 snapshot buckets. Per-snapshot quantile
+cuts prevent mixing ranks across dates. These are validation statistics only; ML
+does not change the rule model.
+
+Live snapshot capture retains legacy Top20 `tradeRanking` and now stores the full
+`decision.datasetCandidates` for future selection validation. No production page,
+API, broker, automatic order placement, or training-data mixing is changed.

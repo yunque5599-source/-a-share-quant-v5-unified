@@ -12,7 +12,8 @@ const MODEL_VERSIONS = Object.freeze({
   alpha:'V11 Short Alpha Phase 1',
   timing:'Buy Timing Phase 1',
   psychology:'V12 Psychology Score Phase 3 Behavioral',
-  trade:'V12 Trade Score Phase 1'
+  trade:'V12 Trade Score Phase 1',
+  selection:'V12 Short-Horizon Selection Score v1'
 });
 
 function invoke(handler, url) {
@@ -170,6 +171,10 @@ const output = {
     asOf:decision.asOf,
     market:decision.market,
     diagnostics:decision.diagnostics,
+    datasetCandidates:decision.ranking.map(row => ({
+      ...row,
+      selectionScore:row.scores?.v12SelectionRaw ?? row.scores?.v12Selection ?? null
+    })),
     tradeRanking:decision.tradeRanking.slice(0, 20).map(row => ({
       tradeRank:row.tradeRank,
       symbol:row.symbol,

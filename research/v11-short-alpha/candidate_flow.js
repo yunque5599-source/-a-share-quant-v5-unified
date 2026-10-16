@@ -4,6 +4,7 @@ import { finiteNumber as n, clamp, round, validDate, asOfDate, createCandidateRe
 import { rankCandidates } from './alpha_score.js';
 import { withPsychology } from './psychology_score.js';
 import { withV12TradeScore } from './v12_trade_score.js';
+import { withV12SelectionScore } from './v12_selection_score.js';
 import { buildMarketEmotion } from './market_emotion.js';
 
 const list = value => Array.isArray(value) ? value : [];
@@ -354,10 +355,11 @@ export function integrateCandidateFlow(input = {}, options = {}) {
       marketEmotion
     }, psychologyInput);
     const withV12 = withV12TradeScore(withPsych);
+    const withSelection = withV12SelectionScore(withV12);
     if (withPsych.psychology?.complete === true) diagnostics.psychologyComplete += 1;
-    if (withV12.scores?.v12TradeRaw !== null && record.quality.complete &&
+    if (withSelection.scores?.v12SelectionRaw !== null && record.quality.complete &&
         withPsych.psychology?.complete === true) diagnostics.v12Eligible += 1;
-    return withV12;
+    return withSelection;
   });
   const tradeRanking = ranking
     .filter(record => record.quality.complete &&
