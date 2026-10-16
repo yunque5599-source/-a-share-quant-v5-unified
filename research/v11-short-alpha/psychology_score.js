@@ -1,4 +1,5 @@
 import { clamp, finiteNumber, round, asOfDate } from './schema.js';
+import { scoreNarrativeResearch, scoreImaginationResearch } from './psychology_research.js';
 
 export const PSYCHOLOGY_WEIGHTS = Object.freeze({
   emotionHeat: 0.25,
@@ -145,6 +146,17 @@ function scoreEmotionAcceleration(theme = {}) {
 }
 
 function scoreNarrative(theme = {}) {
+  const researched = scoreNarrativeResearch(theme);
+  if (researched.score !== null) {
+    return {
+      score:clamp(researched.score),
+      confidence:researched.confidence,
+      source:'structured-research',
+      evidence:researched.evidence,
+      reasons:researched.complete ? ['narrative-research-complete'] :
+        ['narrative-research-partial']
+    };
+  }
   const direct = n(theme.narrativeScore);
   if (direct !== null) {
     const evidence = list(theme.narrativeEvidence ?? theme.catalystEvidence);
@@ -171,6 +183,17 @@ function scoreNarrative(theme = {}) {
 }
 
 function scoreImagination(theme = {}) {
+  const researched = scoreImaginationResearch(theme);
+  if (researched.score !== null) {
+    return {
+      score:clamp(researched.score),
+      confidence:researched.confidence,
+      source:'structured-research',
+      evidence:researched.evidence,
+      reasons:researched.complete ? ['imagination-research-complete'] :
+        ['imagination-research-partial']
+    };
+  }
   const direct = n(theme.imaginationScore);
   if (direct !== null) {
     const evidence = list(theme.imaginationEvidence ?? theme.spaceEvidence);
