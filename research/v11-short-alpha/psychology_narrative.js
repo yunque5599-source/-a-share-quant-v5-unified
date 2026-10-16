@@ -360,6 +360,8 @@ export function buildAutomaticPsychologyResearch(theme = {}, news = [], members 
     },
     imaginationResearch:{
       complete:imagination.complete,
+      score:imagination.score ?? null,
+      confidence:imagination.confidence ?? 0,
       marketSize:imagination.components?.marketSize?.score ?? null,
       penetrationGap:imagination.components?.penetrationGap?.score ?? null,
       policyRunway:imagination.components?.policyRunway?.score ?? null,
