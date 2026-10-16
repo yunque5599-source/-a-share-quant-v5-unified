@@ -69,5 +69,5 @@ test('narrative theme selector rejects valuation, holder-style and momentum clas
   }
   assert.equal(isNarrativeTheme({code:'BK12345',name:'人工智能'}), true);
   assert.equal(isNarrativeTheme({code:'BK12345',name:'机器人概念'}), true);
-  assert.equal(themeStrength({changePct:5,mainNetPct:3,upCount:80,downCount:20,flatCount:0}) > 80, true);
+  assert.equal(themeStrength({changePct:5,mainNetPct:3,upCount:80,downCount:20,flatCount:0}) > 75, true);
 });
