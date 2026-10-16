@@ -1,11 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
+import { _internal as universe } from '../../../api/psychology_universe.js';
+
+const {
   normalizeConceptRow,
   isConceptBoardRow,
   normalizeThemeMemberRow,
   isThemeMemberRow
-} from '../../../api/psychology_universe.js';
+} = universe;
 
 test('concept ranking accepts Eastmoney BK concept-board codes and requires price change', () => {
   const row = normalizeConceptRow({
