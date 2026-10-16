@@ -56,7 +56,7 @@ const FINANCIAL_MEDIA = [
 
 function clean(value) {
   return String(value ?? '').replace(/<[^>]+>/g, ' ')
-    .replace(/\\s+/g, ' ').trim();
+    .replace(/\s+/g, ' ').trim();
 }
 
 function articleDate(item) {
@@ -125,10 +125,10 @@ function sourceScore(source) {
 
 function scaleScore(text) {
   const value = String(text ?? '');
-  if (/\\d+(?:\\.\\d+)?\\s*(?:万亿美元|万亿)/.test(value)) return 98;
-  if (/\\d+(?:\\.\\d+)?\\s*(?:亿美元|千亿)/.test(value)) return 90;
-  if (/\\d+(?:\\.\\d+)?\\s*(?:百亿|十亿)/.test(value)) return 82;
-  if (/\\d+(?:\\.\\d+)?\\s*亿/.test(value)) return 74;
+  if (/\d+(?:\.\d+)?\s*(?:万亿美元|万亿)/.test(value)) return 98;
+  if (/\d+(?:\.\d+)?\s*(?:亿美元|千亿)/.test(value)) return 90;
+  if (/\d+(?:\.\d+)?\s*(?:百亿|十亿)/.test(value)) return 82;
+  if (/\d+(?:\.\d+)?\s*亿/.test(value)) return 74;
   return countTerms(value, SCALE_TERMS) > 0 ? 66 : null;
 }
 
