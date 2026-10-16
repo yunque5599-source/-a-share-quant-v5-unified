@@ -1,0 +1,39 @@
+name: V12 Live Source Probe
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - research/v12-psychology-narrative
+  pull_request:
+    branches:
+      - research/v11-short-alpha
+      - main
+    paths:
+      - 'api/psychology_universe.js'
+      - 'research/v11-short-alpha/psychology_narrative.js'
+      - 'research/v11-short-alpha/psychology_research.js'
+      - 'research/v11-short-alpha/live_source_probe.js'
+      - '.github/workflows/v12-live-source-probe.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  live-source-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Probe live Eastmoney psychology sources
+        continue-on-error: true
+        env:
+          V12_PROBE_CODES: 600519,000001
+        run: node research/v11-short-alpha/live_source_probe.js
