@@ -85,9 +85,9 @@ jobs:
               lines.push(`|${s}|${n}|${h}|${m.averageReturnPct}|${m.winRatePct}|${m.maxDrawdownPct}|${m.payoffRatio}|`);
             }
             lines.push('',`OOS folds: ${o.diagnostics.foldCount}`);
-            lines.push(`OOS overall Top1 T+3 net avg: ${o.aggregate.overall.top1['T+3'].net.averageReturnPct}%`);
-            lines.push(`OOS bull Top1 T+3 net avg: ${o.aggregate.bull.top1['T+3'].net.averageReturnPct}%`);
-            lines.push(`OOS bear Top1 T+3 net avg: ${o.aggregate.bear.top1['T+3'].net.averageReturnPct}%`);
+            lines.push(`OOS overall Top1 T+3 net avg: ${o.aggregate.v12.overall.top1['T+3'].net.averageReturnPct}%`);
+            lines.push(`OOS bull Top1 T+3 net avg: ${o.aggregate.v12.bull.top1['T+3'].net.averageReturnPct}%`);
+            lines.push(`OOS bear Top1 T+3 net avg: ${o.aggregate.v12.bear.top1['T+3'].net.averageReturnPct}%`);\n            lines.push(`V12 minus Composite Top1 T+3 avg: ${o.deltaVsComposite.overall.top1['T+3'].averageReturnPct}%`);
             fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\\n')+'\\n');
           "
 
