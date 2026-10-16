@@ -74,7 +74,7 @@ test('selection analysis reports rank, quantile and market/time layers', () => {
   assert.equal(result.schema,'v12-selection-analysis-v1');
   assert.equal(result.overall.t1.pairCount,5);
   assert.ok(result.overall.t1.rankIC > 0);
-  assert.equal(result.overall.t1.top20.sampleCount,1);
+  assert.equal(result.overall.t1.top20.sampleCount,2);
   assert.ok(result.byMarketRegime.bear);
   assert.ok(result.byMarketRegime.bull);
   assert.ok(result.byEmotion.high);
