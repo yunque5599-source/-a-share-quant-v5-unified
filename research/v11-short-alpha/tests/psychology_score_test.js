@@ -65,7 +65,7 @@ test('behavioral psychology captures capital flow, participation and FOMO balanc
   assert.equal(typeof weakBehavior.score, 'number');
   assert.ok(hotBehavior.score > weakBehavior.score + 25);
   assert.ok(hot.themes[0].fomoRisk.score !== null);
-  assert.equal(hot.themes[0].components.behavioral.source, undefined);
+  assert.equal(hot.themes[0].components.behavioral.source, 'market-derived');
 });
 
 test('missing narrative or imagination never becomes an optimistic psychology score', () => {
