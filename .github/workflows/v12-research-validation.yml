@@ -29,6 +29,12 @@ jobs:
         with:
           node-version: 22
 
+      - name: Check V12 runtime source syntax
+        run: |
+          for file in api/v12_decision.js api/market.js api/psychology_universe.js; do
+            node --check "$file"
+          done
+
       - name: Run full research test suite
         run: node --test research/v11-short-alpha/tests/*.js
 
