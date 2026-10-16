@@ -54,7 +54,9 @@ function createHandler({fetchImpl=fetch,now=()=>Date.now(),pageSize=PAGE_SIZE,mi
   const remaining=deadlineAt-now();
   if(remaining<1500)throw Error('scan-time-budget-exceeded');
   const url=new URL('/api/qt/clist/get',host);
-  url.search=new URLSearchParams({pn:String(page),pz:String(pageSize),po:'1',np:'1',fltt:'2',invt:'2',fid:'f6',fs:segment.fs,fields:FIELDS}).toString();
+  // Paginate by stable stock code rather than turnover. Turnover ordering can move during
+   // a multi-page live scan and create duplicate/missing records between pages.
+   url.search=new URLSearchParams({pn:String(page),pz:String(pageSize),po:'1',np:'1',fltt:'2',invt:'2',fid:'f12',fs:segment.fs,fields:FIELDS}).toString();
   const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),Math.min(timeoutMs,remaining-500));
   try{
    const response=await fetchImpl(url.toString(),{signal:ctrl.signal,headers:{accept:'application/json,text/javascript,*/*;q=0.8','user-agent':'Mozilla/5.0 AShareQuant/source-health-v1',referer:'https://quote.eastmoney.com/'},cache:'no-store'});
