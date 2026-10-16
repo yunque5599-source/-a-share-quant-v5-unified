@@ -6,6 +6,7 @@ import marketHandler from '../../api/market.js';
 import discoveryHandler from '../../api/discovery_universe.js';
 import psychologyHandler from '../../api/psychology_universe.js';
 import { integrateCandidateFlow } from './candidate_flow.js';
+import { selectV12Candidates } from './v12_universe.js';
 
 const MODEL_VERSIONS = Object.freeze({
   alpha:'V11 Short Alpha Phase 1',
@@ -78,11 +79,8 @@ const ranked = parseResult(
 );
 
 const rankedCandidates = ranked?.data?.candidates ?? [];
-const codes = [...new Set(
-  rankedCandidates
-    .map(row => String(row?.f12 ?? ''))
-    .filter(code => /^(00|60)\d{4}$/.test(code))
-)].slice(0, 30);
+const selectedCandidates = selectV12Candidates(rankedCandidates, 30);
+const codes = selectedCandidates.map(row => String(row?.f12 ?? ''));
 
 if (codes.length < 5) {
   throw new Error('fewer than five eligible main-board candidates were returned');
