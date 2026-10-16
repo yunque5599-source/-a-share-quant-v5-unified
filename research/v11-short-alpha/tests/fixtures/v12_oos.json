@@ -1006,7 +1006,7 @@
           "rank": 6,
           "price": 112.566525,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
             "alpha": 100,
@@ -1153,7 +1153,7 @@
           "rank": 6,
           "price": 112.647105,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
             "alpha": 100,
@@ -1300,7 +1300,7 @@
           "rank": 6,
           "price": 112.933721,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
             "alpha": 100,
@@ -1447,7 +1447,7 @@
           "rank": 6,
           "price": 113.037873,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
             "alpha": 100,
@@ -1594,7 +1594,7 @@
           "rank": 6,
           "price": 113.175084,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
             "alpha": 100,
@@ -1741,7 +1741,7 @@
           "rank": 6,
           "price": 113.452885,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
             "alpha": 100,
@@ -1888,7 +1888,7 @@
           "rank": 6,
           "price": 112.605175,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
             "alpha": 100,
@@ -2035,7 +2035,7 @@
           "rank": 6,
           "price": 111.204631,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
             "alpha": 100,
@@ -2182,7 +2182,7 @@
           "rank": 6,
           "price": 109.821506,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
             "alpha": 100,
@@ -2329,7 +2329,7 @@
           "rank": 6,
           "price": 108.455584,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
             "alpha": 100,
@@ -2476,7 +2476,7 @@
           "rank": 6,
           "price": 107.106651,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
             "alpha": 100,
@@ -2623,7 +2623,7 @@
           "rank": 6,
           "price": 105.774495,
           "timing": {
-            "signal": "WAIT_PULLBACK"
+            "signal": "BUY_NOW"
           },
           "scores": {
             "alpha": 100,
