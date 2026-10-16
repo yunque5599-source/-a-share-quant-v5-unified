@@ -1,5 +1,6 @@
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import { dirname, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import marketHandler from '../../api/market.js';
 
 function invoke(handler, url) {
@@ -180,6 +181,6 @@ console.log(JSON.stringify({
 }, null, 2));
 }
 
-if (process.argv[1] && import.meta.url === new URL('file://' + resolve(process.argv[1])).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   await main();
 }
