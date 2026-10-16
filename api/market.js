@@ -7,6 +7,11 @@ const EM_HOSTS = [
   'https://43.push2.eastmoney.com',
   'https://89.push2.eastmoney.com'
 ];
+const HIST_HOSTS = [
+  'https://push2his.eastmoney.com',
+  'https://7.push2his.eastmoney.com',
+  'https://43.push2his.eastmoney.com'
+];
 
 const UA = 'Mozilla/5.0 AShareQuant/10.1.8-S';
 const MARKET_FS = 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048';
@@ -60,21 +65,34 @@ function ymdDaysAgo(days) {
   return d.toISOString().slice(0, 10).replace(/-/g, '');
 }
 
-function klineUrl(code) {
+function klineUrl(code, host = HIST_HOSTS[0]) {
   const p = new URLSearchParams({
     secid: secid(code), klt: '101', fqt: '1', beg: ymdDaysAgo(300), end: '20500101', lmt: '180',
     fields1: 'f1,f2,f3,f4,f5,f6',
     fields2: 'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61'
   });
-  return `https://push2his.eastmoney.com/api/qt/stock/kline/get?${p}`;
+  return `${host}/api/qt/stock/kline/get?${p}`;
 }
-function flowUrl(code) {
+function flowUrl(code, host = HIST_HOSTS[0]) {
   const p = new URLSearchParams({
     lmt: '30', klt: '101', secid: secid(code),
     fields1: 'f1,f2,f3,f7',
     fields2: 'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63'
   });
-  return `https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get?${p}`;
+  return `${host}/api/qt/stock/fflow/daykline/get?${p}`;
+}
+
+async function fetchHistoricalWithHosts(builder, timeout = 3200) {
+  let lastError = null;
+  for (const host of HIST_HOSTS) {
+    try {
+      const result = await fetchParsed(builder(host), timeout);
+      if (result?.data) return result;
+    } catch (error) {
+      lastError = error;
+    }
+  }
+  throw lastError || new Error('all historical hosts failed');
 }
 
 
@@ -169,7 +187,7 @@ async function fetchDeepOne(code) {
   let klineSource = 'eastmoney';
 
   try {
-    kline = await fetchParsed(klineUrl(code), 3200);
+    kline = await fetchHistoricalWithHosts(host => klineUrl(code, host), 3200);
   } catch {
     kline = await fetchTencentKline(code, 5500);
     klineSource = 'tencent';
@@ -179,7 +197,7 @@ async function fetchDeepOne(code) {
   let flowSource = 'eastmoney';
 
   try {
-    flow = await fetchParsed(flowUrl(code), 2600);
+    flow = await fetchHistoricalWithHosts(host => flowUrl(code, host), 2600);
   } catch {
     flow = neutralFlowFromKline(kline);
     flowSource = 'neutral';
