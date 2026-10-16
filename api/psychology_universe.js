@@ -293,8 +293,13 @@ function validCaptureAsOf(value) {
 }
 
 const NON_NARRATIVE_THEME_PATTERNS = [
-  /历史新高/, /昨日打二板/, /融资融券/, /HS300/i, /上证50/, /上证180/,
-  /央视50/, /沪股通/, /深股通/, /科创板做市商/, /MSCI/i, /富时罗素/
+  /历史新高/, /昨日打二板/, /昨日涨停/, /昨日连板/, /昨日首板/,
+  /融资融券/, /HS300/i, /上证50/, /上证180/, /央视50/,
+  /沪股通/, /深股通/, /科创板做市商/, /MSCI/i, /富时罗素/,
+  /百元股/, /高价股/, /低价股/, /低市盈率/, /高市盈率/,
+  /低市净率/, /破净/, /高股息/, /红利股/, /机构重仓/,
+  /基金重仓/, /QFII重仓/, /社保重仓/, /养老金/, /超跌/,
+  /ST板块/, /风险警示/, /次新股/
 ];
 
 function isNarrativeTheme(row = {}) {
@@ -415,7 +420,9 @@ export const _internal = {
   normalizeConceptRow,
   isConceptBoardRow,
   normalizeThemeMemberRow,
-  isThemeMemberRow
+  isThemeMemberRow,
+  isNarrativeTheme,
+  themeStrength
 };
 
 export default async function handler(req, res) {
