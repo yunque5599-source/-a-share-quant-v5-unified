@@ -36,16 +36,18 @@ jobs:
             schema:x.schema,
             capturedAt:x.capturedAt,
             asOf:x.asOf,
-            candidatePool:x.inputs?.ranked?.data?.candidateCount ?? null,
+            rankedUniverse:x.inputs?.ranked?.data?.candidateCount ?? null,
+            selectedDeepPool:x.inputs?.psychology?.data?.diagnostics?.requestedCodes ??
+              x.inputs?.psychology?.diagnostics?.requestedCodes ?? null,
             psychologyComplete:x.decision?.diagnostics?.psychologyComplete ?? null,
             v12Eligible:x.decision?.diagnostics?.v12Eligible ?? null,
             top5:x.decision?.tradeRanking?.slice(0,5).map(row => ({
               rank:row.tradeRank,
               symbol:row.symbol,
               name:row.name,
-              v12Trade:row.scores?.v12Trade ?? null,
-              psychologyStage:row.psychology?.stage ?? null,
-              primaryTheme:row.psychology?.primaryTheme ?? null
+              v12Trade:row.v12Trade ?? null,
+              psychologyStage:row.psychologyStage ?? null,
+              primaryTheme:row.primaryTheme ?? null
             }))
           }, null, 2));
           NODE
