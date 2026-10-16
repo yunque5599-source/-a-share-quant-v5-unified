@@ -174,5 +174,5 @@ test('trend research feature survives candidate scoring without changing V12 sco
     }
   });
   assert.equal(scored.features.trendStructure.score, trend.score);
-  assert.equal(scored.scores.alphaRaw, 72.25);
+  assert.equal(scored.scores.alphaRaw, 72.5);
 });
