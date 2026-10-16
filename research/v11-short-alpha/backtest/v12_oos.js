@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import { finiteNumber, round, asOfDate } from '../schema.js';
 import { backtestAlpha } from './alpha_backtest.js';
 import { classifyMarketRegime } from '../market_regime.js';
+import { computeV12TradeScore } from '../v12_trade_score.js';
 
 const strategies = ['composite', 'v12'];
 const horizons = [1, 3, 5];
