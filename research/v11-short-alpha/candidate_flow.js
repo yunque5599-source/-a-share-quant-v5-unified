@@ -226,12 +226,14 @@ export function integrateCandidateFlow(input = {}, options = {}) {
   }
   const diagnostics = { inputCount: candidates.length, duplicateCandidates: 0,
     rejectedCandidates: 0, psychologyComplete: 0, v12Eligible: 0 };
+  const hasExplicitMarket = options.market !== undefined ||
+    input?.market !== undefined || root.marketRisk !== undefined;
   const explicitMarket = options.market ?? input?.market ?? root.marketRisk;
   let marketRisk = normalizeMarketRisk(explicitMarket);
-  if (marketRisk === 'unknown') {
+  if (marketRisk === 'unknown' && !hasExplicitMarket) {
     marketRisk = inferMarketRisk(root.indices ?? input?.indices ?? [], explicitMarket);
   }
-  if (marketRisk === 'unknown') {
+  if (marketRisk === 'unknown' && !hasExplicitMarket) {
     const marketRows = candidates.slice(0, 120)
       .map(row => n(row?.f3 ?? row?.pct ?? row?.changePct))
       .filter(value => value !== null);
