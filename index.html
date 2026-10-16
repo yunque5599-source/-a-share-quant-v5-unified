@@ -294,7 +294,7 @@ function journalOutcome(record,bars){
   return out;
 }
 function aggregateJournal(rows){
-  const tiers=['CONFIRM_ENTRY','EARLY_WATCH','WATCH_PULLBACK','OBSERVE'];
+  const tiers=['CONFIRM_ENTRY','EARLY_WATCH','EARLY_SETUP','WATCH_PULLBACK','OBSERVE'];
   const summarize=(items,key)=>{
     const values=items.map(row=>Number(row.outcomes?.[key]?.returnPct)).filter(Number.isFinite);
     if(!values.length)return null;
@@ -376,7 +376,7 @@ async function runV12(){
       const fomo=p.fomoRisk&&p.fomoRisk.score!=null?Number(p.fomoRisk.score).toFixed(0):'—';
       const v=s.v12Trade==null?'—':Number(s.v12Trade).toFixed(1);
       const tier=x.executionTier||'OBSERVE';
-      const tierLabel=tier==='CONFIRM_ENTRY'?'确认入场':tier==='EARLY_WATCH'?'提前关注':tier==='WATCH_PULLBACK'?'观察/等回踩':'仅观察';
+      const tierLabel=tier==='CONFIRM_ENTRY'?'确认入场':tier==='EARLY_WATCH'?'提前关注':tier==='EARLY_SETUP'?'早期埋伏观察':tier==='WATCH_PULLBACK'?'观察/等回踩':'仅观察';
       const timingSignal=x.timing&&x.timing.signal?x.timing.signal:'UNKNOWN';
       const me=x.marketEmotion&&Number.isFinite(Number(x.marketEmotion.score))
         ? ' · 市场情绪 '+x.marketEmotion.label+' '+Number(x.marketEmotion.score).toFixed(0) : '';
