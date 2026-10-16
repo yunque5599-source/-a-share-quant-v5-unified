@@ -1,7 +1,7 @@
 import handler from '../../api/psychology_universe.js';
 import marketHandler from '../../api/market.js';
 
-function invoke(url) {
+function invoke(handler, url) {
   return new Promise((resolve, reject) => {
     let body = '';
     const req = {method:'GET', url};
@@ -17,7 +17,7 @@ function invoke(url) {
   });
 }
 
-const marketResult = await invoke('/api/market?action=ranked_candidates');
+const marketResult = await invoke(marketHandler, '/api/market?action=ranked_candidates');
 if (marketResult.statusCode !== 200) {
   throw new Error('market ranked_candidates returned HTTP ' + marketResult.statusCode + ': ' + marketResult.body);
 }
@@ -28,7 +28,7 @@ const liveCodes = (marketPayload?.data?.candidates ?? [])
   .slice(0, 8);
 const codes = process.env.V12_PROBE_CODES ||
   (liveCodes.length >= 2 ? liveCodes.join(',') : '600519,000001');
-const result = await invoke('/api/psychology_universe?codes=' + encodeURIComponent(codes));
+const result = await invoke(handler, '/api/psychology_universe?codes=' + encodeURIComponent(codes));
 
 if (result.statusCode !== 200) {
   throw new Error('psychology_universe returned HTTP ' + result.statusCode + ': ' + result.body);
