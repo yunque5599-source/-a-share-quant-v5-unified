@@ -213,7 +213,10 @@ async function runV12(){
       const theme=(p.primaryTheme&&p.primaryTheme.name)||'题材证据不足';
       const fomo=p.fomoRisk&&p.fomoRisk.score!=null?Number(p.fomoRisk.score).toFixed(0):'—';
       const v=s.v12Trade==null?'—':Number(s.v12Trade).toFixed(1);
-      return '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>#'+(x.tradeRank==null?'—':x.tradeRank)+' '+(x.name||x.symbol)+'</b> <span class="pill">'+(v==='—'?'WAIT':v)+'</span><div class="small" style="margin-top:5px">'+x.symbol+' · 题材 '+theme+' · 阶段 '+(p.stage||'unknown')+' · FOMO '+fomo+' · Alpha '+(s.alpha==null?'—':s.alpha)+' · Timing '+(s.timing==null?'—':s.timing)+' · Psychology '+(s.psychology==null?'—':s.psychology)+'</div><div class="small" style="margin-top:5px">'+((p.reasons||[]).slice(0,3).join(' · '))+'</div></div>';
+      const tier=x.executionTier||'OBSERVE';
+      const tierLabel=tier==='CONFIRM_ENTRY'?'确认入场':tier==='WATCH_PULLBACK'?'观察/等回踩':'仅观察';
+      const timingSignal=x.timing&&x.timing.signal?x.timing.signal:'UNKNOWN';
+      return '<div style="padding:10px 0;border-top:1px solid var(--line)"><b>#'+(x.tradeRank==null?'—':x.tradeRank)+' '+(x.name||x.symbol)+'</b> <span class="pill">'+(v==='—'?'WAIT':v)+'</span> <span class="pill">'+tierLabel+'</span><div class="small" style="margin-top:5px">'+x.symbol+' · 题材 '+theme+' · 阶段 '+(p.stage||'unknown')+' · FOMO '+fomo+' · Alpha '+(s.alpha==null?'—':s.alpha)+' · Timing '+(s.timing==null?'—':s.timing)+' ('+timingSignal+') · Psychology '+(s.psychology==null?'—':s.psychology)+'</div><div class="small" style="margin-top:5px">'+((p.reasons||[]).slice(0,3).join(' · '))+'</div></div>';
     }).join('');
   }catch(e){
     $('v12Status').textContent='V12运行失败：'+(e&&e.name==='AbortError'?'超过30秒':'');
