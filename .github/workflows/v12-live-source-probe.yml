@@ -11,6 +11,8 @@ on:
       - main
     paths:
       - 'api/psychology_universe.js'
+      - 'api/market.js'
+      - 'api/v12_decision.js'
       - 'research/v11-short-alpha/psychology_narrative.js'
       - 'research/v11-short-alpha/psychology_research.js'
       - 'research/v11-short-alpha/live_source_probe.js'
