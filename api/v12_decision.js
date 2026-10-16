@@ -4,6 +4,7 @@ import marketHandler from './market.js';
 import discoveryHandler from './discovery_universe.js';
 import psychologyHandler from './psychology_universe.js';
 import { integrateCandidateFlow } from '../research/v11-short-alpha/candidate_flow.js';
+import { selectV12Candidates } from '../research/v11-short-alpha/v12_universe.js';
 
 function invoke(handler, url) {
   return new Promise((resolve, reject) => {
@@ -72,9 +73,13 @@ export default async function handler(req, res) {
     const ranked = parseBody('ranked_candidates',
       await invoke(marketHandler, '/api/market?action=ranked_candidates'));
     const candidates = ranked?.data?.candidates ?? [];
-    const codes = requestedCodes.length ? requestedCodes :
-      [...new Set(candidates.map(row => String(row?.f12 ?? ''))
-        .filter(code => /^(00|60)\d{4}$/.test(code)))].slice(0, 15);
+    const diversified = selectV12Candidates(candidates, 30);
+    const codes = requestedCodes.length
+      ? [...new Set([
+          ...requestedCodes,
+          ...diversified.map(row => String(row?.f12 ?? ''))
+        ])].slice(0, 15)
+      : diversified.slice(0, 15).map(row => String(row?.f12 ?? ''));
 
     if (codes.length < 3) {
       return res.status(422).json({
