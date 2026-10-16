@@ -35,11 +35,11 @@ test('outcome evaluator uses snapshot price and computes T+1/T+3/T+5 plus MFE/MA
     symbol:'600001', name:'测试股', tradeRank:1,
     asOf:'2026-10-16T10:00:00+08:00', price:10
   }, bars);
-  assert.equal(result.horizons.t1.returnPct, 10);
-  assert.equal(result.horizons.t3.returnPct, 30);
-  assert.equal(result.horizons.t5.returnPct, 40);
-  assert.equal(result.maxFavorableReturn5d, 50);
-  assert.equal(result.maxAdverseReturn5d, 0);
+  assert.ok(Math.abs(result.horizons.t1.returnPct - 10) < 1e-9);
+  assert.ok(Math.abs(result.horizons.t3.returnPct - 30) < 1e-9);
+  assert.ok(Math.abs(result.horizons.t5.returnPct - 40) < 1e-9);
+  assert.ok(Math.abs(result.maxFavorableReturn5d - 50) < 1e-9);
+  assert.ok(Math.abs(result.maxAdverseReturn5d - 0) < 1e-9);
   assert.equal(result.outcomeStatus, 'complete');
 });
 
@@ -63,6 +63,6 @@ test('aggregate reports win rate and mean forward return without fabricating mis
   const summary = aggregate(rows);
   assert.equal(summary.count, 2);
   assert.equal(summary.horizons.t1.n, 2);
-  assert.equal(summary.horizons.t1.avgReturnPct, -2.5);
+  assert.ok(Math.abs(summary.horizons.t1.avgReturnPct - 2.5) < 1e-9);
   assert.equal(summary.horizons.t1.winRatePct, 50);
 });
