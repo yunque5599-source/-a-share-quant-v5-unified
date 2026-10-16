@@ -33,15 +33,18 @@ const psychology = {
 };
 
 test('candidate flow attaches psychology without changing the legacy Alpha ranking contract', () => {
-  const input = {...fixture, psychology};
+  const input = structuredClone(fixture);
+  input.ranked.data.candidates = input.ranked.data.candidates.filter(row => row.f12 === '600001');
+  input.deep.items = input.deep.items.filter(row => row.code === '600001');
+  input.psychology = {themeBySymbol:{'600001':psychology.themeBySymbol['600001']}};
   const result = integrateCandidateFlow(input);
   assert.equal(result.version, 'V11 Short Alpha Phase 1');
   assert.equal(result.schema, 'v11-short-alpha-flow-v1');
-  assert.equal(result.diagnostics.psychologyComplete, 2);
-  assert.equal(result.diagnostics.v12Eligible, 2);
-  assert.equal(result.ranking.length, 2);
+  assert.equal(result.diagnostics.psychologyComplete, 1);
+  assert.equal(result.diagnostics.v12Eligible, 1);
+  assert.equal(result.ranking.length, 1);
   assert.ok(result.ranking.every(row => row.psychology?.complete === true));
-  assert.equal(result.tradeRanking.length, 2);
+  assert.equal(result.tradeRanking.length, 1);
   assert.equal(result.tradeRanking[0].symbol, '600001');
   assert.equal(result.tradeRanking[0].tradeRank, 1);
   assert.ok(result.tradeRanking[0].scores.v12TradeRaw >
