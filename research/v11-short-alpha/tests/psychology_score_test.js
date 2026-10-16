@@ -48,6 +48,26 @@ test('weights sum to 100% and hot leader scores materially higher', () => {
   assert.equal(weak.stage, 'decay');
 });
 
+
+test('behavioral psychology captures capital flow, participation and FOMO balance', () => {
+  const hot = scoreCandidatePsychology(
+    {symbol:'600001',asOf:'2026-10-16',pct:6,themes:['BK9001']},
+    {themes:[hotTheme]}
+  );
+  const weak = scoreCandidatePsychology(
+    {symbol:'600001',asOf:'2026-10-16',pct:-3,themes:['BK9002']},
+    {themes:[weakTheme]}
+  );
+  assert.ok(hot.components === undefined);
+  const hotBehavior = hot.themes[0].components.behavioral;
+  const weakBehavior = weak.themes[0].components.behavioral;
+  assert.equal(typeof hotBehavior.score, 'number');
+  assert.equal(typeof weakBehavior.score, 'number');
+  assert.ok(hotBehavior.score > weakBehavior.score + 25);
+  assert.ok(hot.themes[0].fomoRisk.score !== null);
+  assert.equal(hot.themes[0].components.behavioral.source, undefined);
+});
+
 test('missing narrative or imagination never becomes an optimistic psychology score', () => {
   const incomplete = structuredClone(hotTheme);
   delete incomplete.narrativeScore;
