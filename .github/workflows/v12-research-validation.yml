@@ -1,0 +1,101 @@
+name: V12 Research Validation
+
+on:
+  push:
+    branches:
+      - research/v12-psychology-narrative
+  pull_request:
+    branches:
+      - research/v11-short-alpha
+      - main
+    paths:
+      - 'research/v11-short-alpha/**'
+      - '.github/workflows/v12-research-validation.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  research-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run full research test suite
+        run: node --test research/v11-short-alpha/tests/*.js
+
+      - name: Run V12 benchmark fixture
+        run: |
+          node research/v11-short-alpha/backtest/v12_benchmark.js \
+            --input research/v11-short-alpha/tests/fixtures/v12_benchmark.json \
+            > v12-benchmark-result.json
+          node -e "
+            const r=require('./v12-benchmark-result.json');
+            for (const s of ['composite','v12']) {
+              for (const n of ['top1','top5']) {
+                for (const h of ['T+1','T+3','T+5']) {
+                  const m=r.aggregate[s][n][h];
+                  console.log(s,n,h,'avg='+m.averageReturnPct,'win='+m.winRatePct,'dd='+m.maxDrawdownPct,'payoff='+m.payoffRatio);
+                }
+              }
+            }
+          "
+
+      - name: Run V12 OOS fixture
+        run: |
+          node research/v11-short-alpha/backtest/v12_oos.js \
+            --input research/v11-short-alpha/tests/fixtures/v12_oos.json \
+            > v12-oos-result.json
+          node -e "
+            const r=require('./v12-oos-result.json');
+            console.log(JSON.stringify({
+              schema:r.schema,
+              folds:r.diagnostics.foldCount,
+              overallTop1T1:r.aggregate.overall.top1['T+1'].net,
+              overallTop1T3:r.aggregate.overall.top1['T+3'].net,
+              overallTop1T5:r.aggregate.overall.top1['T+5'].net,
+              bullTop1T3:r.aggregate.bull.top1['T+3'].net,
+              bearTop1T3:r.aggregate.bear.top1['T+3'].net
+            },null,2));
+          "
+
+      - name: Publish validation summary
+        if: always()
+        run: |
+          node -e "
+            const fs=require('fs');
+            const b=JSON.parse(fs.readFileSync('v12-benchmark-result.json','utf8'));
+            const o=JSON.parse(fs.readFileSync('v12-oos-result.json','utf8'));
+            const lines=[
+              '## V12 Research Validation',
+              '',
+              '| Strategy | Universe | Horizon | Avg net % | Win rate % | Max DD % | Payoff |',
+              '|---|---|---|---:|---:|---:|---:|'
+            ];
+            for (const s of ['composite','v12']) for (const n of ['top1','top5']) for (const h of ['T+1','T+3','T+5']) {
+              const m=b.aggregate[s][n][h];
+              lines.push(`|${s}|${n}|${h}|${m.averageReturnPct}|${m.winRatePct}|${m.maxDrawdownPct}|${m.payoffRatio}|`);
+            }
+            lines.push('',`OOS folds: ${o.diagnostics.foldCount}`);
+            lines.push(`OOS overall Top1 T+3 net avg: ${o.aggregate.overall.top1['T+3'].net.averageReturnPct}%`);
+            lines.push(`OOS bull Top1 T+3 net avg: ${o.aggregate.bull.top1['T+3'].net.averageReturnPct}%`);
+            lines.push(`OOS bear Top1 T+3 net avg: ${o.aggregate.bear.top1['T+3'].net.averageReturnPct}%`);
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY,lines.join('\\n')+'\\n');
+          "
+
+      - name: Upload research reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v12-research-validation
+          path: |
+            v12-benchmark-result.json
+            v12-oos-result.json
+          if-no-files-found: warn
