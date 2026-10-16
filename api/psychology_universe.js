@@ -1,3 +1,5 @@
+import { buildAutomaticPsychologyResearch } from '../research/v11-short-alpha/psychology_narrative.js';
+
 export const config = { maxDuration: 60 };
 
 const PUSH_HOSTS = [
@@ -10,6 +12,7 @@ const HIST_HOSTS = [
   'https://push2his.eastmoney.com',
   'https://7.push2his.eastmoney.com'
 ];
+const NEWS_HOSTS = ['https://search-api-web.eastmoney.com'];
 const UA = 'Mozilla/5.0 AShareQuant/V12-Psychology';
 const UT = 'bd1d9ddb04089700cf9c27f6f7426281';
 
@@ -174,6 +177,60 @@ async function fetchThemeFlow(boardCode) {
   }).filter(row => row.date && row.mainNetCny !== null && row.changePct !== null);
 }
 
+async function fetchThemeMembers(boardCode) {
+  const json = await fetchFromHosts(PUSH_HOSTS, '/api/qt/clist/get', {
+    pn:'1', pz:'100', po:'1', np:'1', fid:'f3',
+    fs:'b:' + boardCode + '+f:!50',
+    fltt:'2', invt:'2', ut:UT,
+    fields:'f2,f3,f6,f8,f12,f14,f20,f62,f124'
+  }, 7000);
+  const diff = json?.data?.diff;
+  const rows = Array.isArray(diff) ? diff :
+    diff && typeof diff === 'object' ? Object.values(diff) : [];
+  return rows.map(row => ({
+    code:String(row?.f12 ?? ''),
+    name:String(row?.f14 ?? ''),
+    pct:n(row?.f3),
+    amountCny:n(row?.f6),
+    turnoverPct:n(row?.f8),
+    mainNetCny:n(row?.f62)
+  })).filter(row => /^\\d{6}$/.test(row.code) && row.pct !== null);
+}
+
+async function fetchThemeNews(themeName) {
+  const param = JSON.stringify({
+    uid:'',
+    keyword:String(themeName ?? '').trim(),
+    type:['cmsArticleWebOld'],
+    client:'web',
+    clientType:'web',
+    clientVersion:'curr',
+    param:{
+      cmsArticleWebOld:{
+        searchScope:'default',
+        sort:'default',
+        pageIndex:1,
+        pageSize:30,
+        preTag:'',
+        postTag:''
+      }
+    }
+  });
+  const json = await fetchFromHosts(NEWS_HOSTS, '/search/jsonp', {
+    cb:'v12Psychology',
+    param
+  }, 7000);
+  const articles = Array.isArray(json?.result?.cmsArticleWebOld)
+    ? json.result.cmsArticleWebOld : [];
+  return articles.map(item => ({
+    date:String(item?.date ?? ''),
+    title:String(item?.title ?? ''),
+    content:String(item?.content ?? ''),
+    mediaName:String(item?.mediaName ?? ''),
+    url:String(item?.url ?? '')
+  })).filter(item => item.title);
+}
+
 async function fetchCandidateQuotes(codes) {
   if (!codes.length) return new Map();
   const json = await fetchFromHosts(PUSH_HOSTS, '/api/qt/ulist.np/get', {
@@ -220,14 +277,42 @@ function themeStrength(row) {
   return flow * 0.45 + breadth * 0.30 + change * 0.25;
 }
 
-function enrichTheme(base, flowRows, candidatePct, asOf) {
+function enrichTheme(base, flowRows, memberRows, newsRows, candidatePct, candidateName, asOf) {
   const snapshotDate = Number.isFinite(base.quoteTimestamp) &&
     base.quoteTimestamp >= 1e9 && base.quoteTimestamp <= 2.2e9
     ? new Date(base.quoteTimestamp * 1000).toISOString().slice(0,10) : asOf;
   const rows = [...flowRows].filter(row => !snapshotDate || row.date <= snapshotDate)
     .sort((a,b) => a.date.localeCompare(b.date));
+  const members = [...memberRows].sort((a,b) =>
+    (b.pct ?? -Infinity) - (a.pct ?? -Infinity) || a.code.localeCompare(b.code));
   const memberCount = base.memberCount ??
     ((base.upCount ?? 0) + (base.downCount ?? 0) + (base.flatCount ?? 0));
+  const candidateCode = String(base.candidateCode ?? '').trim();
+  const candidateRankIndex = candidateCode
+    ? members.findIndex(row => row.code === candidateCode) : -1;
+  const memberLeader = members[0] ?? null;
+  const leaderCode = base.leaderCode || memberLeader?.code || null;
+  const leaderName = base.leaderName || memberLeader?.name || null;
+  const leaderChangePct = base.leaderChangePct ?? memberLeader?.pct ?? null;
+  const leaderStatus = candidateCode && candidateCode === leaderCode ? 'leader' :
+    candidateRankIndex >= 0 && candidateRankIndex < 3 ? 'core' :
+    candidateRankIndex >= 0 && candidateRankIndex < 5 ? 'front' : 'follower';
+  const candidatePremiumPct = candidatePct !== null && base.changePct !== null
+    ? candidatePct - base.changePct : null;
+  const research = buildAutomaticPsychologyResearch({
+    ...base,
+    asOf,
+    candidateCode,
+    candidateName,
+    leaderCode,
+    leaderName,
+    leaderChangePct,
+    candidatePremiumPct
+  }, newsRows, members);
+  const upCount = base.upCount ?? members.filter(row => row.pct > 0).length;
+  const downCount = base.downCount ?? members.filter(row => row.pct < 0).length;
+  const strongCount = members.filter(row => row.pct >= 5).length;
+  const limitUpCount = members.filter(row => row.pct >= 9.5).length;
   return {
     code:base.code,
     name:base.name,
@@ -235,31 +320,59 @@ function enrichTheme(base, flowRows, candidatePct, asOf) {
     changePct:base.changePct,
     mainNetCny:base.mainNetCny,
     mainNetPct:base.mainNetPct,
-    upCount:base.upCount,
-    downCount:base.downCount,
+    upCount,
+    downCount,
     flatCount:base.flatCount,
     memberCount,
-    leaderCode:base.leaderCode || null,
-    leaderName:base.leaderName || null,
-    leaderChangePct:base.leaderChangePct,
-    candidatePremiumPct:candidatePct !== null && base.changePct !== null
-      ? candidatePct - base.changePct : null,
+    strongCount,
+    limitUpCount,
+    candidateCode,
+    candidateName,
+    candidateRank:candidateRankIndex >= 0 ? candidateRankIndex + 1 : null,
+    leaderCode,
+    leaderName,
+    leaderChangePct,
+    leaderStatus,
+    candidatePremiumPct,
+    leaderPremiumPct:candidatePremiumPct,
     change5dPct:cumulativeReturn(rows),
     prior5dPct:priorCumulativeReturn(rows),
     recentMainNetPct:averageMainPct(rows, -5, rows.length),
     priorMainNetPct:averageMainPct(rows, -10, -5),
-    narrativeScore:null,
-    narrativeEvidence:[],
-    imaginationScore:null,
-    imaginationEvidence:[],
+    narrativeScore:research.researchQuality.narrative.complete
+      ? research.narrativeResearch.novelty * 0.25 +
+        research.narrativeResearch.credibility * 0.25 +
+        research.narrativeResearch.propagation * 0.20 +
+        research.narrativeResearch.persistence * 0.15 +
+        research.narrativeResearch.expectationGap * 0.15 : null,
+    narrativeEvidence:research.narrativeResearch.evidence ?? [],
+    imaginationScore:research.researchQuality.imagination.complete
+      ? research.imaginationResearch.marketSize * 0.25 +
+        research.imaginationResearch.penetrationGap * 0.20 +
+        research.imaginationResearch.policyRunway * 0.20 +
+        research.imaginationResearch.technologyOptionality * 0.20 +
+        research.imaginationResearch.companyCapture * 0.15 : null,
+    imaginationEvidence:research.imaginationResearch.evidence ?? [],
+    researchQuality:research.researchQuality,
+    researchVersion:research.version,
+    researchDiagnostics:{
+      newsCount:research.news.length,
+      narrative:research.researchQuality.narrative,
+      imagination:research.researchQuality.imagination
+    },
     source:{
       provider:'eastmoney',
       conceptRanking:true,
       membership:true,
+      themeMembers:memberRows.length > 0,
+      news:true,
       flowHistory:rows.length > 0,
-      researchRequired:['narrativeScore','imaginationScore']
+      researchRequired:research.researchQuality.narrative.complete &&
+        research.researchQuality.imagination.complete ? [] :
+        ['narrativeScore','imaginationScore']
     },
-    flowHistory:rows.slice(-10)
+    flowHistory:rows.slice(-10),
+    news:research.news.slice(0, 10)
   };
 }
 
@@ -279,7 +392,10 @@ export default async function handler(req, res) {
     membershipFailures:0,
     flowFailures:0,
     themeCount:0,
-    selectedThemesPerStock:2
+    researchThemes:0,
+    researchFailures:0,
+    selectedThemesPerStock:2,
+    maxResearchThemes:24
   };
 
   try {
@@ -312,8 +428,15 @@ export default async function handler(req, res) {
       matched.forEach(theme => uniqueThemeCodes.add(theme.code));
     }
 
+    const rankedResearchThemes = [...uniqueThemeCodes]
+      .map(code => conceptMap.get(code))
+      .filter(Boolean)
+      .sort((a,b) => themeStrength(b) - themeStrength(a) || a.code.localeCompare(b.code))
+      .slice(0, diagnostics.maxResearchThemes);
+    const researchThemeCodes = new Set(rankedResearchThemes.map(theme => theme.code));
+
     const flowMap = new Map();
-    await mapLimit([...uniqueThemeCodes], 5, async boardCode => {
+    await mapLimit([...researchThemeCodes], 5, async boardCode => {
       await sleep(120);
       try {
         flowMap.set(boardCode, await fetchThemeFlow(boardCode));
@@ -323,15 +446,42 @@ export default async function handler(req, res) {
       }
     });
 
+    const memberMap = new Map();
+    const newsMap = new Map();
+    await mapLimit(rankedResearchThemes, 4, async base => {
+      await sleep(120);
+      try {
+        memberMap.set(base.code, await fetchThemeMembers(base.code));
+      } catch {
+        memberMap.set(base.code, []);
+        diagnostics.researchFailures += 1;
+      }
+      try {
+        newsMap.set(base.code, await fetchThemeNews(base.name));
+      } catch {
+        newsMap.set(base.code, []);
+        diagnostics.researchFailures += 1;
+      }
+    });
+    diagnostics.researchThemes = rankedResearchThemes.length;
+
     const fallbackAsOf = new Date().toISOString();
     const themeBySymbol = {};
     const allThemes = new Map();
     for (const code of codes) {
       const candidatePct = quotes.get(code)?.pct ?? null;
+      const candidateName = String(codes.find(item => item === code) ?? code);
       const themes = (selectedByStock.get(code) ?? []).map(base => {
+        if (!researchThemeCodes.has(base.code)) {
+          const theme = enrichTheme(base, [], [], [], candidatePct, candidateName, fallbackAsOf);
+          theme.source.researchRequired = ['research-not-selected'];
+          allThemes.set(theme.code, theme);
+          return theme;
+        }
         const rows = flowMap.get(base.code) ?? [];
         const asOf = sourceAsOf(rows, fallbackAsOf);
-        const theme = enrichTheme(base, rows, candidatePct, asOf);
+        const theme = enrichTheme(base, rows, memberMap.get(base.code) ?? [],
+          newsMap.get(base.code) ?? [], candidatePct, candidateName, asOf);
         allThemes.set(theme.code, theme);
         return theme;
       });
@@ -347,7 +497,7 @@ export default async function handler(req, res) {
     res.setHeader('cache-control','s-maxage=30, stale-while-revalidate=60');
     res.end(JSON.stringify({
       schema:'v12-psychology-source-v1',
-      version:'V12 Psychology Market Evidence Phase 1',
+      version:'V12 Psychology Market Evidence Phase 2',
       asOf:asOfValues.at(-1) ?? fallbackAsOf,
       data:{
         themeBySymbol,
@@ -355,8 +505,9 @@ export default async function handler(req, res) {
       },
       diagnostics,
       researchPolicy:{
-        psychologyCanBeComputed:false,
-        reason:'Narrative and imagination require evidence-backed research inputs; this endpoint does not invent them.',
+        psychologyCanBeComputed:true,
+        mode:'automatic-news-proxy-with-evidence-gates',
+        reason:'Narrative and imagination are derived from dated public news, theme membership, leader evidence and market data. Incomplete evidence remains null and cannot enter V12.',
         requiredFields:['narrativeScore','narrativeEvidence','imaginationScore','imaginationEvidence']
       }
     }));
