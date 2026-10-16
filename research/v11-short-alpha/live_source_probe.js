@@ -30,7 +30,7 @@ if (!marketPayload) {
 const liveCodes = (marketPayload?.data?.candidates ?? [])
   .map(row => String(row?.f12 ?? ''))
   .filter(code => /^(00|60)\d{4}$/.test(code))
-  .slice(0, 8);
+  .slice(0, 15);
 const codes = process.env.V12_PROBE_CODES ||
   (liveCodes.length >= 2 ? liveCodes.join(',') : '600519,000001');
 const result = await invoke(handler, '/api/psychology_universe?codes=' + encodeURIComponent(codes));
@@ -49,8 +49,16 @@ const quality = themes.map(theme => ({
   leaderStatus:theme.leaderStatus,
   newsCount:theme.news?.length ?? 0,
   narrativeComplete:theme.researchQuality?.narrative?.complete ?? false,
-  imaginationComplete:theme.researchQuality?.imagination?.complete ?? false
+  imaginationComplete:theme.researchQuality?.imagination?.complete ?? false,
+  imaginationScore:theme.imaginationScore ?? null,
+  imaginationConfidence:theme.researchQuality?.imagination?.confidence ?? 0
 }));
+const researchSummary = {
+  themesWithNews:quality.filter(item => item.newsCount > 0).length,
+  narrativeScored:quality.filter(item => item.narrativeComplete).length,
+  imaginationScored:quality.filter(item => item.imaginationScore !== null).length,
+  imaginationFullyComplete:quality.filter(item => item.imaginationComplete).length
+};
 
 if (payload.schema !== 'v12-psychology-source-v1') {
   throw new Error('unexpected schema: ' + payload.schema);
@@ -81,5 +89,6 @@ console.log(JSON.stringify({
   themeCount:diagnostics.themeCount,
   researchThemes:diagnostics.researchThemes,
   researchFailures:diagnostics.researchFailures,
+  researchSummary,
   quality
 }, null, 2));
