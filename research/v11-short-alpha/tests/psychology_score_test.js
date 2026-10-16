@@ -67,6 +67,24 @@ test('behavioral psychology captures capital flow, participation and FOMO balanc
   assert.equal(hot.themes[0].components.behavioral.source, 'market-derived');
 });
 
+
+test('behavioral capital-flow signal penalizes flow-price divergence', () => {
+  const alignedTheme = {...hotTheme, changePct:6, mainNetPct:5};
+  const divergentTheme = {...hotTheme, changePct:-6, mainNetPct:5};
+  const aligned = scoreCandidatePsychology(
+    {symbol:'600001',asOf:'2026-10-16',pct:6,themes:['BK9001']},
+    {themes:[alignedTheme]}
+  );
+  const divergent = scoreCandidatePsychology(
+    {symbol:'600001',asOf:'2026-10-16',pct:-6,themes:['BK9001']},
+    {themes:[divergentTheme]}
+  );
+  assert.ok(
+    aligned.themes[0].components.behavioral.score >
+    divergent.themes[0].components.behavioral.score
+  );
+});
+
 test('missing narrative or imagination never becomes an optimistic psychology score', () => {
   const incomplete = structuredClone(hotTheme);
   delete incomplete.narrativeScore;
