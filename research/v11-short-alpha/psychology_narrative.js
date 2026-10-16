@@ -237,7 +237,10 @@ function buildNarrative(items, theme) {
     ),
     expectationGap:candidatePremium !== null
       ? clamp(50 + candidatePremium * 5)
-      : leaderDelta !== null ? clamp(50 + leaderDelta * 4) : null
+      : leaderDelta !== null ? clamp(50 + leaderDelta * 4) : null,
+    // News tone is itself a crowd-psychology input: positive/negative
+    // propagation should affect narrative quality, not remain diagnostics-only.
+    sentiment:clamp(50 + sentimentBalance * 50)
   };
 
   if (components.expectationGap === null) {
@@ -251,7 +254,7 @@ function buildNarrative(items, theme) {
   }
 
   const score = Object.values(components).every(value => value !== null)
-    ? Object.values(components).reduce((sum, value) => sum + value, 0) / 5 : null;
+    ? Object.values(components).reduce((sum, value) => sum + value, 0) / 6 : null;
   const complete = score !== null && sources.size >= 2 && days.size >= 2 &&
     catalystHits >= 2;
 
@@ -259,8 +262,8 @@ function buildNarrative(items, theme) {
     complete, score:complete ? round(score) : null,
     confidence:complete ? 1 : 0.68,
     components:Object.fromEntries(Object.entries(components).map(([key, value]) =>
-      [key, {score:value, weight:{novelty:0.25,credibility:0.25,
-        propagation:0.20,persistence:0.15,expectationGap:0.15}[key]}])),
+      [key, {score:value, weight:{novelty:0.21,credibility:0.21,
+        propagation:0.17,persistence:0.13,expectationGap:0.18,sentiment:0.10}[key]}])),
     evidence:topEvidence(items),
     diagnostics:{
       articleCount7d:items.length, recent3Count:recent3.length,
