@@ -128,11 +128,11 @@ function isConceptBoardRow(row = {}) {
   return String(row.code ?? '').startsWith('BK') && row.changePct !== null;
 }
 
-async function fetchConceptRanking() {
+async function fetchConceptRanking(maxPages = 6) {
   const firstSpec = conceptRankingUrl();
   const first = await fetchFromHosts(PUSH_HOSTS, firstSpec.path, firstSpec.params, 9000);
   const total = n(first?.data?.total) ?? 0;
-  const pageCount = Math.max(1, Math.min(6, Math.ceil(total / 100)));
+  const pageCount = Math.max(1, Math.min(maxPages, Math.ceil(total / 100)));
   const pages = [first];
   if (pageCount > 1) {
     const rest = await mapLimit(
@@ -454,14 +454,16 @@ export default async function handler(req, res) {
     const membershipConcurrency = liveMode ? 6 : 4;
     const researchConcurrency = liveMode ? 6 : 4;
 
+    diagnostics.selectedThemesPerStock = selectedThemesPerStock;
+    diagnostics.maxResearchThemes = maxResearchThemes;
     const [conceptRows, quotes] = await Promise.all([
-      fetchConceptRanking(),
+      fetchConceptRanking(liveMode ? 3 : 6),
       fetchCandidateQuotes(codes)
     ]);
     diagnostics.conceptRows = conceptRows.length;
     const conceptMap = new Map(conceptRows.map(row => [row.code, row]));
 
-    const memberships = await mapLimit(codes, 4, async code => {
+    const memberships = await mapLimit(codes, membershipConcurrency, async code => {
       await sleep(120);
       try {
         return {code, concepts:await fetchStockConcepts(code)};
