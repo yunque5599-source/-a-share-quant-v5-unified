@@ -88,6 +88,18 @@ function executionTier(row) {
       v >= 65 && timing >= 50 && psychology >= 65) {
     return 'WATCH_PULLBACK';
   }
+  // Discovery tier only: deliberately lower than an executable threshold so the
+  // system can surface "early setup" names before they become mainstream, without
+  // converting anticipation into a buy signal.
+  const marketEmotion = Number(row?.marketEmotion?.score ?? 50);
+  if (Number.isFinite(v) && Number.isFinite(timing) && Number.isFinite(psychology) &&
+      v >= 55 && timing >= 60 && psychology >= 55 &&
+      fomo < 60 &&
+      stage === 'ignition' &&
+      ['startup','acceleration'].includes(String(row?.timing?.stage ?? '')) &&
+      marketEmotion >= 55) {
+    return 'EARLY_SETUP';
+  }
   return 'OBSERVE';
 }
 
