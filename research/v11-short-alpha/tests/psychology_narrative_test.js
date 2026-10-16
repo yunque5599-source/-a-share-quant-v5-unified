@@ -69,3 +69,32 @@ test('negative evidence can lower narrative quality rather than becoming bullish
   assert.ok(result.researchQuality.narrative.diagnostics.negativeHits >= 5);
   assert.ok(result.narrativeResearch.novelty >= 0);
 });
+
+test('intraday as-of excludes same-day news published after the capture timestamp', () => {
+  const result = buildAutomaticPsychologyResearch(
+    {...theme, asOf:'2026-10-16T10:00:00+08:00'},
+    [
+      {date:'2026-10-16 09:00:00', title:'早盘政策消息', content:'政策推动市场规模万亿，渗透率早期，多场景商业化。', mediaName:'中国政府网'},
+      {date:'2026-10-16 10:01:00', title:'未来午间消息不应进入快照', content:'政策推动市场规模万亿，渗透率早期，多场景商业化。', mediaName:'中国政府网'},
+      {date:'2026-10-15 14:00:00', title:'前一日产业消息', content:'产业化量产加速，跨行业应用扩展。', mediaName:'工信部'},
+      {date:'2026-10-14 10:00:00', title:'行业订单增长', content:'订单放量，平台生态扩张，市场空间广阔。', mediaName:'证券时报'}
+    ],
+    []
+  );
+  assert.equal(result.news.some(item => item.title.includes('未来午间消息')), false);
+  assert.equal(result.news.some(item => item.title.includes('早盘政策消息')), true);
+});
+
+test('source timestamps without timezone are interpreted as Asia/Shanghai', () => {
+  const result = buildAutomaticPsychologyResearch(
+    {...theme, asOf:'2026-10-16T10:00:00+08:00'},
+    [
+      {date:'2026-10-16 09:59:00', title:'上海时间早盘消息', content:'政策 市场规模 万亿 渗透率 多场景 商业化', mediaName:'中国政府网'},
+      {date:'2026-10-16 10:01:00', title:'上海时间未来消息', content:'政策 市场规模 万亿 渗透率 多场景 商业化', mediaName:'中国政府网'},
+      {date:'2026-10-15 14:00:00', title:'前一日消息', content:'订单增长，产业化加速，跨行业应用。', mediaName:'工信部'}
+    ],
+    []
+  );
+  assert.equal(result.news.some(item => item.title.includes('上海时间早盘消息')), true);
+  assert.equal(result.news.some(item => item.title.includes('上海时间未来消息')), false);
+});
