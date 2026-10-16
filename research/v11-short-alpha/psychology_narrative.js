@@ -1,6 +1,6 @@
 import { asOfDate, clamp, finiteNumber, round, validDate } from './schema.js';
 
-export const PSYCHOLOGY_NARRATIVE_VERSION = 'V12 Psychology Narrative Auto Phase 2';
+export const PSYCHOLOGY_NARRATIVE_VERSION = 'V12 Psychology Narrative Auto Phase 3';
 
 const n = finiteNumber;
 const list = value => Array.isArray(value) ? value : [];
@@ -344,8 +344,13 @@ function buildImagination(items, theme, members) {
 
 export function buildAutomaticPsychologyResearch(theme = {}, news = [], members = []) {
   const items = normalizeNews(news, theme?.asOf);
-  const narrative = buildNarrative(items, theme);
-  const imagination = buildImagination(items, theme, members);
+  // Short-term psychology must not be contaminated by stale search results.
+  // Narrative/crowd-emotion evidence is a 7-day window; imagination can use a
+  // wider 30-day window because policy runway and market-space evidence persists longer.
+  const recent7 = items.filter(item => (daysAgo(new Date(item.date), theme?.asOf) ?? Infinity) <= 7);
+  const recent30 = items.filter(item => (daysAgo(new Date(item.date), theme?.asOf) ?? Infinity) <= 30);
+  const narrative = buildNarrative(recent7, theme);
+  const imagination = buildImagination(recent30, theme, members);
   return {
     version:PSYCHOLOGY_NARRATIVE_VERSION,
     asOf:asOfDate(theme?.asOf) ?? null,
@@ -375,7 +380,13 @@ export function buildAutomaticPsychologyResearch(theme = {}, news = [], members 
       imagination:{complete:imagination.complete,confidence:imagination.confidence,
         reason:imagination.reason,diagnostics:imagination.diagnostics}
     },
-    news:items.slice(0, 20)
+    news:items.slice(0, 20),
+    researchWindows:{
+      narrative7d:recent7.length,
+      imagination30d:recent30.length,
+      excludedNarrativeBeyond7d:Math.max(0, items.length - recent7.length),
+      excludedImaginationBeyond30d:Math.max(0, items.length - recent30.length)
+    }
   };
 }
 
