@@ -40,6 +40,8 @@ test('walk-forward V12 OOS reports gross and net costs by regime', () => {
   assert.equal(result.schema, 'v12-trade-oos-v2');
   assert.deepEqual(result.config.strategies, ['composite','v12']);
   assert.equal(result.diagnostics.foldCount, 8);
+  assert.ok(result.diagnostics.top1SelectionChangedCount > 0);
+  assert.ok(result.diagnostics.top1SelectionOverlapPct < 100);
   assert.deepEqual(result.config.regimes, ['bull','bear','sideways','unknown']);
   for (const regime of ['overall','bull','bear','sideways']) {
     const metrics = result.aggregate.composite[regime].top1['T+3'];
