@@ -182,7 +182,7 @@ export default async function handler(req, res) {
     const query = encodeURIComponent(codes.join(','));
     const [deep, psychology] = await Promise.all([
       invoke(marketHandler, '/api/market?action=deep_batch&codes=' + query),
-      invoke(psychologyHandler, '/api/psychology_universe?codes=' + query)
+      invoke(psychologyHandler, '/api/psychology_universe?codes=' + query + '&mode=live')
     ]);
 
     const deepPayload = parseBody('deep_batch', deep);
