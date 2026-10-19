@@ -29,7 +29,9 @@ function candidate(index, options = {}) {
       trendStructure:{score},
       momentum,
       capital:{score:score - 2, flowTiming:index < 3 ? 'early-inflow' : 'outflow'},
-      volume:{score:score - 4},
+      volume:options.futureFeature
+        ? {score:score - 4, asOf:'2026-11-01T00:00:00+08:00'}
+        : {score:score - 4},
       sector:{score:score - 6},
       risk:{score:100 - index}
     },
@@ -53,7 +55,8 @@ function candidate(index, options = {}) {
 }
 
 function snapshot(asOf, options = {}) {
-  const rows = Array.from({length:6}, (_, index) => candidate(index, options));
+  const rows = Array.from({length:6}, (_, index) =>
+    candidate(index, {...options, missingT1:index === 0}));
   return {
     schema:'v12-factor-validation-test-v1',
     dataKind:'synthetic',
