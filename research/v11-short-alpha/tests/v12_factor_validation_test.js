@@ -54,7 +54,7 @@ function candidate(index, options = {}) {
 
 function snapshot(asOf, options = {}) {
   const rows = Array.from({length:6}, (_, index) =>
-    candidate(index, {...options, missingT1:index === 0}));
+    candidate(index, {...options, missingT1:options.noMissingT1 ? false : index === 0}));
   return {
     schema:'v12-factor-validation-test-v1',
     dataKind:'synthetic',
@@ -114,7 +114,7 @@ test('quantiles are fixed before missing forward outcomes are removed', () => {
 });
 
 test('future feature timestamps and invalid outcome dates are excluded', () => {
-  const future = snapshot(asOfs[0], {futureFeature:true});
+  const future = snapshot(asOfs[0], {futureFeature:true, noMissingT1:true});
   future.decision.datasetCandidates[1].horizons.t1.date = '2026-09-30';
   const report = analyzeV12Factors({snapshots:[future]});
   assert.ok(report.diagnostics.invalidFeatureTimestamps > 0);
