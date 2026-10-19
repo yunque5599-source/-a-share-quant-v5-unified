@@ -252,7 +252,14 @@ async function main() {
   const output = {
     schema:'v12-forward-outcome-v2',
     evaluatedAt:new Date().toISOString(),
-    sourceSnapshot:{capturedAt:snapshot?.capturedAt ?? null,asOf:snapshot?.asOf ?? null,schema:snapshot?.schema ?? null},
+    sourceSnapshot:{
+      capturedAt:snapshot?.capturedAt ?? null,
+      asOf:snapshot?.asOf ?? null,
+      schema:snapshot?.schema ?? null,
+      market:snapshot?.decision?.market ?? snapshot?.market ?? null,
+      marketRegime:snapshot?.marketRegime ?? snapshot?.decision?.market?.regime ?? null,
+      marketEmotion:snapshot?.marketEmotion ?? snapshot?.decision?.market?.emotion ?? null
+    },
     measurementPolicy:{entry:'snapshot decision price; not broker fill',horizons:'T+1..T+5 trading sessions strictly date > Asia/Shanghai snapshot asOf',sameDayBarExcluded:true,benchmarksMissing:'market/sector excess is null; no zero fill'},
     summary:aggregate(evaluated),
     signals:evaluated
