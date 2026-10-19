@@ -242,7 +242,8 @@ function metricBlock(rows, h) {
     sector = vals('sectorExcessReturnPct'), mfe = vals('mfePct'), mae = vals('maePct');
   const adjusted = valid.filter(row => n(outcomeOf(row, h).maePct) !== null)
     .map(row => outcomeOf(row, h).returnPct / Math.max(1, Math.abs(outcomeOf(row, h).maePct)));
-  return {...evidence(valid), selectedCount:rows.length, missingOutcomeCount:rows.length - valid.length,
+  return {...evidence(valid), selectedCount:rows.length,
+    availableReturnCount:valid.length, missingOutcomeCount:rows.length - valid.length,
     averageReturnPct:metric(mean(returns)), winRatePct:returns.length ? metric(returns.filter(v => v > 0).length / returns.length * 100) : null,
     averageMarketExcessReturnPct:metric(mean(market)), averageSectorExcessReturnPct:metric(mean(sector)),
     mfeAvgPct:metric(mean(mfe)), maeAvgPct:metric(mean(mae)),
