@@ -242,7 +242,7 @@ function metricBlock(rows, h) {
     sector = vals('sectorExcessReturnPct'), mfe = vals('mfePct'), mae = vals('maePct');
   const adjusted = valid.filter(row => n(outcomeOf(row, h).maePct) !== null)
     .map(row => outcomeOf(row, h).returnPct / Math.max(1, Math.abs(outcomeOf(row, h).maePct)));
-  return {...evidence(valid), selectedCount:rows.length,
+  return {...evidence(valid), selectedCount:rows.length, selectionCount:rows.length,
     availableReturnCount:valid.length, missingOutcomeCount:rows.length - valid.length,
     averageReturnPct:metric(mean(returns)), winRatePct:returns.length ? metric(returns.filter(v => v > 0).length / returns.length * 100) : null,
     averageMarketExcessReturnPct:metric(mean(market)), averageSectorExcessReturnPct:metric(mean(sector)),
@@ -304,6 +304,7 @@ function horizonMetrics(rows, factor, h) {
     .map(([key, fraction]) => [key, metricBlock(quantile(candidates, factor, fraction), h)]));
   const topRows = quantile(candidates, factor, .2), bottomRows = quantile(candidates, factor, .2, true);
   const overlap = topRows.some(row => bottomRows.includes(row));
+  const overallBlock = metricBlock(candidates, h);
   const spread = spreadBySnapshot(topRows, bottomRows, h);
   const marketPearson = icSummary(corrSeries(candidates, left,
     row => n(outcomeOf(row, h)?.marketExcessReturnPct)));
@@ -313,7 +314,8 @@ function horizonMetrics(rows, factor, h) {
     row => n(outcomeOf(row, h)?.sectorExcessReturnPct)));
   const sectorRank = icSummary(corrSeries(candidates, left,
     row => n(outcomeOf(row, h)?.sectorExcessReturnPct), true));
-  return {status:rank.status, ...metricBlock(candidates, h), rankIC:pearsonIC.value,
+  return {status:rank.status, ...overallBlock, pairCount:overallBlock.availableReturnCount,
+    rankIC:pearsonIC.value,
     spearman:rank.value, pearsonIC:pearsonIC.value,
     rankICMarketExcess:marketPearson.value,
     spearmanMarketExcess:marketRank.value,
