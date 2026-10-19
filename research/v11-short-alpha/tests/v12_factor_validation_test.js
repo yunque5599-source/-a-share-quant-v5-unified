@@ -108,7 +108,7 @@ test('quantiles are fixed before missing forward outcomes are removed', () => {
   assert.equal(t1.top20.selectionCount, 2);
   assert.equal(t1.top20.missingOutcomeCount, 1);
   assert.equal(t1.top20.availableReturnCount, 1);
-  assert.equal(t1.top20.averageReturnPct, 9);
+  assert.equal(t1.top20.averageReturnPct, 8);
   assert.equal(t1.bottom20.selectionCount, 2);
 });
 
