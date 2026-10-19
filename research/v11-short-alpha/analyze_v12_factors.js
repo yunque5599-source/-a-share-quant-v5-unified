@@ -297,16 +297,27 @@ function spreadBySnapshot(left, right, h, field = 'returnPct') {
 function horizonMetrics(rows, factor, h) {
   const candidates = rows.filter(row => valueOf(row, factor) !== null);
   const left = row => valueOf(row, factor), ret = row => n(outcomeOf(row, h)?.returnPct);
+  const pearsonIC = icSummary(corrSeries(candidates, left, ret));
   const rank = icSummary(corrSeries(candidates, left, ret, true));
   const top = Object.fromEntries([['top5', .05], ['top10', .1], ['top20', .2]]
     .map(([key, fraction]) => [key, metricBlock(quantile(candidates, factor, fraction), h)]));
   const topRows = quantile(candidates, factor, .2), bottomRows = quantile(candidates, factor, .2, true);
   const overlap = topRows.some(row => bottomRows.includes(row));
   const spread = spreadBySnapshot(topRows, bottomRows, h);
-  return {status:rank.status, ...metricBlock(candidates, h), rankIC:rank.value, spearman:rank.value,
-    pearsonIC:icSummary(corrSeries(candidates, left, ret)).value,
-    rankICMarketExcess:icSummary(corrSeries(candidates, left, row => n(outcomeOf(row, h)?.marketExcessReturnPct), true)).value,
-    rankICSectorExcess:icSummary(corrSeries(candidates, left, row => n(outcomeOf(row, h)?.sectorExcessReturnPct), true)).value,
+  const marketPearson = icSummary(corrSeries(candidates, left,
+    row => n(outcomeOf(row, h)?.marketExcessReturnPct)));
+  const marketRank = icSummary(corrSeries(candidates, left,
+    row => n(outcomeOf(row, h)?.marketExcessReturnPct), true));
+  const sectorPearson = icSummary(corrSeries(candidates, left,
+    row => n(outcomeOf(row, h)?.sectorExcessReturnPct)));
+  const sectorRank = icSummary(corrSeries(candidates, left,
+    row => n(outcomeOf(row, h)?.sectorExcessReturnPct), true));
+  return {status:rank.status, ...metricBlock(candidates, h), rankIC:pearsonIC.value,
+    spearman:rank.value, pearsonIC:pearsonIC.value,
+    rankICMarketExcess:marketPearson.value,
+    spearmanMarketExcess:marketRank.value,
+    rankICSectorExcess:sectorPearson.value,
+    spearmanSectorExcess:sectorRank.value,
     icEvidence:rank, ...top, bottom20:metricBlock(bottomRows, h),
     topBottomSpreadPct:overlap ? null : spread.spreadPct,
     spreadEvidence:spread, overlappingQuantiles:overlap};
