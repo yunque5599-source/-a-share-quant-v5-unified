@@ -443,6 +443,7 @@ export function analyzeV12Factors(input = {}) {
   ]));
   const realEvidence = evidence(completeReal);
   return {schema:'v12-factor-validation-v2', version:FACTOR_VALIDATION_VERSION,
+    factorNames:FACTOR_NAMES, horizons:HORIZONS,
     status:realEvidence.status, samplePolicy:SAMPLE_POLICY, diagnostics, provenance,
     leakagePolicy:{featureSource:'Captured features only; no feature recomputation or outcome-to-score feedback.',
       outcomeDate:'Strictly after Asia/Shanghai snapshot date; invalid/undated labels are excluded.',
