@@ -20,9 +20,7 @@ function outcomes(index, missingT1 = false) {
 
 function candidate(index, options = {}) {
   const score = 100 - index * 10;
-  const momentum = options.futureFeature ? {
-    score, asOf:'2026-11-01T00:00:00+08:00'
-  } : {score};
+  const momentum = {score};
   return {
     symbol:'60000' + (index + 1),
     features:{
