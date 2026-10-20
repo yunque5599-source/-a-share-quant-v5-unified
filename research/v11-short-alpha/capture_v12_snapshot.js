@@ -74,6 +74,58 @@ function assertQualifiedDiscovery(discovery) {
   }
 }
 
+function sourceQualitySummary({rankedCandidates, selectedCodes, deepPayload, discoveryPayload, psychologyPayload, decision}) {
+  const psychology = psychologyPayload?.data ?? psychologyPayload ?? {};
+  const psychologyDiagnostics = psychology?.diagnostics ?? {};
+  const deepItems = Array.isArray(deepPayload?.items) ? deepPayload.items : [];
+  const deepByCode = new Map(deepItems.map(item => [String(item?.code ?? ''), item]));
+  const missingDeep = selectedCodes.filter(code => !deepByCode.has(code));
+  const degradedDeep = deepItems.filter(item =>
+    item?.error || item?.dataQuality?.degraded === true ||
+    item?.dataQuality?.klineSource !== 'eastmoney' ||
+    item?.dataQuality?.flowSource !== 'eastmoney'
+  );
+  const discoveryDegraded = discoveryPayload?.quality?.degraded === true ||
+    discoveryPayload?.source === 'ranked-candidate-sector-proxy-v1';
+  const psychologyUnavailable = (psychologyDiagnostics.conceptRows ?? 0) <= 0 ||
+    (psychologyDiagnostics.themeCount ?? psychology?.themes?.length ?? 0) <= 0;
+  const reasons = [];
+  if (rankedCandidates.length < 5) reasons.push('ranked-candidates-insufficient');
+  if (missingDeep.length) reasons.push('deep-candidates-missing');
+  if (degradedDeep.length) reasons.push('deep-source-degraded');
+  if (discoveryDegraded) reasons.push('discovery-source-degraded');
+  if (psychologyUnavailable) reasons.push('psychology-source-unavailable');
+  if (!decision?.asOf) reasons.push('snapshot-asof-missing');
+  return {
+    status:reasons.length ? 'SOURCE_UNAVAILABLE' : 'CAPTURED',
+    valid:reasons.length === 0,
+    reasons,
+    rankedCandidateCount:rankedCandidates.length,
+    selectedCodeCount:selectedCodes.length,
+    deepItemCount:deepItems.length,
+    missingDeepCodes:missingDeep,
+    degradedDeepCount:degradedDeep.length,
+    discoveryDegraded,
+    psychologyConceptRows:psychologyDiagnostics.conceptRows ?? null,
+    psychologyThemeCount:psychologyDiagnostics.themeCount ?? psychology?.themes?.length ?? 0,
+    psychologyResearchFailures:psychologyDiagnostics.researchFailures ?? 0,
+    decisionCandidateCount:decision?.ranking?.length ?? 0,
+    decisionQualityComplete:decision?.ranking?.filter(row => row.quality?.complete === true).length ?? 0
+  };
+}
+
+export function validateCapturedSnapshot(snapshot = {}) {
+  const reasons = [];
+  if (snapshot.schema !== 'v12-live-snapshot-v1') reasons.push('schema-invalid');
+  if (!snapshot.snapshotId) reasons.push('snapshot-id-missing');
+  if (!snapshot.capturedAt || !Number.isFinite(Date.parse(snapshot.capturedAt))) reasons.push('captured-at-invalid');
+  if (!snapshot.asOf || !Number.isFinite(Date.parse(snapshot.asOf))) reasons.push('asof-invalid');
+  const candidates = snapshot?.decision?.datasetCandidates;
+  if (!Array.isArray(candidates) || candidates.length < 5) reasons.push('candidate-count-insufficient');
+  if (snapshot?.quality?.status !== 'CAPTURED' || snapshot?.quality?.valid !== true) reasons.push('source-quality-invalid');
+  return {valid:reasons.length === 0, status:reasons.length ? 'INVALID_SNAPSHOT' : 'CAPTURED', reasons};
+}
+
 function median(values){
   const sorted=[...values].sort((a,b)=>a-b);
   if(!sorted.length)return null;
@@ -147,11 +199,17 @@ const decision = integrateCandidateFlow({
 });
 
 const capturedAt = new Date().toISOString();
+const sourceQuality = sourceQualitySummary({
+  rankedCandidates, selectedCodes:codes, deepPayload, discoveryPayload,
+  psychologyPayload, decision
+});
 const output = {
   schema:'v12-live-snapshot-v1',
+  snapshotId:'v12-' + String(decision.asOf ?? capturedAt).replace(/[^0-9A-Za-z._-]/g, '_'),
   capturedAt,
   asOf:decision.asOf,
   modelVersions:MODEL_VERSIONS,
+  quality:sourceQuality,
   sourcePolicy:{
     provider:'Eastmoney',
     pointInTime:'captured-at-source',
@@ -194,6 +252,15 @@ const output = {
   }
 };
 
+const validation = validateCapturedSnapshot(output);
+if (!validation.valid) {
+  console.error(JSON.stringify({
+    status:validation.status,
+    snapshotId:output.snapshotId,
+    reasons:[...sourceQuality.reasons, ...validation.reasons]
+  }, null, 2));
+  throw new Error('snapshot validation failed');
+}
 const outputFile = snapshotPath(process.argv[2]);
 await mkdir(dirname(outputFile), {recursive:true});
 await writeFile(outputFile, JSON.stringify(output, null, 2) + '\n', 'utf8');
@@ -226,7 +293,7 @@ const modelTop = decision.ranking.slice(0, 10).map(row => ({
   missing:(row.quality?.missing ?? []).slice(0, 6)
 }));
 console.log(JSON.stringify({
-  status:'LIVE_SNAPSHOT_CAPTURED',
+  status:output.status ?? 'CAPTURED',
   file:outputFile,
   capturedAt,
   asOf:decision.asOf,
