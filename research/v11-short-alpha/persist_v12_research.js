@@ -211,7 +211,7 @@ export async function persistV12Research({snapshot, outcome = {}, storeDir}) {
   }
   const outcomeResult = await writeAppendable(paths.outcome, storedOutcome);
   const merged = mergeOutcomeIntoSnapshot(storedSnapshot, storedOutcome);
-  const mergedResult = await writeImmutable(paths.merged, merged);
+  const mergedResult = await writeAppendable(paths.merged, merged);
   const manifestPath = join(base, 'manifest.jsonl');
   const entry = manifestEntry(storedSnapshot, paths, storedOutcome);
   let entries = [];
