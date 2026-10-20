@@ -135,6 +135,16 @@ async function readJson(path) {
   return JSON.parse(await readFile(path, 'utf8'));
 }
 
+async function writeAppendable(path, value) {
+  const text = JSON.stringify(value, null, 2) + '\n';
+  if (await exists(path)) {
+    const current = await readFile(path, 'utf8');
+    if (current === text) return {written:false};
+  }
+  await atomicWrite(path, text);
+  return {written:true};
+}
+
 async function atomicWrite(path, text) {
   await mkdir(dirname(path), {recursive:true});
   const temp = path + '.tmp-' + process.pid;
@@ -199,7 +209,7 @@ export async function persistV12Research({snapshot, outcome = {}, storeDir}) {
       signals:[...map.values()]
     };
   }
-  const outcomeResult = await writeImmutable(paths.outcome, storedOutcome);
+  const outcomeResult = await writeAppendable(paths.outcome, storedOutcome);
   const merged = mergeOutcomeIntoSnapshot(storedSnapshot, storedOutcome);
   const mergedResult = await writeImmutable(paths.merged, merged);
   const manifestPath = join(base, 'manifest.jsonl');
