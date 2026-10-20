@@ -22,7 +22,26 @@ function invoke(handler, url) {
   });
 }
 
-const marketResult = await invoke(marketHandler, '/api/market?action=ranked_candidates');
+async function invokeWithRetry(handler, url, attempts = 3) {
+  let last = null;
+  for (let attempt = 1; attempt <= attempts; attempt += 1) {
+    const started = Date.now();
+    try {
+      const result = await invoke(handler, url);
+      result.attempt = attempt;
+      result.elapsedMs = Date.now() - started;
+      if (result.statusCode < 500 && result.statusCode !== 429) return result;
+      last = result;
+    } catch (error) {
+      last = {statusCode:0, body:String(error?.message ?? error), attempt,
+        elapsedMs:Date.now() - started};
+    }
+    if (attempt < attempts) await new Promise(resolve => setTimeout(resolve, 250 * 2 ** (attempt - 1)));
+  }
+  return last ?? {statusCode:0, body:'no response', attempt:attempts};
+}
+
+const marketResult = await invokeWithRetry(marketHandler, '/api/market?action=ranked_candidates');
 const marketPayload = marketResult.statusCode === 200 ? JSON.parse(marketResult.body) : null;
 if (!marketPayload) {
   console.warn('LIVE_MARKET_WARNING: ranked_candidates unavailable: ' + marketResult.body);
@@ -33,12 +52,18 @@ const liveCodes = (marketPayload?.data?.candidates ?? [])
   .slice(0, 15);
 const codes = process.env.V12_PROBE_CODES ||
   (liveCodes.length >= 2 ? liveCodes.join(',') : '600519,000001');
-const result = await invoke(handler, '/api/psychology_universe?codes=' + encodeURIComponent(codes));
+const result = await invokeWithRetry(handler, '/api/psychology_universe?codes=' + encodeURIComponent(codes));
 
 if (result.statusCode !== 200) {
-  throw new Error('psychology_universe returned HTTP ' + result.statusCode + ': ' + result.body);
-}
-
+  console.log(JSON.stringify({
+    status:'SOURCE_UNAVAILABLE',
+    source:'psychology_universe',
+    httpStatus:result.statusCode,
+    attempts:result.attempt ?? null,
+    elapsedMs:result.elapsedMs ?? null,
+    error:result.body
+  }, null, 2));
+} else {
 const payload = JSON.parse(result.body);
 const themes = payload?.data?.themes ?? [];
 const diagnostics = payload?.diagnostics ?? {};
@@ -92,3 +117,5 @@ console.log(JSON.stringify({
   researchSummary,
   quality
 }, null, 2));
+
+}
