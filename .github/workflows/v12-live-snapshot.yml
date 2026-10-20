@@ -109,7 +109,7 @@ jobs:
           {
             echo "## V12 capture status"
             echo
-            echo "- status: `$status`"
+            echo "- status: $status"
             echo "- schedule note: GitHub scheduled workflows are controlled by the repository default branch; this feature branch schedule is not treated as verified."
           } >> "$GITHUB_STEP_SUMMARY"
 
