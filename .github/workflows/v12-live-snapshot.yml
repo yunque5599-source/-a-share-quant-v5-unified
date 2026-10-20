@@ -47,18 +47,79 @@ jobs:
           NODE
 
       - name: Capture point-in-time V12 snapshot
+        id: capture
         if: steps.session.outputs.in_session == 'true'
+        continue-on-error: true
         run: |
+          set +e
           mkdir -p live-snapshot
-          node research/v11-short-alpha/capture_v12_snapshot.js live-snapshot/v12-live-snapshot.json
+          node research/v11-short-alpha/capture_v12_snapshot.js live-snapshot/v12-live-snapshot.json > live-snapshot/capture.log 2>&1
+          code=$?
+          cat live-snapshot/capture.log
+          if [ "$code" -eq 0 ] && [ -s live-snapshot/v12-live-snapshot.json ]; then
+            status=CAPTURED
+          elif grep -Eiq 'HTTP 5(02|03)|upstream|fetch failed|SOURCE_UNAVAILABLE' live-snapshot/capture.log; then
+            status=SOURCE_UNAVAILABLE
+          else
+            status=INVALID_SNAPSHOT
+          fi
+          echo "capture_status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Validate captured snapshot
+        id: validate
+        if: steps.capture.outputs.capture_status == 'CAPTURED'
+        continue-on-error: true
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const file = 'live-snapshot/v12-live-snapshot.json';
+          const reasons = [];
+          let snapshot = null;
+          try { snapshot = JSON.parse(fs.readFileSync(file, 'utf8')); }
+          catch (error) { reasons.push('json-invalid:' + error.message); }
+          if (snapshot?.schema !== 'v12-live-snapshot-v1') reasons.push('schema-invalid');
+          if (!snapshot?.snapshotId) reasons.push('snapshot-id-missing');
+          if (!snapshot?.capturedAt || !Number.isFinite(Date.parse(snapshot.capturedAt))) reasons.push('captured-at-invalid');
+          if (!snapshot?.asOf || !Number.isFinite(Date.parse(snapshot.asOf))) reasons.push('asof-invalid');
+          if (!Array.isArray(snapshot?.decision?.datasetCandidates) ||
+              snapshot.decision.datasetCandidates.length < 5) reasons.push('candidate-count-insufficient');
+          if (snapshot?.quality?.status !== 'CAPTURED' || snapshot?.quality?.valid !== true) reasons.push('source-quality-invalid');
+          if (reasons.length) {
+            console.error(JSON.stringify({status:'INVALID_SNAPSHOT', reasons}, null, 2));
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'valid=false\n');
+            process.exit(1);
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'valid=true\n');
+          console.log(JSON.stringify({status:'CAPTURED', snapshotId:snapshot.snapshotId, candidates:snapshot.decision.datasetCandidates.length}));
+          NODE
+
+      - name: Report capture state
+        if: always()
+        run: |
+          status="${{ steps.capture.outputs.capture_status }}"
+          if [ -z "$status" ] && [ "${{ steps.session.outputs.in_session }}" != "true" ]; then
+            status=SKIPPED_OUTSIDE_SESSION
+          elif [ "${{ steps.validate.outputs.valid }}" != "true" ] && [ "$status" = "CAPTURED" ]; then
+            status=INVALID_SNAPSHOT
+          elif [ -z "$status" ]; then
+            status=SOURCE_UNAVAILABLE
+          fi
+          echo "V12 capture status: $status"
+          {
+            echo "## V12 capture status"
+            echo
+            echo "- status: `$status`"
+            echo "- schedule note: GitHub scheduled workflows are controlled by the repository default branch; this feature branch schedule is not treated as verified."
+          } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Skip outside continuous session
         if: steps.session.outputs.in_session != 'true'
         run: |
-          echo "Outside continuous A-share trading session; no synchronous live snapshot is certified."
+          echo "SKIPPED_OUTSIDE_SESSION: no synchronous A-share snapshot was generated."
 
       - name: Print snapshot summary
-        if: steps.session.outputs.in_session == 'true'
+        if: steps.validate.outputs.valid == 'true'
         run: |
           node <<'NODE'
           const fs = require('fs');
@@ -83,11 +144,11 @@ jobs:
           }, null, 2));
           NODE
 
-      - name: Upload immutable V12 snapshot
-        if: always()
+      - name: Upload valid immutable V12 snapshot
+        if: steps.validate.outputs.valid == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: v12-live-snapshot-${{ github.run_id }}
-          path: live-snapshot/
-          if-no-files-found: warn
+          path: live-snapshot/v12-live-snapshot.json
+          if-no-files-found: error
           retention-days: 30
