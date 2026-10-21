@@ -34,7 +34,17 @@ jobs:
 
       - name: Check V12 runtime source syntax
         run: |
-          for file in api/v12_decision.js api/market.js api/psychology_universe.js; do
+          for file in api/v12_decision.js api/early_opportunity.js api/market.js api/psychology_universe.js; do
+            node --check "$file"
+          done
+          node <<'NODE'
+          const fs = require('fs');
+          const html = fs.readFileSync('index.html', 'utf8');
+          const scripts = [...html.matchAll(/<script[^>]*>([\s\S]*?)<\/script>/gi)];
+          if (!scripts.length) throw new Error('index.html has no inline script');
+          scripts.forEach((match, index) => fs.writeFileSync('/tmp/index-script-' + index + '.js', match[1]));
+          NODE
+          for file in /tmp/index-script-*.js; do
             node --check "$file"
           done
 
