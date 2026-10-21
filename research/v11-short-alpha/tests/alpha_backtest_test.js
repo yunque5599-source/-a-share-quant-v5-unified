@@ -111,11 +111,11 @@ test('payoff ratio is JSON-safe when there are no losing trades', () => {
 
 test('early-opportunity score can be replayed independently from Alpha ranking', () => {
   const input = {
-    predictions:[{asOf:'2026-01-05',ranking:[
+    predictions:[{asOf:'2026-01-05',decision:{datasetCandidates:[
       {symbol:'600001',price:100,scores:{alpha:95},features:{earlyOpportunity:{score:40}},quality:{complete:true}},
       {symbol:'600002',price:100,scores:{alpha:70},features:{earlyOpportunity:{score:90}},quality:{complete:true}},
       {symbol:'600003',price:100,scores:{alpha:80},features:{earlyOpportunity:{score:70}},quality:{complete:true}}
-    ]}],
+    ]}}],
     histories:{
       '600001':[{date:'2026-01-05',close:100},{date:'2026-01-06',close:101}],
       '600002':[{date:'2026-01-05',close:100},{date:'2026-01-06',close:106}],
