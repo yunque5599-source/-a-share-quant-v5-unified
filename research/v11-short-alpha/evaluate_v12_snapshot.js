@@ -253,6 +253,7 @@ async function main() {
     schema:'v12-forward-outcome-v2',
     evaluatedAt:new Date().toISOString(),
     sourceSnapshot:{
+      snapshotId:snapshot?.snapshotId ?? null,
       capturedAt:snapshot?.capturedAt ?? null,
       asOf:snapshot?.asOf ?? null,
       schema:snapshot?.schema ?? null,
