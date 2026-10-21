@@ -87,6 +87,7 @@ test('early opportunity ranking is exposed without changing frozen V12 score wei
   const fixture = JSON.parse(await readFile(new URL('./fixtures/v11_flow.json', import.meta.url), 'utf8'));
   const result = integrateCandidateFlow(fixture);
   assert.ok(Array.isArray(result.earlyOpportunityRanking));
+  assert.ok(result.earlyOpportunityRanking.length > 0);
   assert.equal(result.version, 'V11 Short Alpha Phase 1');
   assert.deepEqual(result.ranking[0].scores.components && Object.keys(result.ranking[0].scores.components),
     ['capital', 'momentum', 'sector', 'volume', 'risk']);
