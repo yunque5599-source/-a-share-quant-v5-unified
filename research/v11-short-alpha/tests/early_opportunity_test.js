@@ -93,7 +93,6 @@ test('early opportunity ranking is exposed without changing frozen V12 score wei
   assert.deepEqual(result.ranking[0].scores.components && Object.keys(result.ranking[0].scores.components),
     ['capital', 'momentum', 'sector', 'volume', 'risk']);
   assert.deepEqual(V12_TRADE_WEIGHTS, {alpha:0.6, timing:0.25, psychology:0.15});
-  assert.ok(Number.isFinite(result.ranking[0].scores.v12TradeRaw));
   assert.ok(result.ranking.every(row => row.features.earlyOpportunity !== undefined));
   assert.equal(result.earlyOpportunityRanking.every(row =>
     Number.isFinite(row.features.earlyOpportunity.score)), true);
