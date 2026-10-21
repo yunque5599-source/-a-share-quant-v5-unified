@@ -9,6 +9,7 @@ on:
   pull_request:
     branches:
       - research/v11-short-alpha
+      - research/v12-psychology-narrative
       - main
     paths:
       - 'research/v11-short-alpha/**'
