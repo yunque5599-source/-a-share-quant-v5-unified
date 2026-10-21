@@ -262,12 +262,13 @@ const output = {
 const validation = validateCapturedSnapshot(output);
 const contractValidation = validateSnapshot(output);
 if (!validation.valid || !contractValidation.valid) {
+  const captureStatus = sourceQuality.status === 'CAPTURED' ? validation.status : sourceQuality.status;
   console.error(JSON.stringify({
-    status:validation.status,
+    status:captureStatus,
     snapshotId:output.snapshotId,
     reasons:[...sourceQuality.reasons, ...validation.reasons, ...contractValidation.reasons]
   }, null, 2));
-  throw new Error('snapshot validation failed');
+  throw new Error(captureStatus + ': snapshot validation failed');
 }
 const outputFile = snapshotPath(process.argv[2]);
 await mkdir(dirname(outputFile), {recursive:true});
