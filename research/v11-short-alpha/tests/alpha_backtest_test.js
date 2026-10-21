@@ -109,6 +109,31 @@ test('payoff ratio is JSON-safe when there are no losing trades', () => {
   assert.equal(JSON.stringify(result).includes('Infinity'), false);
 });
 
+test('early-opportunity score can be replayed independently from Alpha ranking', () => {
+  const input = {
+    predictions:[{asOf:'2026-01-05',ranking:[
+      {symbol:'600001',price:100,scores:{alpha:95},features:{earlyOpportunity:{score:40}},quality:{complete:true}},
+      {symbol:'600002',price:100,scores:{alpha:70},features:{earlyOpportunity:{score:90}},quality:{complete:true}},
+      {symbol:'600003',price:100,scores:{alpha:80},features:{earlyOpportunity:{score:70}},quality:{complete:true}}
+    ]}],
+    histories:{
+      '600001':[{date:'2026-01-05',close:100},{date:'2026-01-06',close:101}],
+      '600002':[{date:'2026-01-05',close:100},{date:'2026-01-06',close:106}],
+      '600003':[{date:'2026-01-05',close:100},{date:'2026-01-06',close:102}]
+    }
+  };
+  const early = backtestAlpha(input, {topN:1,horizons:[1],selectionScore:'earlyOpportunity'});
+  assert.equal(early.results['T+1'].trades[0].symbol, '600002');
+  assert.equal(early.results['T+1'].trades[0].selectedBy, 'earlyOpportunity');
+  assert.equal(early.results['T+1'].trades[0].selectionValue, 90);
+  assert.equal(early.results['T+1'].trades[0].earlyOpportunityScore, 90);
+  assert.equal(early.results['T+1'].averageReturnPct, 6);
+
+  const alpha = backtestAlpha(input, {topN:1,horizons:[1],selectionScore:'alpha'});
+  assert.equal(alpha.results['T+1'].trades[0].symbol, '600001');
+  assert.equal(alpha.results['T+1'].trades[0].earlyOpportunityScore, 40);
+});
+
 test('CLI emits the validation document', () => {
   const moduleFile = fileURLToPath(new URL('../backtest/alpha_backtest.js', import.meta.url));
   const fixtureFile = fileURLToPath(fixtureUrl);
