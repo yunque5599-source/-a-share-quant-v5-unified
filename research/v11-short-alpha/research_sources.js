@@ -9,23 +9,38 @@ export function parseUpstream(text) {
 }
 const rowsOf = value => Array.isArray(value) ? value : value && typeof value === 'object' ? Object.values(value) : [];
 const finite = value => value !== null && value !== '' && value !== '-' && Number.isFinite(Number(value));
+function shapeOf(value, depth = 0) {
+  if (depth > 2) return Array.isArray(value) ? {type:'array',length:value.length} : typeof value;
+  if (Array.isArray(value)) return {type:'array',length:value.length,sample:value.length ? shapeOf(value[0], depth + 1) : null};
+  if (value === null) return 'null';
+  if (typeof value !== 'object') return typeof value;
+  const keys = Object.keys(value).sort();
+  return {type:'object',keys:keys.slice(0,40),keyCount:keys.length,
+    samples:Object.fromEntries(keys.slice(0,12).map(key => [key, shapeOf(value[key], depth + 1)]))};
+}
+function invalidFields(message, payload) {
+  const error = new Error(message);
+  error.structure = shapeOf(payload);
+  throw error;
+}
+export function summarizeStructure(value) { return shapeOf(value); }
 export function inspectFields(url, text) {
   const u = new URL(url), path = u.pathname;
   if (u.hostname === 'vip.stock.finance.sina.com.cn') {
     const rows = parseUpstream(text);
-    if (!Array.isArray(rows) || !rows.some(r => /^\d{6}$/.test(r.code) && finite(r.trade) && finite(r.changepercent))) throw new Error('Sina quote fields unavailable');
+    if (!Array.isArray(rows) || !rows.some(r => /^\d{6}$/.test(r.code) && finite(r.trade) && finite(r.changepercent))) invalidFields('Sina quote fields unavailable', rows);
     return {rows:rows.length, quality:'degraded', missing:['capital-flow','industry','verified-timestamp']};
   }
   if (u.hostname === 'web.ifzq.gtimg.cn') {
     const box = Object.values(parseUpstream(text).data ?? {})[0] ?? {};
     const rows = box.qfqday ?? box.day ?? [];
-    if (rows.length < 35 || rows.some(row => !/^\d{4}-\d{2}-\d{2}$/.test(row[0]) || !finite(row[2]) || Number(row[2]) <= 0)) throw new Error('Tencent OHLC fields unavailable');
+    if (rows.length < 35 || rows.some(row => !/^\d{4}-\d{2}-\d{2}$/.test(row[0]) || !finite(row[2]) || Number(row[2]) <= 0)) invalidFields('Tencent OHLC fields unavailable', {data:parseUpstream(text).data, rows});
     return {rows:rows.length, quality:'degraded', missing:['verified-turnover-amount','capital-flow']};
   }
   const json = parseUpstream(text);
   if (path === '/search/jsonp') {
     const articles = json.result?.cmsArticleWebOld;
-    if (!Array.isArray(articles)) throw new Error('news article list missing');
+    if (!Array.isArray(articles)) invalidFields('news article list missing', json);
     return {rows:articles.length, quality:articles.length ? 'available' : 'incomplete'};
   }
   if (path.includes('kline/get') || path.includes('daykline/get')) {
@@ -33,13 +48,13 @@ export function inspectFields(url, text) {
     if (!Array.isArray(rows) || !rows.length || !rows.some(line => {
       const a = String(line).split(',');
       return /^\d{4}-\d{2}-\d{2}$/.test(a[0]) && finite(a[path.includes('daykline') ? 1 : 2]);
-    })) throw new Error('historical rows/fields unavailable');
+    })) invalidFields('historical rows/fields unavailable', json);
     return {rows:rows.length, quality:'available'};
   }
   if (path.includes('clist/get') || path.includes('ulist.np/get') || path.includes('slist/get')) {
     const rows = rowsOf(json.data?.diff);
-    if (!rows.length) throw new Error('quote/member rows unavailable');
-    if (!rows.some(row => row.f12 && (path.includes('slist') || finite(row.f3)))) throw new Error('quote identifiers/change missing');
+    if (!rows.length) invalidFields('quote/member rows unavailable', json);
+    if (!rows.some(row => row.f12 && (path.includes('slist') || finite(row.f3)))) invalidFields('quote identifiers/change missing', {data:json?.data, diff:json?.data?.diff, rows});
     return {rows:rows.length, quality:'available'};
   }
   return {rows:null, quality:'unvalidated'};
@@ -76,6 +91,7 @@ export async function withResearchSources(operation, {
       } catch (error) {
         last = error;
         entry.error = String(error.message ?? error);
+        if (error?.structure) entry.responseStructure = error.structure;
         entry.elapsedMs = Math.round(performance.now() - start);
         diagnostics.push(entry);
         const retryable = entry.httpStatus === null || [408,429,500,502,503,504].includes(entry.httpStatus);
