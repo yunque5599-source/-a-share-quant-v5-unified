@@ -34,3 +34,27 @@ test('V12 selection preserves independent capital and momentum leaders', () => {
   assert.ok(result.includes(rows[32].f12));
   assert.ok(result.includes(rows[33].f12));
 });
+
+
+test('deep universe reserves a slot for low-extension positive-flow early setups', () => {
+  const rows = Array.from({length:40}, (_, i) => ({
+    f12:String(600000 + i).padStart(6,'0'),
+    f14:'Candidate ' + i,
+    rankScore:100-i,
+    f3:8,
+    f6:50000000,
+    f62:-1000000,
+    f184:-1,
+    ranks:{mainNet:i+20,dayMomentum:i+20,swingMomentum:i+20,mainPct:i+20}
+  }));
+  rows[39] = {
+    ...rows[39],
+    f3:1.2,
+    f6:150000000,
+    f62:25000000,
+    f184:2.4,
+    ranks:{mainNet:100,dayMomentum:100,swingMomentum:100,mainPct:100}
+  };
+  const result = selectV12Candidates(rows, 30);
+  assert.ok(result.some(row => row.f12 === rows[39].f12));
+});
