@@ -61,6 +61,7 @@ export function sourceQuality({ranked, deep, discovery, psychology, decision, qu
   if (discovery?.qualifiedForDiscovery !== true || discovery?.quality?.degraded ||
       discovery?.quality?.qualified === false) reasons.push('discovery-unqualified');
   if ((diag.conceptRows ?? 0) < 1 || themes.length < 1) reasons.push('psychology-source-unavailable');
+  if (Number(diag.researchFailures ?? 0) > 0) reasons.push('psychology-research-incomplete');
   const items = deep?.items ?? [];
   if (items.length < 5 || items.some(item => item.error || item.dataQuality?.degraded ||
       item.dataQuality?.flowSource !== 'eastmoney' || item.dataQuality?.klineSource !== 'eastmoney')) reasons.push('deep-source-incomplete');
