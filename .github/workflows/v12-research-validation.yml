@@ -34,7 +34,7 @@ jobs:
 
       - name: Check V12 runtime source syntax
         run: |
-          for file in api/v12_decision.js api/market.js api/psychology_universe.js; do
+          for file in api/v12_decision.js api/market.js api/psychology_universe.js research/v11-short-alpha/early_opportunity.js research/v11-short-alpha/backtest/alpha_backtest.js; do
             node --check "$file"
           done
 
