@@ -54,7 +54,9 @@ function createHandler({fetchImpl=fetch,now=()=>Date.now(),pageSize=PAGE_SIZE,mi
   const remaining=deadlineAt-now();
   if(remaining<1500)throw Error('scan-time-budget-exceeded');
   const url=new URL('/api/qt/clist/get',host);
-  url.search=new URLSearchParams({pn:String(page),pz:String(pageSize),po:'1',np:'1',fltt:'2',invt:'2',fid:'f6',fs:segment.fs,fields:FIELDS}).toString();
+  // Paginate by stable stock code rather than turnover. Turnover ordering can move during
+   // a multi-page live scan and create duplicate/missing records between pages.
+   url.search=new URLSearchParams({pn:String(page),pz:String(pageSize),po:'1',np:'1',fltt:'2',invt:'2',fid:'f12',fs:segment.fs,fields:FIELDS}).toString();
   const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),Math.min(timeoutMs,remaining-500));
   try{
    const response=await fetchImpl(url.toString(),{signal:ctrl.signal,headers:{accept:'application/json,text/javascript,*/*;q=0.8','user-agent':'Mozilla/5.0 AShareQuant/source-health-v1',referer:'https://quote.eastmoney.com/'},cache:'no-store'});
@@ -78,7 +80,9 @@ function createHandler({fetchImpl=fetch,now=()=>Date.now(),pageSize=PAGE_SIZE,mi
    }catch(e){
     last=String(e?.message||e);
     console.warn(JSON.stringify({event:'discovery-page-failed',segment:segment.key,page,attempt,elapsedMs:now()-started,reason:last}));
-    if(attempt===3||!(last==='upstream-http-502'||last==='timeout'))break;
+    const transient = last === 'upstream-http-502' || last === 'timeout' ||
+      /fetch failed|ECONNRESET|ECONNREFUSED|EAI_AGAIN|ETIMEDOUT|ENETUNREACH|socket/i.test(last);
+    if(attempt===3 || !transient) break;
     if(deadlineAt-now()<RETRY_DELAYS_MS[attempt-1]+1500)break;
     await sleepImpl(RETRY_DELAYS_MS[attempt-1]);
    }

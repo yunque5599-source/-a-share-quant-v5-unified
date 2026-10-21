@@ -1,9 +1,13 @@
 import { generateDecision } from '../v1040-core/decision_engine/decision_output.js';
-import { normalizeMarketRisk } from '../v1040-core/adapter/market_adapter.js';
+import { normalizeMarketRisk, inferMarketRisk } from '../v1040-core/adapter/market_adapter.js';
 import { finiteNumber as n, clamp, round, validDate, asOfDate, createCandidateRecord } from './schema.js';
 import { rankCandidates } from './alpha_score.js';
 import { withPsychology } from './psychology_score.js';
 import { withV12TradeScore } from './v12_trade_score.js';
+import { withV12SelectionScore } from './v12_selection_score.js';
+import { buildMarketEmotion } from './market_emotion.js';
+import { computeTrendStructure } from './trend_structure.js';
+import { computeEarlyOpportunity, withEarlyOpportunityPsychology } from './early_opportunity.js';
 
 const list = value => Array.isArray(value) ? value : [];
 const mean = values => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
@@ -29,16 +33,27 @@ function parseRows(raw, kind, cutoff) {
       const close = n(array ? fields[2] : fields?.close ?? fields?.price);
       if (!(close > 0)) { blocked.push('kline:invalid-close'); continue; }
       result.push({
-        date, close,
+        date, open: n(array ? fields[1] : fields?.open),
+        close,
         high: n(array ? fields[3] : fields?.high),
+        low: n(array ? fields[4] : fields?.low),
         volume: n(array ? fields[5] : fields?.volume ?? fields?.vol),
         amount: n(array ? fields[6] : fields?.amount ?? fields?.turnover)
       });
     } else {
+      // Eastmoney fflow daily schema after f51(date):
+      // f52 main, f53 small, f54 medium, f55 large, f56 super-large,
+      // f57 main %, f58 small %, f59 medium %, f60 large %, f61 super-large %,
+      // f62 price, f63 change %. Keep the order-bucket amounts for V12 psychology.
       result.push({
         date,
         net: n(array ? fields[1] : fields?.mainNet ?? fields?.net ?? fields?.main),
-        pct: n(array ? fields[6] : fields?.mainNetPct ?? fields?.netPct ?? fields?.pct)
+        pct: n(array ? fields[6] : fields?.mainNetPct ?? fields?.netPct ?? fields?.pct),
+        smallNet: n(array ? fields[2] : fields?.smallNet ?? fields?.small),
+        mediumNet: n(array ? fields[3] : fields?.mediumNet ?? fields?.mediumNetCny ?? fields?.medium),
+        largeNet: n(array ? fields[4] : fields?.largeNet ?? fields?.largeNetCny ?? fields?.large),
+        superLargeNet: n(array ? fields[5] :
+          fields?.superLargeNet ?? fields?.superLargeNetCny ?? fields?.super_large ?? fields?.superLarge)
         // Flow field[11] is price, never a turnover denominator.
       });
     }
@@ -114,20 +129,54 @@ function features(raw, bars, flows, sector, flowDegraded) {
   };
 
   const flowByDate = new Map(flows.map(flow => [flow.date, flow]));
-  const expectedFlowDates = bars.slice(-5).map(bar => bar.date);
-  const recentFlows = expectedFlowDates.map(date => flowByDate.get(date));
-  const flowComplete = expectedFlowDates.length === 5 && recentFlows.every(flow => flow && n(flow.net) !== null);
-  const priorFlows = flows.slice(-10, -5);
-  const priorFlowComplete = priorFlows.length === 5 && priorFlows.every(flow => n(flow.net) !== null);
+  // Intraday snapshots often have today's price bar while the daily fund-flow endpoint
+  // still ends on the previous completed session. Match the latest five available flow
+  // observations instead of requiring an exact same-day join.
+  const usableFlows = flows.filter(flow => flow && flow.date && n(flow.net) !== null);
+  const recentFlows = usableFlows.slice(-5);
+  const priorFlows = usableFlows.slice(-10, -5);
+  const flowComplete = recentFlows.length === 5;
+  const priorFlowComplete = priorFlows.length === 5;
   const recentNet = flowComplete ? recentFlows.reduce((sum, flow) => sum + flow.net, 0) : null;
   const priorNet = priorFlowComplete ? priorFlows.reduce((sum, flow) => sum + flow.net, 0) : null;
+  const recentLargeNet = flowComplete && recentFlows.every(flow => n(flow.largeNet) !== null)
+    ? recentFlows.reduce((sum, flow) => sum + flow.largeNet, 0) : null;
+  const recentSuperLargeNet = flowComplete && recentFlows.every(flow => n(flow.superLargeNet) !== null)
+    ? recentFlows.reduce((sum, flow) => sum + flow.superLargeNet, 0) : null;
+  const priorLargeNet = priorFlowComplete && priorFlows.every(flow => n(flow.largeNet) !== null)
+    ? priorFlows.reduce((sum, flow) => sum + flow.largeNet, 0) : null;
+  const priorSuperLargeNet = priorFlowComplete && priorFlows.every(flow => n(flow.superLargeNet) !== null)
+    ? priorFlows.reduce((sum, flow) => sum + flow.superLargeNet, 0) : null;
+  const recentLargeOrderNet = recentLargeNet !== null && recentSuperLargeNet !== null
+    ? recentLargeNet + recentSuperLargeNet : null;
+  const priorLargeOrderNet = priorLargeNet !== null && priorSuperLargeNet !== null
+    ? priorLargeNet + priorSuperLargeNet : null;
+  const recentLargeOrderPositiveRatio = flowComplete &&
+    recentFlows.every(flow => n(flow.largeNet) !== null && n(flow.superLargeNet) !== null)
+    ? recentFlows.filter(flow => flow.largeNet + flow.superLargeNet > 0).length / 5 : null;
   const earlyPositiveRatio = priorFlowComplete
     ? priorFlows.filter(flow => flow.net > 0).length / 5 : null;
-  const currentFlow = last ? flowByDate.get(last.date) : null;
-  const mainNet = flowDegraded ? null : n(raw?.f62 ?? raw?.mainNet) ?? currentFlow?.net ?? null;
-  const mainPct = flowDegraded ? null : n(raw?.f184 ?? raw?.mainPct) ?? currentFlow?.pct ??
+  const recentAmount5d = bars.length >= 5
+    ? bars.slice(-5).map(bar => bar.amount).filter(value => n(value) !== null && value > 0)
+      .reduce((sum, value) => sum + value, 0) : null;
+  const largeOrderNetPct5d = recentLargeOrderNet !== null && recentAmount5d > 0
+    ? recentLargeOrderNet / recentAmount5d * 100 : null;
+  const priorAmount5d = bars.length >= 10
+    ? bars.slice(-10, -5).map(bar => bar.amount).filter(value => n(value) !== null && value > 0)
+      .reduce((sum, value) => sum + value, 0) : null;
+  const priorLargeOrderNetPct5d = priorLargeOrderNet !== null && priorAmount5d > 0
+    ? priorLargeOrderNet / priorAmount5d * 100 : null;
+  const currentFlow = last ? (flowByDate.get(last.date) ?? usableFlows.at(-1)) : usableFlows.at(-1);
+  const flowLagDays = currentFlow?.date && last?.date
+    ? Math.max(0, (Date.parse(last.date) - Date.parse(currentFlow.date)) / 86400000) : null;
+  const flowFreshEnough = flowLagDays === null || flowLagDays <= 4;
+  const mainNet = flowDegraded || !flowFreshEnough ? null :
+    n(raw?.f62 ?? raw?.mainNet) ?? currentFlow?.net ?? null;
+  const mainPct = flowDegraded || !flowFreshEnough ? null :
+    n(raw?.f184 ?? raw?.mainPct) ?? currentFlow?.pct ??
     (mainNet !== null && last?.amount > 0 ? mainNet / last.amount * 100 : null);
-  const positiveRatio = !flowDegraded && flowComplete ? recentFlows.filter(flow => flow.net > 0).length / 5 : null;
+  const positiveRatio = !flowDegraded && flowFreshEnough && flowComplete
+    ? recentFlows.filter(flow => flow.net > 0).length / 5 : null;
   const netStrength = mainNet === null ? null
     : clamp(50 + Math.sign(mainNet) * 10 * Math.log10(1 + Math.abs(mainNet) / 1e6));
   const highPriceFlow = recentNet !== null && recentNet > 0 &&
@@ -145,6 +194,12 @@ function features(raw, bars, flows, sector, flowDegraded) {
   const capital = {
     mainNetCny: mainNet, mainNetPct: mainPct, positiveFlowRatio5d: positiveRatio,
     earlyNetCny: priorNet, recentNetCny: recentNet,
+    largeOrderNet5dCny: recentLargeOrderNet,
+    superLargeOrderNet5dCny: recentSuperLargeNet,
+    largeOrderNetPct5d, priorLargeOrderNetPct5d,
+    largeOrderPositiveRatio5d: recentLargeOrderPositiveRatio,
+    priorLargeOrderNetCny: priorLargeOrderNet,
+    priorSuperLargeOrderNetCny: priorSuperLargeNet,
     earlyPositiveFlowRatio5d: earlyPositiveRatio, flowTiming, lateFlowPenalty,
     amountCny: last?.amount ?? n(raw?.f6 ?? raw?.amount),
     score: baseCapitalScore === null || timingScore === null ? null
@@ -215,13 +270,30 @@ export function integrateCandidateFlow(input = {}, options = {}) {
     if (deepMap.has(symbol)) duplicateDeep.add(symbol);
     else deepMap.set(symbol, item);
   }
-  const diagnostics = { inputCount: candidates.length, duplicateCandidates: 0, rejectedCandidates: 0,
-    psychologyComplete: 0, v12Eligible: 0 };
+  const marketEmotion = buildMarketEmotion(
+    root.indices ?? input?.indices ?? [],
+    candidates
+  );
+  const diagnostics = { inputCount: candidates.length, duplicateCandidates: 0,
+    rejectedCandidates: 0, psychologyComplete: 0, v12Eligible: 0,
+    marketEmotionScore:marketEmotion.score };
+  const hasExplicitMarket = options.market !== undefined ||
+    input?.market !== undefined || root.marketRisk !== undefined;
   const explicitMarket = options.market ?? input?.market ?? root.marketRisk;
   let marketRisk = normalizeMarketRisk(explicitMarket);
-  if (marketRisk === 'unknown' && explicitMarket === undefined) {
-    const values = list(root.indices ?? input?.indices).map(index => n(index?.pct)).filter(value => value !== null);
-    if (values.length >= 2) marketRisk = mean(values) <= -1.5 ? 'weak' : mean(values) < 0 ? 'elevated' : 'normal';
+  if (marketRisk === 'unknown' && !hasExplicitMarket) {
+    marketRisk = inferMarketRisk(root.indices ?? input?.indices ?? [], explicitMarket);
+  }
+  if (marketRisk === 'unknown' && !hasExplicitMarket) {
+    const marketRows = candidates.slice(0, 120)
+      .map(row => n(row?.f3 ?? row?.pct ?? row?.changePct))
+      .filter(value => value !== null);
+    if (marketRows.length >= 20) {
+      const averagePct = mean(marketRows);
+      const positiveRatio = marketRows.filter(value => value > 0).length / marketRows.length;
+      marketRisk = averagePct <= -1.5 || positiveRatio < 0.35 ? 'weak'
+        : averagePct < 0 || positiveRatio < 0.45 ? 'elevated' : 'normal';
+    }
   }
   const asOf = options.asOf ?? root.generatedAt ?? input?.asOf?.collectionFinishedAt ?? input?.asOf ?? null;
   const cutoff = asOfDate(asOf);
@@ -245,7 +317,19 @@ export function integrateCandidateFlow(input = {}, options = {}) {
       flow?.degraded === true || flow?.source === 'neutral-flow-fallback';
     const degraded = flowDegraded || item?.dataQuality?.degraded === true ||
       history?.source === 'tencent-kline-fallback';
-    const frame = features(raw, parsedBars.data, parsedFlows.data, sectors.get(industry), flowDegraded);
+    const baseFeatures = features(raw, parsedBars.data, parsedFlows.data, sectors.get(industry), flowDegraded);
+    const frame = {
+      ...baseFeatures,
+      trendStructure:computeTrendStructure({bars:parsedBars.data, asOf}, {
+        asOf,
+        barComplete:raw?.barComplete ?? item?.barComplete
+      }),
+      earlyOpportunity:computeEarlyOpportunity({
+        bars:parsedBars.data, asOf,
+        barComplete:raw?.barComplete ?? item?.barComplete,
+        features:baseFeatures
+      })
+    };
     const price = n(raw?.f2 ?? raw?.price) ?? parsedBars.data.at(-1)?.close ?? null;
     const blockedReasons = [...parsedBars.blocked, ...parsedFlows.blocked];
     if (!cutoff) blockedReasons.push('snapshot-asof-missing-or-invalid');
@@ -279,13 +363,40 @@ export function integrateCandidateFlow(input = {}, options = {}) {
   const psychologyContext = options.psychology ??
     input?.psychology ?? discovery?.psychology ?? discovery?.themeResearch ?? null;
   const ranking = alphaRanking.map(record => {
-    const withPsych = withPsychology(record, psychologyContext ?? {});
+    const psychologyInput = psychologyContext && typeof psychologyContext === 'object'
+      ? {...psychologyContext, marketEmotion}
+      : {marketEmotion};
+    const withPsych = withPsychology({
+      ...record,
+      marketEmotion
+    }, psychologyInput);
     const withV12 = withV12TradeScore(withPsych);
+    const withSelection = withV12SelectionScore(withV12);
+    const withEarly = withEarlyOpportunityPsychology(withSelection);
     if (withPsych.psychology?.complete === true) diagnostics.psychologyComplete += 1;
-    if (withV12.scores?.v12TradeRaw !== null && record.quality.complete &&
+    if (withSelection.scores?.v12SelectionRaw !== null && record.quality.complete &&
         withPsych.psychology?.complete === true) diagnostics.v12Eligible += 1;
-    return withV12;
+    return withEarly;
   });
+  const earlyOpportunityRanking = ranking
+    .filter(record => record.quality.complete && record.features?.earlyOpportunity?.score !== null &&
+      Number.isFinite(record.features?.earlyOpportunity?.score))
+    .sort((a, b) => b.features.earlyOpportunity.score - a.features.earlyOpportunity.score ||
+      (b.features.trendStructure?.score ?? -1) - (a.features.trendStructure?.score ?? -1) ||
+      a.symbol.localeCompare(b.symbol))
+    .map((record, index) => ({...record, earlyOpportunityRank:index + 1}));
+  diagnostics.earlyOpportunityScored = ranking.filter(record =>
+    Number.isFinite(record.features?.earlyOpportunity?.score)).length;
+  diagnostics.earlyOpportunityEligible = earlyOpportunityRanking.length;
+  // Actionable shortlist is deliberately narrower than the research ranking:
+  // exclude falling knives and extended rallies, and require a credible early-turn setup.
+  const earlyOpportunityActionableRanking = earlyOpportunityRanking.filter(record => {
+    const setup = record.features?.earlyOpportunity;
+    return ['early-base', 'turning-up'].includes(setup?.stage) &&
+      Number.isFinite(setup?.score) && setup.score >= 65 &&
+      Number.isFinite(setup?.confidence) && setup.confidence >= 0.60;
+  });
+  diagnostics.earlyOpportunityActionable = earlyOpportunityActionableRanking.length;
   const tradeRanking = ranking
     .filter(record => record.quality.complete &&
       record.psychology?.complete === true &&
@@ -302,7 +413,9 @@ export function integrateCandidateFlow(input = {}, options = {}) {
   })), marketRisk);
   return {
     version: 'V11 Short Alpha Phase 1', schema: 'v11-short-alpha-flow-v1',
-    asOf, market: { marketRisk }, ranking, candidates: ranking, tradeRanking,
+    asOf, market: { marketRisk, emotion:marketEmotion }, ranking, candidates: ranking, tradeRanking,
+    earlyOpportunityRanking,
+    earlyOpportunityActionableRanking,
     diagnostics, ...decision
   };
 }

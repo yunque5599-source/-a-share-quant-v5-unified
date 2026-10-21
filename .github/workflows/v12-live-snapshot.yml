@@ -1,0 +1,154 @@
+name: V12 Live Snapshot Capture
+
+on:
+  push:
+    branches:
+      - research/v12-psychology-narrative
+  schedule:
+    - cron: '15 3 * * 1-5'
+    - cron: '30 5 * * 1-5'
+    - cron: '45 6 * * 1-5'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Check continuous A-share trading session
+        id: session
+        run: |
+          node <<'NODE'
+          const parts = new Intl.DateTimeFormat('en-CA', {
+            timeZone:'Asia/Shanghai', year:'numeric', month:'2-digit', day:'2-digit',
+            hour:'2-digit', minute:'2-digit', hourCycle:'h23'
+          }).formatToParts(new Date());
+          const get = t => parts.find(x => x.type === t)?.value;
+          const h = Number(get('hour')), m = Number(get('minute'));
+          const wd = new Intl.DateTimeFormat('en-US', {
+            timeZone:'Asia/Shanghai', weekday:'short'
+          }).format(new Date());
+          const minute = h * 60 + m;
+          const inSession = ['Mon','Tue','Wed','Thu','Fri'].includes(wd) &&
+            ((minute >= 570 && minute < 690) || (minute >= 780 && minute < 900));
+          console.log('China time:', get('year')+'-'+get('month')+'-'+get('day'), h+':'+String(m).padStart(2,'0'), 'inSession=', inSession);
+          require('fs').appendFileSync(process.env.GITHUB_OUTPUT, 'in_session='+inSession+'\\n');
+          NODE
+
+      - name: Capture point-in-time V12 snapshot
+        id: capture
+        if: steps.session.outputs.in_session == 'true'
+        continue-on-error: true
+        run: |
+          set +e
+          mkdir -p live-snapshot
+          node research/v11-short-alpha/capture_v12_snapshot.js live-snapshot/v12-live-snapshot.json > live-snapshot/capture.log 2>&1
+          code=$?
+          cat live-snapshot/capture.log
+          if [ "$code" -eq 0 ] && [ -s live-snapshot/v12-live-snapshot.json ]; then
+            status=CAPTURED
+          elif grep -Eiq 'HTTP 5(02|03)|upstream|fetch failed|SOURCE_UNAVAILABLE' live-snapshot/capture.log; then
+            status=SOURCE_UNAVAILABLE
+          else
+            status=INVALID_SNAPSHOT
+          fi
+          echo "capture_status=$status" >> "$GITHUB_OUTPUT"
+          exit 0
+
+      - name: Validate captured snapshot
+        id: validate
+        if: steps.capture.outputs.capture_status == 'CAPTURED'
+        continue-on-error: true
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const file = 'live-snapshot/v12-live-snapshot.json';
+          const reasons = [];
+          let snapshot = null;
+          try { snapshot = JSON.parse(fs.readFileSync(file, 'utf8')); }
+          catch (error) { reasons.push('json-invalid:' + error.message); }
+          if (snapshot?.schema !== 'v12-live-snapshot-v1') reasons.push('schema-invalid');
+          if (!snapshot?.snapshotId) reasons.push('snapshot-id-missing');
+          if (!snapshot?.capturedAt || !Number.isFinite(Date.parse(snapshot.capturedAt))) reasons.push('captured-at-invalid');
+          if (!snapshot?.asOf || !Number.isFinite(Date.parse(snapshot.asOf))) reasons.push('asof-invalid');
+          if (!Array.isArray(snapshot?.decision?.datasetCandidates) ||
+              snapshot.decision.datasetCandidates.length < 5) reasons.push('candidate-count-insufficient');
+          if (snapshot?.quality?.status !== 'CAPTURED' || snapshot?.quality?.valid !== true) reasons.push('source-quality-invalid');
+          if (reasons.length) {
+            console.error(JSON.stringify({status:'INVALID_SNAPSHOT', reasons}, null, 2));
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, 'valid=false\n');
+            process.exit(1);
+          }
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, 'valid=true\n');
+          console.log(JSON.stringify({status:'CAPTURED', snapshotId:snapshot.snapshotId, candidates:snapshot.decision.datasetCandidates.length}));
+          NODE
+
+      - name: Report capture state
+        if: always()
+        run: |
+          status="${{ steps.capture.outputs.capture_status }}"
+          if [ -z "$status" ] && [ "${{ steps.session.outputs.in_session }}" != "true" ]; then
+            status=SKIPPED_OUTSIDE_SESSION
+          elif [ "${{ steps.validate.outputs.valid }}" != "true" ] && [ "$status" = "CAPTURED" ]; then
+            status=INVALID_SNAPSHOT
+          elif [ -z "$status" ]; then
+            status=SOURCE_UNAVAILABLE
+          fi
+          echo "V12 capture status: $status"
+          {
+            echo "## V12 capture status"
+            echo
+            echo "- status: $status"
+            echo "- schedule note: GitHub scheduled workflows are controlled by the repository default branch; this feature branch schedule is not treated as verified."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Skip outside continuous session
+        if: steps.session.outputs.in_session != 'true'
+        run: |
+          echo "SKIPPED_OUTSIDE_SESSION: no synchronous A-share snapshot was generated."
+
+      - name: Print snapshot summary
+        if: steps.validate.outputs.valid == 'true'
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const x = JSON.parse(fs.readFileSync('live-snapshot/v12-live-snapshot.json', 'utf8'));
+          console.log(JSON.stringify({
+            schema:x.schema,
+            capturedAt:x.capturedAt,
+            asOf:x.asOf,
+            rankedUniverse:x.inputs?.ranked?.data?.candidateCount ?? null,
+            selectedDeepPool:x.inputs?.psychology?.data?.diagnostics?.requestedCodes ??
+              x.inputs?.psychology?.diagnostics?.requestedCodes ?? null,
+            psychologyComplete:x.decision?.diagnostics?.psychologyComplete ?? null,
+            v12Eligible:x.decision?.diagnostics?.v12Eligible ?? null,
+            top5:x.decision?.tradeRanking?.slice(0,5).map(row => ({
+              rank:row.tradeRank,
+              symbol:row.symbol,
+              name:row.name,
+              v12Trade:row.v12Trade ?? null,
+              psychologyStage:row.psychologyStage ?? null,
+              primaryTheme:row.primaryTheme ?? null
+            }))
+          }, null, 2));
+          NODE
+
+      - name: Upload valid immutable V12 snapshot
+        if: steps.validate.outputs.valid == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: v12-live-snapshot-${{ github.run_id }}
+          path: live-snapshot/v12-live-snapshot.json
+          if-no-files-found: error
+          retention-days: 30

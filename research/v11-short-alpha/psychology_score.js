@@ -2,14 +2,15 @@ import { clamp, finiteNumber, round, asOfDate } from './schema.js';
 import { scoreNarrativeResearch, scoreImaginationResearch } from './psychology_research.js';
 
 export const PSYCHOLOGY_WEIGHTS = Object.freeze({
-  emotionHeat: 0.25,
+  emotionHeat: 0.20,
   emotionAcceleration: 0.20,
   narrative: 0.20,
   leader: 0.20,
-  imagination: 0.15
+  imagination: 0.10,
+  behavioral: 0.10
 });
 
-export const PSYCHOLOGY_VERSION = 'V12 Psychology Score Phase 1';
+export const PSYCHOLOGY_VERSION = 'V12 Psychology Score Phase 3 Behavioral';
 
 const n = finiteNumber;
 const metric = value => value === null || !Number.isFinite(value) ? null : round(value);
@@ -197,12 +198,18 @@ function scoreImagination(theme = {}) {
   const direct = n(theme.imaginationScore);
   if (direct !== null) {
     const evidence = list(theme.imaginationEvidence ?? theme.spaceEvidence);
+    const suppliedConfidence = n(theme.imaginationConfidence);
+    const confidence = suppliedConfidence !== null
+      ? Math.min(0.90, Math.max(0, suppliedConfidence))
+      : evidence.length ? 1 : 0.60;
     return {
       score:clamp(direct),
-      confidence:evidence.length ? 1 : 0.60,
-      source:evidence.length ? 'explicit-with-evidence' : 'explicit-without-evidence',
+      confidence,
+      source:confidence < 0.90 ? 'structured-research-partial' :
+        evidence.length ? 'explicit-with-evidence' : 'explicit-without-evidence',
       evidence:evidence.slice(0,8),
-      reasons:evidence.length ? ['imagination-evidence-present'] : ['imagination-score-needs-evidence']
+      reasons:confidence < 0.90 ? ['imagination-research-partial'] :
+        evidence.length ? ['imagination-evidence-present'] : ['imagination-score-needs-evidence']
     };
   }
   const parts = [
@@ -302,6 +309,119 @@ function fomoRisk(theme = {}, candidate = {}) {
   };
 }
 
+function scoreBehavioral(theme = {}, candidate = {}, marketEmotion = {}) {
+  const fomo = fomoRisk(theme, candidate);
+  const globalEmotion = n(marketEmotion?.score ?? marketEmotion?.marketEmotionScore);
+  const flow = n(theme.mainNetPct ?? theme.themeFlowPct);
+  const breadth = breadthPct(theme);
+  const candidateChange = n(candidate.pct ?? candidate.changePct);
+  const leaderChange = n(theme.leaderChangePct);
+  const capital = candidate?.features?.capital ?? {};
+  const largeOrderPct = n(capital.largeOrderNetPct5d);
+  const largeOrderPositiveRatio = n(capital.largeOrderPositiveRatio5d);
+  const flowTiming = String(capital.flowTiming ?? '');
+  const parts = [];
+
+  const change = n(theme.changePct ?? theme.themeChangePct);
+  if (flow !== null) {
+    const flowScore = clamp(50 + flow * 8);
+    const priceScore = change === null ? 50 : clamp(50 + change * 5);
+    const directionBonus = change === null || flow * change >= 0 ? 10 : -10;
+    let capitalEmotionScore = clamp(flowScore * 0.60 + priceScore * 0.40 + directionBonus);
+    let capitalReason = 'main-flow-price-aligned';
+    // Eastmoney exposes order-size buckets, not an A-share "dark pool".
+    // Treat large+super-large net flow only as an observable institutional/large-order proxy.
+    if (largeOrderPct !== null && largeOrderPositiveRatio !== null) {
+      const largeOrderScore = clamp(
+        clamp(50 + largeOrderPct * 8) * 0.65 +
+        largeOrderPositiveRatio * 100 * 0.35
+      );
+      const orderAlignment = flow === 0 || largeOrderPct === 0 ||
+        Math.sign(flow) === Math.sign(largeOrderPct);
+      capitalEmotionScore = clamp(
+        capitalEmotionScore * 0.75 +
+        largeOrderScore * 0.25 +
+        (orderAlignment ? 4 : -6)
+      );
+      capitalReason = orderAlignment ? 'large-order-confirmation' : 'large-order-divergence';
+    }
+    parts.push({
+      key:'capitalEmotionAlignment',
+      score:capitalEmotionScore,
+      weight:0.35,
+      detail:{largeOrderNetPct5d:largeOrderPct, largeOrderPositiveRatio5d:largeOrderPositiveRatio,
+        interpretation:capitalReason}
+    });
+  }
+  if (breadth !== null) {
+    parts.push({
+      key:'crowdParticipation',
+      score:breadth,
+      weight:0.20
+    });
+  }
+  if (fomo.score !== null) {
+    // Moderate excitement is constructive; both panic and euphoria are penalized.
+    const fomoQuality = clamp(100 - Math.abs(fomo.score - 55) * 1.8);
+    parts.push({
+      key:'fomoBalance',
+      score:fomoQuality,
+      weight:0.20
+    });
+  }
+  if (candidateChange !== null && leaderChange !== null) {
+    const alignment = clamp(100 - Math.abs(candidateChange - leaderChange) * 6);
+    parts.push({
+      key:'leaderAlignment',
+      score:alignment,
+      weight:0.10
+    });
+  }
+  if (flowTiming) {
+    const flowTimingScore = {
+      'early-inflow':90,
+      'recent-inflow':68,
+      'late-high-inflow':25,
+      'outflow':20
+    }[flowTiming] ?? 50;
+    const timingPenalty = flowTiming === 'late-high-inflow' ? 8 : 0;
+    parts.push({
+      key:'flowTimingPsychology',
+      score:clamp(flowTimingScore - timingPenalty),
+      weight:0.10
+    });
+  }
+  if (globalEmotion !== null) {
+    parts.push({
+      key:'marketEmotion',
+      score:clamp(globalEmotion),
+      weight:0.10
+    });
+  }
+
+  if (parts.length < 2) {
+    return {
+      score:null,
+      confidence:0,
+      components:{},
+      reasons:['behavioral-evidence-incomplete']
+    };
+  }
+  const weightSum = parts.reduce((sum, item) => sum + item.weight, 0);
+  const score = parts.reduce((sum, item) => sum + item.score * item.weight, 0) / weightSum;
+  return {
+    score:clamp(score),
+    confidence:parts.length >= 3 ? 1 : 0.80,
+    components:Object.fromEntries(parts.map(item => [item.key, {
+      score:item.score, weight:item.weight
+    }])),
+    reasons:[
+      score >= 70 ? 'constructive-crowd-psychology' :
+        score <= 35 ? 'weak-crowd-psychology' : 'mixed-crowd-psychology'
+    ]
+  };
+}
+
 function stageFor(heat, acceleration, fomo) {
   if ([heat, acceleration].some(value => value === null)) return 'unknown';
   if (heat < 40 || acceleration < 35) return 'decay';
@@ -367,14 +487,15 @@ function primaryTheme(candidate, themes) {
   return {theme:themes[0], basis:'first-matched-theme'};
 }
 
-function scoreTheme(theme, candidate) {
+function scoreTheme(theme, candidate, marketEmotion = {}) {
   const heat = scoreEmotionHeat(theme);
   const acceleration = scoreEmotionAcceleration(theme);
   const narrative = scoreNarrative(theme);
   const leader = scoreLeader(theme, candidate);
   const imagination = scoreImagination(theme);
   const fomo = fomoRisk(theme, candidate);
-  const parts = {emotionHeat:heat, emotionAcceleration:acceleration, narrative, leader, imagination};
+  const behavioral = scoreBehavioral(theme, candidate, marketEmotion);
+  const parts = {emotionHeat:heat, emotionAcceleration:acceleration, narrative, leader, imagination, behavioral};
   const complete = Object.values(parts).every(item => item.score !== null) &&
     Object.values(parts).every(item => item.confidence >= 0.70);
   const raw = complete
@@ -396,7 +517,9 @@ function scoreTheme(theme, candidate) {
     fomoRisk:{score:metric(fomo.score), candidateScore:metric(fomo.candidateScore), label:fomo.label},
     components:Object.fromEntries(Object.entries(parts).map(([key, item]) => [key, {
       score:metric(item.score), confidence:item.confidence,
-      source:item.source ?? 'market-derived', reasons:item.reasons
+      source:item.source ?? 'market-derived', reasons:item.reasons,
+      components:item.components ?? null,
+      detail:item.detail ?? null
     }])),
     evidence:{
       narrative:narrative.evidence ?? [],
@@ -417,7 +540,8 @@ export function scoreCandidatePsychology(candidate = {}, context = {}) {
       reasons:['theme-membership-missing']
     };
   }
-  const scored = themes.map(theme => scoreTheme(theme, candidate));
+  const marketEmotion = context?.marketEmotion ?? {};
+  const scored = themes.map(theme => scoreTheme(theme, candidate, marketEmotion));
   const primary = primaryTheme(candidate, themes);
   const primaryIndex = primary ? themes.indexOf(primary.theme) : -1;
   const result = primaryIndex >= 0 ? scored[primaryIndex] : null;

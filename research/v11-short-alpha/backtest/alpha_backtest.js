@@ -25,7 +25,9 @@ function inputSnapshots(input) {
 }
 
 function rankingOf(snapshot) {
-  return list(snapshot?.ranking ?? snapshot?.candidates ?? snapshot?.stocks);
+  return list(snapshot?.ranking ?? snapshot?.candidates ?? snapshot?.stocks ??
+    snapshot?.decision?.datasetCandidates ?? snapshot?.decision?.ranking ??
+    snapshot?.decision?.tradeRanking);
 }
 
 function historyMapOf(input, snapshot) {
@@ -99,6 +101,11 @@ function compositeScore(candidate) {
 function v12TradeScore(candidate) {
   return computeV12TradeScore(candidate)?.scoreRaw ?? null;
 }
+function earlyOpportunityScore(candidate) {
+  return number(candidate?.features?.earlyOpportunity?.score ??
+    candidate?.scores?.earlyOpportunityRaw ?? candidate?.scores?.earlyOpportunity ??
+    candidate?.earlyOpportunity?.score);
+}
 function timingSignal(candidate) {
   const explicit = candidate?.timing?.signal ?? candidate?.timingSignal;
   if (typeof explicit === 'string') return explicit;
@@ -112,6 +119,7 @@ function selectionValue(candidate, selectionScore) {
   if (selectionScore === 'timing') return timingScore(candidate);
   if (selectionScore === 'random') return null;
   if (selectionScore === 'v12' || selectionScore === 'v12Trade') return v12TradeScore(candidate);
+  if (selectionScore === 'earlyOpportunity') return earlyOpportunityScore(candidate);
   return alphaScore(candidate);
 }
 
@@ -235,7 +243,7 @@ export function backtestAlpha(input = {}, options = {}) {
   const includeIncomplete = options.includeIncomplete === true;
   const topN = Number.isInteger(options.topN) && options.topN > 0 ? options.topN : null;
   const selectionScore = options.selectionScore ?? 'alpha';
-  if (!['alpha', 'timing', 'composite', 'random', 'v12', 'v12Trade'].includes(selectionScore)) {
+  if (!['alpha', 'timing', 'composite', 'random', 'v12', 'v12Trade', 'earlyOpportunity'].includes(selectionScore)) {
     throw new Error('Unknown selectionScore: ' + selectionScore);
   }
   const costs = normalizeCosts(options);
@@ -329,7 +337,8 @@ export function backtestAlpha(input = {}, options = {}) {
           trade = {
             symbol, rank, alphaRank, alphaScore: score, timingScore: timing,
             psychologyScore: psychology, compositeScore: composite,
-            v12TradeScore: v12Trade, timingSignal: signal, selectedBy: selectionScore,
+            v12TradeScore: v12Trade, earlyOpportunityScore:earlyOpportunityScore(candidate),
+            timingSignal: signal, selectedBy: selectionScore,
             selectionValue: selectedValue, entryDate,
             entryPrice: entryPrice > 0 ? entryPrice : null,
             horizon, status: 'unavailable', reason: skipReason
@@ -338,7 +347,8 @@ export function backtestAlpha(input = {}, options = {}) {
           trade = {
             symbol, rank, alphaRank, alphaScore: score, timingScore: timing,
             psychologyScore: psychology, compositeScore: composite,
-            v12TradeScore: v12Trade, timingSignal: signal, selectedBy: selectionScore,
+            v12TradeScore: v12Trade, earlyOpportunityScore:earlyOpportunityScore(candidate),
+            timingSignal: signal, selectedBy: selectionScore,
             selectionValue: selectedValue, entryDate, entryPrice, horizon,
             status: 'unavailable', reason: 'no-forward-bar'
           };
@@ -348,7 +358,8 @@ export function backtestAlpha(input = {}, options = {}) {
           trade = {
             symbol, rank, alphaRank, alphaScore: score, timingScore: timing,
             psychologyScore: psychology, compositeScore: composite,
-            v12TradeScore: v12Trade, timingSignal: signal, selectedBy: selectionScore,
+            v12TradeScore: v12Trade, earlyOpportunityScore:earlyOpportunityScore(candidate),
+            timingSignal: signal, selectedBy: selectionScore,
             selectionValue: selectedValue, entryDate, entryPrice, entryBasis,
             horizon, exitDate: exit.date, exitPrice: exit.close,
             grossReturnPct: round(returns.grossReturnPct),
@@ -395,8 +406,16 @@ async function main(args) {
   const input = JSON.parse(await readFile(resolve(args[inputIndex + 1]), 'utf8'));
   const selectionIndex = args.indexOf('--selection-score');
   const selectionScore = selectionIndex >= 0 ? args[selectionIndex + 1] : 'alpha';
+  const topIndex = args.indexOf('--top-n');
+  const topN = topIndex >= 0 ? number(args[topIndex + 1]) : null;
+  const horizonIndex = args.indexOf('--horizons');
+  const horizons = horizonIndex >= 0
+    ? args[horizonIndex + 1].split(',').map(value => number(value))
+    : undefined;
   const options = {
     includeIncomplete: args.includes('--include-incomplete'),
+    topN,
+    horizons,
     costs: {commissionBps: number(args[args.indexOf('--commission-bps') + 1]),
       stampTaxBps: number(args[args.indexOf('--stamp-bps') + 1]),
       slippageBps: number(args[args.indexOf('--slippage-bps') + 1])},
