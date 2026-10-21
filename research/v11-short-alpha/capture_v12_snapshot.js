@@ -265,7 +265,7 @@ if (!validation.valid || !contractValidation.valid) {
   console.error(JSON.stringify({
     status:validation.status,
     snapshotId:output.snapshotId,
-    reasons:[...sourceQuality.reasons, ...validation.reasons]
+    reasons:[...sourceQuality.reasons, ...validation.reasons, ...contractValidation.reasons]
   }, null, 2));
   throw new Error('snapshot validation failed');
 }
