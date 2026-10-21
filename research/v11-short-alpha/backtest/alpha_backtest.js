@@ -406,8 +406,16 @@ async function main(args) {
   const input = JSON.parse(await readFile(resolve(args[inputIndex + 1]), 'utf8'));
   const selectionIndex = args.indexOf('--selection-score');
   const selectionScore = selectionIndex >= 0 ? args[selectionIndex + 1] : 'alpha';
+  const topIndex = args.indexOf('--top-n');
+  const topN = topIndex >= 0 ? number(args[topIndex + 1]) : null;
+  const horizonIndex = args.indexOf('--horizons');
+  const horizons = horizonIndex >= 0
+    ? args[horizonIndex + 1].split(',').map(value => number(value))
+    : undefined;
   const options = {
     includeIncomplete: args.includes('--include-incomplete'),
+    topN,
+    horizons,
     costs: {commissionBps: number(args[args.indexOf('--commission-bps') + 1]),
       stampTaxBps: number(args[args.indexOf('--stamp-bps') + 1]),
       slippageBps: number(args[args.indexOf('--slippage-bps') + 1])},
