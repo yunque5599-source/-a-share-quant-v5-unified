@@ -115,7 +115,7 @@ export function computeEarlyOpportunity(input = {}) {
   const empty = {
     version:EARLY_OPPORTUNITY_VERSION, score:null, stage:'insufficient-data', confidence:0,
     components:{location:null, baseQuality:null, earlyTurn:null, accumulation:null,
-      capitalFlow:null, sector:null, extensionSafety:null, psychology:null},
+      capitalFlow:null, sector:null, extensionSafety:null, themePotential:null},
     metrics:{distance20dLowPct:null, distance60dLowPct:null, position20dRangePct:null,
       range10dPct:null, volatilityCompressionRatio:null, return3dPct:null, return5dPct:null,
       return10dPct:null, return20dPct:null, distanceMa5Pct:null, distanceMa20Pct:null,
@@ -174,14 +174,13 @@ export function computeEarlyOpportunity(input = {}) {
   const accumulation = accumulationScore(bars);
   const extension = safetyScore({r3, r5, distanceMa5, distanceMa20, trend20:r20, lowBreak});
   const sector = n(input.features?.sector?.score);
-  const psychology = n(input.psychology?.scoreRaw ?? input.psychology?.score);
   const components = {
     location:metric(location), baseQuality:metric(base), earlyTurn:metric(turn),
     accumulation:metric(accumulation.score), capitalFlow:metric(n(input.features?.capital?.score)),
-    sector:metric(sector), extensionSafety:metric(extension), psychology:metric(psychology)
+    sector:metric(sector), extensionSafety:metric(extension), themePotential:null
   };
   const weights = {location:0.22, baseQuality:0.18, earlyTurn:0.20, accumulation:0.15,
-    capitalFlow:0.08, sector:0.05, extensionSafety:0.08, psychology:0.04};
+    capitalFlow:0.08, sector:0.05, extensionSafety:0.08, themePotential:0.04};
   const available = Object.entries(weights).filter(([key]) => components[key] !== null);
   const totalWeight = available.reduce((sum, [, weight]) => sum + weight, 0);
   let score = totalWeight > 0
@@ -232,10 +231,21 @@ export function computeEarlyOpportunity(input = {}) {
 export function withEarlyOpportunityPsychology(candidate = {}) {
   const current = candidate.features?.earlyOpportunity;
   if (!current || current.score === null) return candidate;
-  const psychology = n(candidate.psychology?.scoreRaw ?? candidate.psychology?.score);
-  const components = {...current.components, psychology:metric(psychology)};
+  const psychology = candidate.psychology ?? {};
+  const primaryCode = psychology.primaryTheme?.code;
+  const primary = (Array.isArray(psychology.themes) ? psychology.themes : [])
+    .find(theme => !primaryCode || theme.themeCode === primaryCode) ?? null;
+  const parts = primary?.components ?? {};
+  const themeParts = ['emotionAcceleration','narrative','leader','imagination']
+    .map(key => n(parts[key]?.score)).filter(value => value !== null);
+  let themePotential = themeParts.length >= 2 ? mean(themeParts) : null;
+  const fomo = n(psychology.fomoRisk?.score ?? primary?.fomoRisk?.score);
+  if (themePotential !== null && fomo !== null) {
+    themePotential = clamp(themePotential - (fomo >= 80 ? 15 : fomo >= 65 ? 7 : 0));
+  }
+  const components = {...current.components, themePotential:metric(themePotential)};
   const weights = {location:0.22, baseQuality:0.18, earlyTurn:0.20, accumulation:0.15,
-    capitalFlow:0.08, sector:0.05, extensionSafety:0.08, psychology:0.04};
+    capitalFlow:0.08, sector:0.05, extensionSafety:0.08, themePotential:0.04};
   const available = Object.entries(weights).filter(([key]) => components[key] !== null);
   const totalWeight = available.reduce((sum, [, weight]) => sum + weight, 0);
   let score = totalWeight > 0
