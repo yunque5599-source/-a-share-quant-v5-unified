@@ -215,7 +215,7 @@ function prebreakoutStage1Score(rows){
       const rank=clamp(x.rankScore||50,0,100);
       const penalty=(x.pct< -2.5?8:0)+(x.pct>3.8?6:0)+(x.turn>18?6:0)+(x.mainNet<0&&x.pct>1.5?4:0);
       const preStage1=clamp(.24*flow+.12*liq+.10*rs60+.14*turnScore+.12*sect+.14*rank+.14*zone-penalty,0,100);
-      return {...x,preStage1,preStage1Flow:flow,preStage1Liquidity:liq,preStage1Turn:turnScore,preStage1Sector:sect};
+      return {...x,preStage1,preStage1Flow:flow,preStage1Liquidity:liq,preStage1Turn:turnScore,preStage1Sector:sect,sectorScore:sect};
     }).sort((a,b)=>b.preStage1-a.preStage1);
 }
 function prebreakoutFinal(deep){
