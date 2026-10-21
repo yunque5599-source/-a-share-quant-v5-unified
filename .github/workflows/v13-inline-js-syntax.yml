@@ -1,0 +1,29 @@
+name: Inline JavaScript syntax check
+
+on:
+  push:
+    branches:
+      - research/v13-prebreakout-shadow
+  pull_request:
+    branches:
+      - research/v12-psychology-narrative
+
+jobs:
+  inline-js-syntax:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Extract inline JavaScript
+        run: |
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const html = fs.readFileSync('index.html', 'utf8');
+          const scripts = [...html.matchAll(/<script\\b[^>]*>([\\s\\S]*?)<\\/script>/gi)].map(match => match[1]);
+          if (!scripts.length) throw new Error('No inline script found in index.html');
+          fs.writeFileSync('/tmp/index-inline.js', scripts.join('\\n;\\n'));
+          NODE
+      - name: Parse inline JavaScript
+        run: node --check /tmp/index-inline.js
