@@ -25,6 +25,7 @@ function candidate(index, options = {}) {
     symbol:'60000' + (index + 1),
     features:{
       trendStructure:{score},
+      earlyOpportunity:{score:Math.max(0, score - 3)},
       momentum,
       capital:{score:score - 2, flowTiming:index < 3 ? 'early-inflow' : 'outflow'},
       volume:options.futureFeature
@@ -84,10 +85,10 @@ test('factor validation covers all factors, horizons, bands and state/time split
   assert.equal(report.schema, 'v12-factor-validation-v2');
   assert.equal(report.status, 'INSUFFICIENT_SAMPLE');
   assert.deepEqual(report.factorNames, [
-    'trendStructure','momentum','capitalFlow','volume','sector',
+    'trendStructure','earlyOpportunity','momentum','capitalFlow','volume','sector',
     'psychology','leader','imagination','timing','risk'
   ]);
-  assert.equal(Object.keys(report.factors).length, 10);
+  assert.equal(Object.keys(report.factors).length, 11);
   for (const factor of report.factorNames) {
     assert.equal(Object.keys(report.factors[factor].overall).length, 5);
     assert.ok(report.factors[factor].scoreBands['90_100']);
