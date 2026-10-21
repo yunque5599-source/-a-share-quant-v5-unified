@@ -126,7 +126,8 @@ function horizonSource(row, horizon) {
 function normalizeHorizon(source, cutoff, previousDate = null) {
   const item = source && typeof source === 'object' ? clone(source) : {};
   const date = typeof item.date === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(item.date) ? item.date : null;
-  const value = Number(item.returnPct);
+  const rawValue = item.returnPct;
+  const value = rawValue === null || rawValue === undefined || rawValue === '' ? null : Number(rawValue);
   const valid = date && date > cutoff && (!previousDate || date > previousDate) && Number.isFinite(value);
   if (!valid) return {...item, status:'pending', returnPct:Number.isFinite(value) ? value : null};
   return {...item, status:'complete', returnPct:value};
