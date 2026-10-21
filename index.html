@@ -310,13 +310,8 @@ async function evaluatePrebreakoutJournal(){
     const pending=journal.filter(row=>!(row.outcomes?.t5&&row.outcomes?.mfe5)).slice(-30);
     const codes=[...new Set(pending.map(row=>row.symbol).filter(code=>/^\d{6}$/.test(code)))].slice(0,30);
     if(!codes.length){renderPrebreakoutJournal(journal);return;}
-    const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),30000);
-    let response;
-    try{response=await fetch("/api/market?action=deep_batch&codes="+encodeURIComponent(codes.join(",")),{signal:ctrl.signal,cache:"no-store",credentials:"same-origin"});}
-    finally{clearTimeout(timer);}
-    const txt=await response.text();let payload=null;try{payload=JSON.parse(txt);}catch{}
-    if(!response.ok)throw Error((payload&&payload.error)||txt.slice(0,200)||("HTTP "+response.status));
-    const byCode=new Map((payload?.items||[]).map(item=>[String(item?.code||""),item]));
+    const items=await fetchDeepItemsChunked(codes,8);
+    const byCode=new Map(items.map(item=>[String(item?.code||""),item]));
     const updated=journal.map(row=>{
       const item=byCode.get(row.symbol);
       return item?{...row,outcomes:journalOutcome(row,parseJournalBars(item))}:row;
@@ -330,7 +325,41 @@ function recordShadowSignal(x){try{if(isPremarket()||!x?.dataDate||x.dataDate<'2
 function klineUrl(code){const p=new URLSearchParams({secid:secid(code),klt:'101',fqt:'1',beg:'0',end:'20500101',lmt:'120',ut:'fa5fd1943c7b386f172d6893dbfba10b',fields1:'f1,f2,f3,f4,f5,f6',fields2:'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61'});return'https://push2his.eastmoney.com/api/qt/stock/kline/get?'+p}
 function flowUrl(code){const p=new URLSearchParams({lmt:'30',klt:'101',secid:secid(code),fields1:'f1,f2,f3,f7',fields2:'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61,f62,f63'});return'https://push2his.eastmoney.com/api/qt/stock/fflow/daykline/get?'+p}
 async function deepOne(x){const [kj,fj]=await Promise.allSettled([apiCall('kline',{code:x.code},12000),apiCall('flow',{code:x.code},12000)]);if(kj.status!=='fulfilled')throw Error('K线失败');const kl=kj.value?.data?.klines||[],k=kl.map(s=>{const a=String(s).split(',');return{date:a[0],open:+a[1],close:+a[2],high:+a[3],low:+a[4],vol:+a[5],amount:+a[6]}}).filter(z=>Number.isFinite(z.close));if(k.length<35)throw Error('历史不足');let f=[];if(fj.status==='fulfilled'){f=(fj.value?.data?.klines||[]).map(s=>{const a=String(s).split(',');return{date:a[0],main:+a[1],pct:+a[6]}}).filter(z=>Number.isFinite(z.main))}return enrich(x,k,f)}
-async function deepBatch(rows,progress){const codes=rows.map(x=>x.code).join(','),j=await apiCall('deep_batch',{codes},30000),items=Array.isArray(j?.items)?j.items:[],mp=new Map(items.map(z=>[z.code,z]));const out=[];for(let i=0;i<rows.length;i++){const x=rows[i],z=mp.get(x.code);try{if(!z||z.error)throw Error(z?.error||'无批量数据');const kl=z.kline?.data?.klines||[],k=kl.map(s=>{const a=String(s).split(',');return{date:a[0],open:+a[1],close:+a[2],high:+a[3],low:+a[4],vol:+a[5],amount:+a[6]}}).filter(v=>Number.isFinite(v.close));if(k.length<35)throw Error('历史不足');const fl=z.flow?.data?.klines||[],f=fl.map(s=>{const a=String(s).split(',');return{date:a[0],main:+a[1],pct:+a[6]}}).filter(v=>Number.isFinite(v.main));out.push(enrich(x,k,f))}catch{}progress?.(i+1,rows.length,out.length)}return out}
+async function fetchDeepItemsChunked(codes,chunkSize=8){
+  const out=[];
+  for(let start=0;start<codes.length;start+=chunkSize){
+    const batch=codes.slice(start,start+chunkSize);
+    try{
+      const j=await apiCall('deep_batch',{codes:batch.join(',')},18000,'no-store',2);
+      const items=Array.isArray(j?.items)?j.items:[];
+      const mp=new Map(items.map(z=>[String(z?.code||''),z]));
+      for(const code of batch)out.push(mp.get(code)||{code,error:'批量深扫未返回该股票'});
+    }catch(e){for(const code of batch)out.push({code,error:e?.message||'深扫请求失败'});}
+    if(start+chunkSize<codes.length)await sleep(100);
+  }
+  return out;
+}
+async function deepBatch(rows,progress){
+  const out=[],chunkSize=8;
+  for(let start=0;start<rows.length;start+=chunkSize){
+    const batch=rows.slice(start,start+chunkSize);
+    const items=await fetchDeepItemsChunked(batch.map(x=>x.code),chunkSize);
+    const mp=new Map(items.map(z=>[String(z?.code||''),z]));
+    for(let i=0;i<batch.length;i++){
+      const x=batch[i],z=mp.get(x.code);
+      try{
+        if(!z||z.error)throw Error(z?.error||'无批量数据');
+        const kl=z.kline?.data?.klines||[],k=kl.map(s=>{const a=String(s).split(',');return{date:a[0],open:+a[1],close:+a[2],high:+a[3],low:+a[4],vol:+a[5],amount:+a[6]}}).filter(v=>Number.isFinite(v.close));
+        if(k.length<35)throw Error('历史不足');
+        const fl=z.flow?.data?.klines||[],f=fl.map(s=>{const a=String(s).split(',');return{date:a[0],main:+a[1],pct:+a[6]}}).filter(v=>Number.isFinite(v.main));
+        out.push(enrich(x,k,f));
+      }catch{}
+      progress?.(start+i+1,rows.length,out.length);
+    }
+    if(start+chunkSize<rows.length)await sleep(100);
+  }
+  return out;
+}
 function ret(arr,n){return arr.length>n?arr.at(-1).close/arr.at(-1-n).close-1:NaN}function avgLast(a,n,key){return mean(a.slice(-n).map(x=>x[key]))}function atrPct(k,n=14){const a=k.slice(-(n+1));const tr=[];for(let i=1;i<a.length;i++)tr.push(Math.max(a[i].high-a[i].low,Math.abs(a[i].high-a[i-1].close),Math.abs(a[i].low-a[i-1].close)));return a.length>2?mean(tr)/a.at(-1).close:NaN}
 function shanghaiClock(){const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date()),g=t=>parts.find(x=>x.type===t)?.value||'';const hour=+g('hour'),minute=+g('minute'),m=hour*60+minute;let progress=0;if(m<570)progress=0;else if(m<690)progress=(m-570)/240;else if(m<780)progress=.5;else if(m<900)progress=.5+(m-780)/240;else progress=1;return{date:`${g('year')}-${g('month')}-${g('day')}`,hm:`${g('hour')}:${g('minute')}`,progress:clamp(progress,0,1),trading:(m>=570&&m<690)||(m>=780&&m<900)}}
 function dataSession(date){const c=shanghaiClock(),intraday=date===c.date&&c.progress>0&&c.progress<1;return{intraday,progress:intraday?c.progress:1,label:date?(intraday?`数据至${date}盘中 ${c.hm}`:`数据至${date}收盘`):''}}
@@ -479,13 +508,7 @@ async function evaluateV12Journal(){
     const pending=journal.filter(row=>!(row.outcomes?.t5&&row.outcomes?.mfe5)).slice(-30);
     const codes=[...new Set(pending.map(row=>row.symbol).filter(code=>/^\d{6}$/.test(code)))];
     if(!codes.length){renderV12Journal(journal);return;}
-    const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),30000);
-    let r;
-    try{r=await fetch('/api/market?action=deep_batch&codes='+encodeURIComponent(codes.join(',')),{signal:ctrl.signal,cache:'no-store',credentials:'same-origin'})}
-    finally{clearTimeout(timer)}
-    const txt=await r.text();let payload=null;try{payload=JSON.parse(txt)}catch{}
-    if(!r.ok)throw Error((payload&&payload.error)||txt.slice(0,200)||('HTTP '+r.status));
-    const items=payload?.items||[];
+    const items=await fetchDeepItemsChunked(codes,8);
     const byCode=new Map(items.map(item=>[String(item?.code||''),item]));
     const updated=journal.map(row=>{
       const item=byCode.get(row.symbol);
