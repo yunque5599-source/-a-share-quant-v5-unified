@@ -78,7 +78,7 @@ function turnScore({ r3, r5, r10, ma5Slope, close, ma5, upDayRatio }) {
   return pieces.length ? mean(pieces) : null;
 }
 
-function accumulationScore(bars, capitalScore) {
+function accumulationScore(bars) {
   const recent = bars.slice(-10);
   const pairs = recent.slice(1).map((bar, index) => ({
     change: pct(recent[index].close, bar.close), volume:bar.volume
@@ -88,8 +88,7 @@ function accumulationScore(bars, capitalScore) {
   const upDownRatio = up.length && down.length ? mean(up) / mean(down) : null;
   const volumeScore = upDownRatio === null ? null : upDownRatio >= 1.35 ? 88 :
     upDownRatio >= 1.1 ? 76 : upDownRatio >= 0.9 ? 58 : upDownRatio >= 0.7 ? 38 : 20;
-  const available = [volumeScore, n(capitalScore)].filter(value => value !== null);
-  return { score:available.length ? mean(available) : null, upDownVolumeRatio:metric(upDownRatio) };
+  return { score:volumeScore, upDownVolumeRatio:metric(upDownRatio) };
 }
 
 function safetyScore({ r3, r5, distanceMa5, distanceMa20, trend20, lowBreak }) {
@@ -172,7 +171,7 @@ export function computeEarlyOpportunity(input = {}) {
   const location = location60 === null ? location20 : location20 * 0.65 + location60 * 0.35;
   const base = baseScore(rangePct, volatilityCompressionRatio);
   const turn = turnScore({r3, r5, r10, ma5Slope, close, ma5, upDayRatio});
-  const accumulation = accumulationScore(bars, input.features?.capital?.score);
+  const accumulation = accumulationScore(bars);
   const extension = safetyScore({r3, r5, distanceMa5, distanceMa20, trend20:r20, lowBreak});
   const sector = n(input.features?.sector?.score);
   const psychology = n(input.psychology?.scoreRaw ?? input.psychology?.score);
