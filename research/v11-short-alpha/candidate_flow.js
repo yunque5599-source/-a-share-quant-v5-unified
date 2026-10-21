@@ -7,6 +7,7 @@ import { withV12TradeScore } from './v12_trade_score.js';
 import { withV12SelectionScore } from './v12_selection_score.js';
 import { buildMarketEmotion } from './market_emotion.js';
 import { computeTrendStructure } from './trend_structure.js';
+import { computeEarlyOpportunity, withEarlyOpportunityPsychology } from './early_opportunity.js';
 
 const list = value => Array.isArray(value) ? value : [];
 const mean = values => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
@@ -316,11 +317,17 @@ export function integrateCandidateFlow(input = {}, options = {}) {
       flow?.degraded === true || flow?.source === 'neutral-flow-fallback';
     const degraded = flowDegraded || item?.dataQuality?.degraded === true ||
       history?.source === 'tencent-kline-fallback';
+    const baseFeatures = features(raw, parsedBars.data, parsedFlows.data, sectors.get(industry), flowDegraded);
     const frame = {
-      ...features(raw, parsedBars.data, parsedFlows.data, sectors.get(industry), flowDegraded),
+      ...baseFeatures,
       trendStructure:computeTrendStructure({bars:parsedBars.data, asOf}, {
         asOf,
         barComplete:raw?.barComplete ?? item?.barComplete
+      }),
+      earlyOpportunity:computeEarlyOpportunity({
+        bars:parsedBars.data, asOf,
+        barComplete:raw?.barComplete ?? item?.barComplete,
+        features:baseFeatures
       })
     };
     const price = n(raw?.f2 ?? raw?.price) ?? parsedBars.data.at(-1)?.close ?? null;
@@ -365,11 +372,22 @@ export function integrateCandidateFlow(input = {}, options = {}) {
     }, psychologyInput);
     const withV12 = withV12TradeScore(withPsych);
     const withSelection = withV12SelectionScore(withV12);
+    const withEarly = withEarlyOpportunityPsychology(withSelection);
     if (withPsych.psychology?.complete === true) diagnostics.psychologyComplete += 1;
     if (withSelection.scores?.v12SelectionRaw !== null && record.quality.complete &&
         withPsych.psychology?.complete === true) diagnostics.v12Eligible += 1;
-    return withSelection;
+    return withEarly;
   });
+  const earlyOpportunityRanking = ranking
+    .filter(record => record.quality.complete && record.features?.earlyOpportunity?.score !== null &&
+      Number.isFinite(record.features?.earlyOpportunity?.score))
+    .sort((a, b) => b.features.earlyOpportunity.score - a.features.earlyOpportunity.score ||
+      (b.features.trendStructure?.score ?? -1) - (a.features.trendStructure?.score ?? -1) ||
+      a.symbol.localeCompare(b.symbol))
+    .map((record, index) => ({...record, earlyOpportunityRank:index + 1}));
+  diagnostics.earlyOpportunityScored = ranking.filter(record =>
+    Number.isFinite(record.features?.earlyOpportunity?.score)).length;
+  diagnostics.earlyOpportunityEligible = earlyOpportunityRanking.length;
   const tradeRanking = ranking
     .filter(record => record.quality.complete &&
       record.psychology?.complete === true &&
@@ -387,6 +405,7 @@ export function integrateCandidateFlow(input = {}, options = {}) {
   return {
     version: 'V11 Short Alpha Phase 1', schema: 'v11-short-alpha-flow-v1',
     asOf, market: { marketRisk, emotion:marketEmotion }, ranking, candidates: ranking, tradeRanking,
+    earlyOpportunityRanking,
     diagnostics, ...decision
   };
 }
