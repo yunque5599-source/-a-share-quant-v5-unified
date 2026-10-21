@@ -37,11 +37,32 @@ export function selectV12Candidates(input = [], max = 30) {
 
   add([...candidates].sort((a,b) =>
     Number(b?.rankScore ?? 0) - Number(a?.rankScore ?? 0) ||
-    codeOf(a).localeCompare(codeOf(b))), 10);
-  add(rankedBy(candidates, 'mainNet'), 6);
-  add(rankedBy(candidates, 'dayMomentum'), 5);
-  add(rankedBy(candidates, 'swingMomentum'), 5);
-  add(rankedBy(candidates, 'mainPct'), 4);
+    codeOf(a).localeCompare(codeOf(b))), 8);
+  add(rankedBy(candidates, 'mainNet'), 5);
+
+  // Preserve a small early-setup bucket for deep historical analysis.
+  // This is only a preselection proxy; the full Early Opportunity model
+  // still evaluates OHLCV history, base quality, downside risk and theme evidence.
+  const earlySetup = candidates.filter(row => {
+    const change = Number(row?.f3 ?? row?.pct ?? row?.changePct);
+    const amount = Number(row?.f6 ?? row?.amount);
+    const mainNet = Number(row?.f62 ?? row?.mainNet);
+    const mainPct = Number(row?.f184 ?? row?.mainPct);
+    const name = String(row?.f14 ?? row?.name ?? '');
+    return Number.isFinite(change) && change >= -2.5 && change <= 3.5 &&
+      Number.isFinite(amount) && amount >= 8e7 &&
+      ((Number.isFinite(mainNet) && mainNet > 0) ||
+       (Number.isFinite(mainPct) && mainPct > 0)) &&
+      row?.specialTreatment !== true && !/ST|退/i.test(name);
+  }).sort((a,b) =>
+    Number(b?.f184 ?? b?.mainPct ?? 0) - Number(a?.f184 ?? a?.mainPct ?? 0) ||
+    Number(b?.f62 ?? b?.mainNet ?? 0) - Number(a?.f62 ?? a?.mainNet ?? 0) ||
+    Number(b?.rankScore ?? 0) - Number(a?.rankScore ?? 0) ||
+    codeOf(a).localeCompare(codeOf(b)));
+  add(earlySetup, 6);
+  add(rankedBy(candidates, 'dayMomentum'), 4);
+  add(rankedBy(candidates, 'swingMomentum'), 4);
+  add(rankedBy(candidates, 'mainPct'), 3);
   add([...candidates].sort((a,b) =>
     Number(b?.f6 ?? 0) - Number(a?.f6 ?? 0) ||
     codeOf(a).localeCompare(codeOf(b))), max - selected.length);
