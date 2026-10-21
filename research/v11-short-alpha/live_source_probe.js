@@ -9,7 +9,7 @@ export function knownProbes() {
   const push = ['push2delay.eastmoney.com','push2.eastmoney.com','7.push2.eastmoney.com','43.push2.eastmoney.com','89.push2.eastmoney.com'];
   const hist = ['push2his.eastmoney.com','7.push2his.eastmoney.com','43.push2his.eastmoney.com'];
   const url = (host, path, params) => 'https://' + host + path + '?' + new URLSearchParams(params);
-  const rank = {pn:'1',pz:'5',po:'1',np:'1',fid:'f6',fs:'m:0+t:6,m:1+t:2',fltt:'2',invt:'2',fields:'f12,f14,f2,f3,f6,f62,f100,f124'};
+  const rank = {pn:'1',pz:'5',po:'1',np:'1',fid:'f6',fs:'m:0+t:6,m:1+t:2',fltt:'2',invt:'2',fields:'f12,f14,f2,f3,f5,f6,f8,f9,f10,f20,f21,f23,f24,f25,f62,f184,f100'};
   const concept = {...rank, fid:'f3',fs:'m:90+t:3+f:!50'};
   const probes = push.flatMap(host => [
     {purpose:'market-ranking',url:url(host,'/api/qt/clist/get',rank)},
