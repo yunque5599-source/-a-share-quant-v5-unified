@@ -356,3 +356,44 @@ trend_structure.js computes a standalone 0-100 Trend Structure score from point-
 The factor is research-only. It is not part of ALPHA_WEIGHTS, Alpha, Timing, Psychology, V12TradeScore, or V12SelectionScore. Candidate history is filtered to bar.date <= snapshot asOf; an intraday same-day bar is excluded unless explicitly marked complete.
 
 analyze_trend_structure.js evaluates the factor against T+1 through T+5 outcomes with per-snapshot rank metrics and independent quantile cuts. It also reports research-only combinations for trend strength with emotion stage, capital timing, theme presence, leader, imagination, and FOMO. These results must accumulate real forward samples before any production score decision.
+
+### Early Opportunity Discovery v1
+
+`early_opportunity.js` adds a separate low-base / early-turn scan. It looks at
+distance from recent 20/60-session lows, ten-session range compression, realized
+volatility compression, short-horizon returns, moving-average turn, up/down-day
+volume, capital flow, sector strength, and extension/downtrend risk. It uses only
+bars available at the snapshot timestamp; unfinished same-day bars and future bars
+are excluded.
+
+Candidate flow exposes two different lists:
+
+- `earlyOpportunityRanking`: research ranking of complete candidates with a calculable score.
+- `earlyOpportunityActionableRanking`: stricter watchlist requiring stage
+  `early-base` or `turning-up`, score at least 65, and confidence at least 0.60.
+  Extended rallies and downtrend-risk setups are not included in this actionable list.
+
+The score is a ranking heuristic, not a probability of profit or a buy instruction.
+The current data pipeline does not independently establish company fundamental
+quality; fundamental quality, valuation, earnings/cash-flow health, and event-risk
+checks remain necessary before calling a stock a "good company."
+
+For historical validation, replay captured snapshots using the early-opportunity
+score rather than Alpha:
+
+```sh
+node research/v11-short-alpha/backtest/alpha_backtest.js \
+  --input path/to/forward-history-fixture.json \
+  --selection-score earlyOpportunity --top-n 5 --horizons 1,3,5 \
+  --commission-bps 3 --stamp-bps 5 --slippage-bps 5
+
+# Run separately with --top-n 1 to evaluate the single highest-ranked candidate.
+```
+
+The input must contain point-in-time rankings with
+`features.earlyOpportunity.score` and separate forward price histories. Compare
+Top 1/Top 5 results at T+1/T+3/T+5 against Alpha and V12 using the same snapshots,
+history coverage, and transaction-cost assumptions. Synthetic fixtures test code
+paths only; they do not establish predictive performance. No Alpha/V12 weights,
+production endpoints, `main`, broker connection, or order placement are changed.
+

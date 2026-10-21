@@ -388,6 +388,15 @@ export function integrateCandidateFlow(input = {}, options = {}) {
   diagnostics.earlyOpportunityScored = ranking.filter(record =>
     Number.isFinite(record.features?.earlyOpportunity?.score)).length;
   diagnostics.earlyOpportunityEligible = earlyOpportunityRanking.length;
+  // Actionable shortlist is deliberately narrower than the research ranking:
+  // exclude falling knives and extended rallies, and require a credible early-turn setup.
+  const earlyOpportunityActionableRanking = earlyOpportunityRanking.filter(record => {
+    const setup = record.features?.earlyOpportunity;
+    return ['early-base', 'turning-up'].includes(setup?.stage) &&
+      Number.isFinite(setup?.score) && setup.score >= 65 &&
+      Number.isFinite(setup?.confidence) && setup.confidence >= 0.60;
+  });
+  diagnostics.earlyOpportunityActionable = earlyOpportunityActionableRanking.length;
   const tradeRanking = ranking
     .filter(record => record.quality.complete &&
       record.psychology?.complete === true &&
@@ -406,6 +415,7 @@ export function integrateCandidateFlow(input = {}, options = {}) {
     version: 'V11 Short Alpha Phase 1', schema: 'v11-short-alpha-flow-v1',
     asOf, market: { marketRisk, emotion:marketEmotion }, ranking, candidates: ranking, tradeRanking,
     earlyOpportunityRanking,
+    earlyOpportunityActionableRanking,
     diagnostics, ...decision
   };
 }
