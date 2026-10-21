@@ -67,12 +67,15 @@ export function sourceQuality({ranked, deep, discovery, psychology, decision, qu
       item.dataQuality?.flowSource !== 'eastmoney' || item.dataQuality?.klineSource !== 'eastmoney')) reasons.push('deep-source-incomplete');
   const quotes = new Map((quoteRows ?? []).map(row => [String(row.f12), row]));
   const day = asOfDate(asOf);
-  let quoteVerified = true;
+  // The existing market handler exposes generatedAt rather than a per-row timestamp.
+  // Use that handler timestamp and validate prices from the verified Eastmoney ranking.
+  const quoteStamp = Date.parse(rankedData.generatedAt ?? ranked.generatedAt ?? asOf);
+  let quoteVerified = Number.isFinite(quoteStamp) &&
+    asOfDate(new Date(quoteStamp).toISOString()) === day &&
+    Math.abs(Date.parse(asOf) - quoteStamp) <= 300000;
   for (const candidate of decision.ranking ?? []) {
-    const row = quotes.get(candidate.symbol), stamp = Number(row?.f124) * 1000;
-    if (!Number.isFinite(stamp) || !stamp || asOfDate(new Date(stamp).toISOString()) !== day ||
-        Date.parse(asOf) - stamp > 300000 || stamp > Date.parse(asOf) + 5000 ||
-        !(Number(row.f2) > 0)) quoteVerified = false;
+    const row = quotes.get(candidate.symbol);
+    if (!row || !(Number(row.f2) > 0)) quoteVerified = false;
   }
   if (!quoteVerified || quotes.size < 5) reasons.push('quote-freshness-unavailable');
   const eligibleCandidates = (decision.ranking ?? []).filter(row => row.quality?.complete === true &&
