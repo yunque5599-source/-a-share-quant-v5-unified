@@ -380,6 +380,9 @@ function renderV12Journal(rows){
       '</div>').join('')+
     '<div class="small" style="margin-top:8px">统计对象是模型历史信号的真实后续价格，不代表实际成交收益；样本不足时不做参数调整。</div>';
 }
+function escEarly(value){
+  return String(value??'').replace(/[&<>"']/g, ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+}
 function earlyNum(value, digits=1){
   const x=Number(value);
   return value!==null&&value!==undefined&&value!==''&&Number.isFinite(x)?x.toFixed(digits):'—';
@@ -397,11 +400,11 @@ function earlyRowHtml(row, index){
   const score=earlyNum(row.score);
   const grade=row.stage==='downtrend-risk'||row.stage==='extended'?'c':
     Number(row.score)>=70?'':'b';
-  const flags=(row.reasons||[]).slice(0,3).map(x=>'<span class="chip">'+String(x).replace(/-/g,' ')+'</span>').join('');
+  const flags=(row.reasons||[]).slice(0,3).map(x=>'<span class="chip">'+escEarly(x).replace(/-/g,' ')+'</span>').join('');
   const warning=q.degraded?'<span class="chip amber">数据源降级</span>':'';
-  const blocked=(q.blockedReasons||[]).length?'<div class="small" style="margin-top:5px">质量阻断：'+(q.blockedReasons||[]).slice(0,2).join(' · ')+'</div>':'';
-  return '<div class="cand"><div><b>#'+(row.rank||index+1)+' '+(row.name||row.symbol||'未知')+'</b> <span class="pill">'+earlyStageLabel(row.stage)+'</span>'+
-    '<div class="small" style="margin-top:4px">'+(row.symbol||'')+' · '+(row.industry||'行业未知')+' · 现价 '+earlyNum(row.price,2)+
+  const blocked=(q.blockedReasons||[]).length?'<div class="small" style="margin-top:5px">质量阻断：'+(q.blockedReasons||[]).slice(0,2).map(escEarly).join(' · ')+'</div>':'';
+  return '<div class="cand"><div><b>#'+(row.rank||index+1)+' '+escEarly(row.name||row.symbol||'未知')+'</b> <span class="pill">'+earlyStageLabel(row.stage)+'</span>'+
+    '<div class="small" style="margin-top:4px">'+escEarly(row.symbol||'')+' · '+escEarly(row.industry||'行业未知')+' · 现价 '+earlyNum(row.price,2)+
     ' · 置信度 '+earlyNum(Number(row.confidence)*100,0)+'%</div>'+
     '<div class="small" style="margin-top:4px">距20日低点 '+earlyPct(m.distance20dLowPct)+' · 3日涨幅 '+earlyPct(m.return3dPct)+
     ' · 5日涨幅 '+earlyPct(m.return5dPct)+' · 距20日均线 '+earlyPct(m.distanceMa20Pct)+'</div>'+
