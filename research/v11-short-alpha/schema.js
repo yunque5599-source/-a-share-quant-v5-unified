@@ -74,5 +74,9 @@ export function createCandidateRecord(input = {}) {
   if (input.features?.trendStructure !== undefined) {
     record.features.trendStructure = input.features.trendStructure;
   }
+  // Independent low-level opportunity research factor; never part of ALPHA_WEIGHTS.
+  if (input.features?.earlyOpportunity !== undefined) {
+    record.features.earlyOpportunity = input.features.earlyOpportunity;
+  }
   return record;
 }
