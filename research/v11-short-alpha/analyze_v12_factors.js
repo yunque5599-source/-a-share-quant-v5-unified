@@ -12,7 +12,7 @@ export const ML_READINESS_REQUIREMENTS = Object.freeze({
   realTradingDates:120, completeCandidateOutcomes:10000
 });
 export const FACTOR_NAMES = Object.freeze([
-  'trendStructure', 'momentum', 'capitalFlow', 'volume', 'sector',
+  'trendStructure', 'earlyOpportunity', 'momentum', 'capitalFlow', 'volume', 'sector',
   'psychology', 'leader', 'imagination', 'timing', 'risk'
 ]);
 const HORIZONS = [1, 2, 3, 4, 5];
@@ -67,6 +67,7 @@ function component(row, name) {
 }
 const GETTERS = {
   trendStructure:row => row.features?.trendStructure?.score,
+  earlyOpportunity:row => row.features?.earlyOpportunity?.score,
   momentum:row => row.features?.momentum?.score,
   capitalFlow:row => row.features?.capital?.score,
   volume:row => row.features?.volume?.score,
