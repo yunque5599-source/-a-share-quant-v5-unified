@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - research/v12-psychology-narrative
+      - research/early-opportunity-v1
   pull_request:
     branches:
       - research/v11-short-alpha
