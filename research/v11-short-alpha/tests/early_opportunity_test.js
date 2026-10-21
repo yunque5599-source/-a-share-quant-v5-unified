@@ -95,4 +95,11 @@ test('early opportunity ranking is exposed without changing frozen V12 score wei
   assert.ok(result.ranking.every(row => row.features.earlyOpportunity !== undefined));
   assert.equal(result.earlyOpportunityRanking.every(row =>
     Number.isFinite(row.features.earlyOpportunity.score)), true);
+  assert.ok(Array.isArray(result.earlyOpportunityActionableRanking));
+  assert.equal(result.diagnostics.earlyOpportunityActionable,
+    result.earlyOpportunityActionableRanking.length);
+  assert.equal(result.earlyOpportunityActionableRanking.every(row =>
+    ['early-base', 'turning-up'].includes(row.features.earlyOpportunity.stage) &&
+    row.features.earlyOpportunity.score >= 65 &&
+    row.features.earlyOpportunity.confidence >= 0.60), true);
 });
