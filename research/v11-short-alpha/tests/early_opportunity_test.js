@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { computeEarlyOpportunity } from '../early_opportunity.js';
 import { integrateCandidateFlow } from '../candidate_flow.js';
+import { V12_TRADE_WEIGHTS } from '../v12_trade_score.js';
 
 function makeBars(closes, options = {}) {
   const start = new Date('2026-01-01T00:00:00Z');
@@ -91,7 +92,8 @@ test('early opportunity ranking is exposed without changing frozen V12 score wei
   assert.equal(result.version, 'V11 Short Alpha Phase 1');
   assert.deepEqual(result.ranking[0].scores.components && Object.keys(result.ranking[0].scores.components),
     ['capital', 'momentum', 'sector', 'volume', 'risk']);
-  assert.deepEqual(result.ranking[0].v12Trade?.weights, {alpha:0.6, timing:0.25, psychology:0.15});
+  assert.deepEqual(V12_TRADE_WEIGHTS, {alpha:0.6, timing:0.25, psychology:0.15});
+  assert.ok(Number.isFinite(result.ranking[0].scores.v12TradeRaw));
   assert.ok(result.ranking.every(row => row.features.earlyOpportunity !== undefined));
   assert.equal(result.earlyOpportunityRanking.every(row =>
     Number.isFinite(row.features.earlyOpportunity.score)), true);
