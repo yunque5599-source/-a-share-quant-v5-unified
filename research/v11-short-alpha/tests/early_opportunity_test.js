@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { computeEarlyOpportunity } from '../early_opportunity.js';
+import { computeEarlyOpportunity, withEarlyOpportunityPsychology } from '../early_opportunity.js';
 import { integrateCandidateFlow } from '../candidate_flow.js';
 
 function makeBars(closes, options = {}) {
@@ -102,4 +102,25 @@ test('early opportunity ranking is exposed without changing frozen V12 score wei
     ['early-base', 'turning-up'].includes(row.features.earlyOpportunity.stage) &&
     row.features.earlyOpportunity.score >= 65 &&
     row.features.earlyOpportunity.confidence >= 0.60), true);
+});
+
+
+test('theme linkage accepts either code or themeCode without changing the frozen V12 weights', () => {
+  const candidate = {
+    features:{earlyOpportunity:{score:50,components:{location:70}}},
+    scores:{alphaRaw:80,v12SelectionRaw:75},
+    psychology:{
+      primaryTheme:{code:'BK9001'},
+      fomoRisk:{score:50},
+      themes:[{code:'BK9001',components:{
+        emotionAcceleration:{score:80},narrative:{score:70},
+        leader:{score:75},imagination:{score:90}
+      }}]
+    }
+  };
+  const result = withEarlyOpportunityPsychology(candidate);
+  assert.equal(result.features.earlyOpportunity.components.themePotential, 78.75);
+  assert.ok(result.features.earlyOpportunity.score > 50);
+  assert.equal(result.scores.alphaRaw, 80);
+  assert.equal(result.scores.v12SelectionRaw, 75);
 });
