@@ -181,6 +181,7 @@ export function computeEarlyOpportunity(input = {}) {
   };
   const weights = {location:0.22, baseQuality:0.18, earlyTurn:0.20, accumulation:0.15,
     capitalFlow:0.08, sector:0.05, extensionSafety:0.08, themePotential:0.04};
+  // Only numeric observations participate; absent theme evidence must not poison the score with NaN.
   const available = Object.entries(weights).filter(([key]) => n(components[key]) !== null);
   const totalWeight = available.reduce((sum, [, weight]) => sum + weight, 0);
   let score = totalWeight > 0
