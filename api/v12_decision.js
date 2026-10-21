@@ -103,6 +103,37 @@ function executionTier(row) {
   return 'OBSERVE';
 }
 
+function compactEarlyOpportunity(row, rank) {
+  const setup = row?.features?.earlyOpportunity ?? {};
+  const metrics = setup.metrics ?? {};
+  return {
+    rank:rank ?? row?.earlyOpportunityRank ?? null,
+    symbol:row?.symbol ?? null,
+    name:row?.name ?? row?.symbol ?? null,
+    industry:row?.industry ?? null,
+    price:row?.price ?? null,
+    score:setup.score ?? null,
+    stage:setup.stage ?? 'insufficient-data',
+    confidence:setup.confidence ?? 0,
+    components:setup.components ?? {},
+    metrics,
+    reasons:setup.reasons ?? [],
+    diagnostics:setup.diagnostics ?? {},
+    capitalTiming:row?.features?.capital?.flowTiming ?? 'unknown',
+    sectorScore:row?.features?.sector?.score ?? null,
+    momentumScore:row?.features?.momentum?.score ?? null,
+    overboughtRisk:row?.features?.momentum?.overboughtRisk ?? 'unknown',
+    theme:row?.psychology?.primaryTheme?.name ?? null,
+    fomoRisk:row?.psychology?.fomoRisk?.score ?? null,
+    quality:{
+      complete:row?.quality?.complete === true,
+      degraded:row?.quality?.degraded === true,
+      blockedReasons:row?.quality?.blockedReasons ?? [],
+      warnings:row?.quality?.warnings ?? []
+    }
+  };
+}
+
 function compact(row) {
   return {
     tradeRank:row.tradeRank,
@@ -229,6 +260,10 @@ export default async function handler(req, res) {
     });
 
     const top = decision.tradeRanking.slice(0, 20).map(compact);
+    const earlyRanking = (decision.earlyOpportunityRanking ?? []).slice(0, 20)
+      .map((row, index) => compactEarlyOpportunity(row, index + 1));
+    const earlyActionable = (decision.earlyOpportunityActionableRanking ?? []).slice(0, 10)
+      .map((row, index) => compactEarlyOpportunity(row, index + 1));
     const status = decision.diagnostics.v12Eligible > 0 ? 'READY' :
       decision.diagnostics.psychologyComplete > 0 ? 'PSYCHOLOGY_PARTIAL' :
       'INSUFFICIENT_EVIDENCE';
@@ -252,7 +287,16 @@ export default async function handler(req, res) {
         degraded:ranked?.data?.degraded === true,
         sectorSource:discoveryPayload.source
       },
-      ranking:top
+      ranking:top,
+      earlyOpportunityRanking:earlyRanking,
+      earlyOpportunityActionableRanking:earlyActionable,
+      earlyOpportunity:{
+        version:'V12 Early Opportunity Discovery v1',
+        scanned:decision.diagnostics.earlyOpportunityScored ?? 0,
+        eligible:decision.diagnostics.earlyOpportunityEligible ?? 0,
+        actionable:decision.diagnostics.earlyOpportunityActionable ?? 0,
+        scope:'Only candidates with deep historical data in this request; not a full-market exhaustive scan.'
+      }
     });
   } catch (error) {
     return res.status(502).json({
