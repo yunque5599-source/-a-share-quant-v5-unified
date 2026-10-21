@@ -234,7 +234,7 @@ export function withEarlyOpportunityPsychology(candidate = {}) {
   const psychology = candidate.psychology ?? {};
   const primaryCode = psychology.primaryTheme?.code;
   const primary = (Array.isArray(psychology.themes) ? psychology.themes : [])
-    .find(theme => !primaryCode || theme.themeCode === primaryCode) ?? null;
+    .find(theme => !primaryCode || (theme.themeCode ?? theme.code) === primaryCode) ?? null;
   const parts = primary?.components ?? {};
   const themeParts = ['emotionAcceleration','narrative','leader','imagination']
     .map(key => n(parts[key]?.score)).filter(value => value !== null);
