@@ -71,10 +71,10 @@
   <section class="view" id="view-early">
     <div class="card">
       <div class="row between">
-        <div><b>低位潜力股挖掘</b><div class="small">寻找相对低位、底部收敛、短线开始拐头且尚未明显过度拉升的股票。此处是研究观察名单，不是买入指令。</div></div>
+        <div><b>低位潜力股挖掘</b><div class="small">寻找相对低位、底部收敛、短线开始拐头且尚未明显过度拉升的股票。此处是研究观察名单，不是买入指令。低位评分接口独立于心理/题材接口运行，避免题材源故障时整页无结果。</div></div>
         <button class="btn primary" id="earlyScanBtn">扫描低位机会</button>
       </div>
-      <div class="status" id="earlyStatus">尚未扫描。点击按钮后，系统会分析 V12 本次取得完整历史数据的候选股。</div>
+      <div class="status" id="earlyStatus">尚未扫描。点击按钮后，系统会分析 当前预筛池中取得真实历史 K 线的候选股。</div>
       <div class="grid" id="earlyMetrics">
         <div class="metric"><b>—</b><span>深度扫描</span></div>
         <div class="metric"><b>—</b><span>可评分</span></div>
@@ -92,7 +92,7 @@
       <div id="earlyRankingList" style="margin-top:10px" class="small">暂无结果。</div>
     </div>
     <div class="note">
-      <b>数据覆盖边界：</b>第一版复用 V12 当前深度评估的候选池（最多 12 只），并非对全部 A 股逐只计算 20/60 日结构。因此它可以先验证低位评分链路，但还不能宣称已穷尽全市场所有低位潜力股。缺少历史数据时会显示数据不足，不用模拟分数补齐。
+      <b>数据覆盖边界：</b>第一版使用现有多因子预筛池中的最多 18 只主板候选，并非对全部 A 股逐只计算 20/60 日结构。因此它可以先验证低位评分链路，但还不能宣称已穷尽全市场所有低位潜力股。缺少历史数据时会显示数据不足，不用模拟分数补齐。
     </div>
   </section>
 
@@ -418,21 +418,20 @@ async function runEarlyOpportunity(){
   try{
     const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),30000);
     let r;
-    try{r=await fetch('/api/v12_decision',{signal:ctrl.signal,cache:'no-store',credentials:'same-origin'})}
+    try{r=await fetch('/api/early_opportunity',{signal:ctrl.signal,cache:'no-store',credentials:'same-origin'})}
     finally{clearTimeout(timer)}
     const txt=await r.text();let j=null;try{j=JSON.parse(txt)}catch{}
     if(!r.ok)throw Error((j&&j.error)||txt.slice(0,220)||('HTTP '+r.status));
-    const rows=Array.isArray(j.earlyOpportunityRanking)?j.earlyOpportunityRanking:[];
-    const actionable=Array.isArray(j.earlyOpportunityActionableRanking)?j.earlyOpportunityActionableRanking:[];
-    const stats=j.earlyOpportunity||{};
+    const rows=Array.isArray(j.ranking)?j.ranking:[];
+    const actionable=Array.isArray(j.actionableRanking)?j.actionableRanking:[];
     const diagnostics=j.diagnostics||{};
     $('earlyMetrics').innerHTML=
-      '<div class="metric"><b>'+earlyNum(stats.scanned,0)+'</b><span>深度扫描</span></div>'+
-      '<div class="metric"><b>'+earlyNum(stats.eligible,0)+'</b><span>可评分候选</span></div>'+
-      '<div class="metric"><b>'+earlyNum(stats.actionable,0)+'</b><span>重点观察</span></div>'+
-      '<div class="metric"><b>'+(j.status==='SOURCE_OR_COMPUTE_FAILED'?'失败':(diagnostics.degraded?'降级':'已返回'))+'</b><span>数据状态</span></div>';
-    $('earlyStatus').textContent='计算时间 '+(j.asOf||'—')+' · V12 状态 '+(j.status||'未知')+
-      ' · 当前只覆盖本次深度评估候选，不代表全市场穷尽扫描。';
+      '<div class="metric"><b>'+earlyNum(diagnostics.evaluatedCodes,0)+'</b><span>深度扫描</span></div>'+
+      '<div class="metric"><b>'+earlyNum(diagnostics.eligible,0)+'</b><span>可评分候选</span></div>'+
+      '<div class="metric"><b>'+earlyNum(diagnostics.actionable,0)+'</b><span>重点观察</span></div>'+
+      '<div class="metric"><b>'+(j.status==='SOURCE_OR_COMPUTE_FAILED'?'失败':(diagnostics.degraded?'数据降级':(j.status==='READY'?'已返回':'样本不足')))+'</b><span>数据状态</span></div>';
+    $('earlyStatus').textContent='计算时间 '+(j.asOf||'—')+' · 扫描状态 '+(j.status||'未知')+
+      ' · '+(j.scope||'当前仅扫描部分候选，并非全市场穷尽扫描。');
     $('earlyActionableList').innerHTML=actionable.length?
       actionable.map(earlyRowHtml).join(''):
       '<div class="note">当前没有候选同时满足低位/拐头、评分和置信度门槛。可以保留观察，不建议为了凑名单降低门槛。</div>';
