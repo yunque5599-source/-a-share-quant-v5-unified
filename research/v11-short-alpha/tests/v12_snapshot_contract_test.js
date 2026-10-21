@@ -43,5 +43,5 @@ test('source quality does not qualify incomplete psychology or fallback deep dat
     asOf:'2026-10-05T03:15:00Z'
   });
   assert.equal(result.valid,false);
-  assert.ok(result.reasons.includes('qualified-candidates-insufficient'));
+  assert.ok(result.reasons.includes('psychology-research-incomplete'));
 });
