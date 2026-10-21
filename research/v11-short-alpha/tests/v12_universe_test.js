@@ -42,7 +42,7 @@ test('deep universe reserves a slot for low-extension positive-flow early setups
     f14:'Candidate ' + i,
     rankScore:100-i,
     f3:8,
-    f6:50000000,
+    f6:90000000,
     f62:-1000000,
     f184:-1,
     ranks:{mainNet:i+20,dayMomentum:i+20,swingMomentum:i+20,mainPct:i+20}
@@ -50,7 +50,7 @@ test('deep universe reserves a slot for low-extension positive-flow early setups
   rows[39] = {
     ...rows[39],
     f3:1.2,
-    f6:150000000,
+    f6:85000000,
     f62:25000000,
     f184:2.4,
     ranks:{mainNet:100,dayMomentum:100,swingMomentum:100,mainPct:100}
