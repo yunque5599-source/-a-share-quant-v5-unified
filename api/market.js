@@ -525,7 +525,7 @@ export default async function handler(req, res) {
     }
 
     if (action === 'deep_batch') {
-      const codes = parseCodes(u.searchParams.get('codes'), 30);
+      const codes = parseCodes(u.searchParams.get('codes'), 40);
       if (!codes.length) return send(res, 400, { error: 'no valid codes' }, 0);
       const items = await mapLimit(codes, 6, async c => fetchDeepOne(c));
       return send(res, 200, { items: items.map((z, i) => z?.error ? { code: codes[i], error: z.error } : z) }, 60);
