@@ -384,8 +384,10 @@ score rather than Alpha:
 ```sh
 node research/v11-short-alpha/backtest/alpha_backtest.js \
   --input path/to/forward-history-fixture.json \
-  --selection-score earlyOpportunity \
+  --selection-score earlyOpportunity --top-n 5 --horizons 1,3,5 \
   --commission-bps 3 --stamp-bps 5 --slippage-bps 5
+
+# Run separately with --top-n 1 to evaluate the single highest-ranked candidate.
 ```
 
 The input must contain point-in-time rankings with
