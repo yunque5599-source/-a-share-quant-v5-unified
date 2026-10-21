@@ -7,6 +7,7 @@ import discoveryHandler from '../../api/discovery_universe.js';
 import psychologyHandler from '../../api/psychology_universe.js';
 import { integrateCandidateFlow } from './candidate_flow.js';
 import { selectV12Candidates } from './v12_universe.js';
+import { sourceQuality as contractSourceQuality, validateSnapshot, canonicalSnapshotId } from './snapshot_contract.js';
 
 const MODEL_VERSIONS = Object.freeze({
   alpha:'V11 Short Alpha Phase 1',
@@ -199,13 +200,19 @@ const decision = integrateCandidateFlow({
 });
 
 const capturedAt = new Date().toISOString();
-const sourceQuality = sourceQualitySummary({
+const qualitySummary = sourceQualitySummary({
   rankedCandidates, selectedCodes:codes, deepPayload, discoveryPayload,
   psychologyPayload, decision
 });
+const contractQuality = contractSourceQuality({
+  ranked, deep:deepPayload, discovery:discoveryPayload,
+  psychology:psychologyPayload, decision, quoteRows:rankedCandidates,
+  asOf:decision.asOf
+});
+const sourceQuality = {...qualitySummary, ...contractQuality};
 const output = {
   schema:'v12-live-snapshot-v1',
-  snapshotId:'v12-' + String(decision.asOf ?? capturedAt).replace(/[^0-9A-Za-z._-]/g, '_'),
+  snapshotId:canonicalSnapshotId(decision.asOf ?? capturedAt),
   capturedAt,
   asOf:decision.asOf,
   modelVersions:MODEL_VERSIONS,
@@ -253,7 +260,8 @@ const output = {
 };
 
 const validation = validateCapturedSnapshot(output);
-if (!validation.valid) {
+const contractValidation = validateSnapshot(output);
+if (!validation.valid || !contractValidation.valid) {
   console.error(JSON.stringify({
     status:validation.status,
     snapshotId:output.snapshotId,
