@@ -97,7 +97,7 @@ export default async function handler(req,res) {
     const diversified=selectV12Candidates(candidates,30);
     const codes=[...new Set(diversified
       .map(row=>String(row?.f12??'').trim())
-      .filter(code=>/^(00|60)\\d{4}$/.test(code)))].slice(0,MAX_EARLY_CODES);
+      .filter(code=>/^(00|60)\d{4}$/.test(code)))].slice(0,MAX_EARLY_CODES);
     if(codes.length<3) {
       return res.status(422).json({
         schema:'early-opportunity-dashboard-v1',
