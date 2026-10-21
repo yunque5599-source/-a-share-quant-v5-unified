@@ -14,7 +14,8 @@ const MODEL_VERSIONS = Object.freeze({
   timing:'Buy Timing Phase 1',
   psychology:'V12 Psychology Score Phase 3 Behavioral',
   trade:'V12 Trade Score Phase 1',
-  selection:'V12 Short-Horizon Selection Score v1'
+  selection:'V12 Short-Horizon Selection Score v1',
+  earlyOpportunity:'V12 Early Opportunity Discovery v1'
 });
 
 function invoke(handler, url) {
@@ -255,6 +256,22 @@ const output = {
       primaryTheme:row.psychology?.primaryTheme ?? null,
       fomoRisk:row.psychology?.fomoRisk ?? null,
       quality:row.quality
+    })),
+    earlyOpportunityRanking:decision.earlyOpportunityRanking.slice(0, 15).map(row => ({
+      earlyOpportunityRank:row.earlyOpportunityRank,
+      symbol:row.symbol,
+      name:row.name,
+      industry:row.industry,
+      price:row.price,
+      score:row.features?.earlyOpportunity?.score ?? null,
+      stage:row.features?.earlyOpportunity?.stage ?? 'unknown',
+      confidence:row.features?.earlyOpportunity?.confidence ?? 0,
+      components:row.features?.earlyOpportunity?.components ?? {},
+      metrics:row.features?.earlyOpportunity?.metrics ?? {},
+      reasons:row.features?.earlyOpportunity?.reasons ?? [],
+      primaryTheme:row.psychology?.primaryTheme ?? null,
+      fomoRisk:row.psychology?.fomoRisk ?? null,
+      quality:row.quality
     }))
   }
 };
@@ -312,6 +329,14 @@ console.log(JSON.stringify({
   psychologyComplete:decision.diagnostics.psychologyComplete,
   v12Scoreable:decision.ranking.filter(row => row.scores?.v12TradeRaw !== null).length,
   v12Eligible:decision.diagnostics.v12Eligible,
+  earlyOpportunityScored:decision.diagnostics.earlyOpportunityScored ?? 0,
+  earlyOpportunityEligible:decision.diagnostics.earlyOpportunityEligible ?? 0,
+  earlyOpportunityTop5:decision.earlyOpportunityRanking.slice(0, 5).map(row => ({
+    rank:row.earlyOpportunityRank, symbol:row.symbol, name:row.name,
+    score:row.features?.earlyOpportunity?.score ?? null,
+    stage:row.features?.earlyOpportunity?.stage ?? 'unknown',
+    reasons:row.features?.earlyOpportunity?.reasons ?? []
+  })),
   blockedReasonCounts:blockCounts,
   deepDiagnostics,
   modelTop,
