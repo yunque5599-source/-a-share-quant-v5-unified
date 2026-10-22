@@ -154,6 +154,87 @@ function invoke(handler,url){return new Promise((resolvePromise,reject)=>{let bo
 function parseResult(name,r){if(r.statusCode<200||r.statusCode>=300)throw Error(name+' HTTP '+r.statusCode+': '+r.body.slice(0,250));const x=JSON.parse(r.body);if(x?.error)throw Error(name+': '+x.error);return x;}
 function chunks(rows,size=30){const out=[];for(let i=0;i<rows.length;i+=size)out.push(rows.slice(i,i+size));return out;}
 async function mapLimit(items,limit,fn){const out=new Array(items.length);let next=0;async function worker(){while(true){const i=next++;if(i>=items.length)return;try{out[i]=await fn(items[i],i);}catch(e){out[i]={error:String(e?.message??e)};}}}await Promise.all(Array.from({length:Math.min(limit,items.length)},worker));return out;}
+export function interleaveCatalystCodes(primary, catalyst, limit, catalystSlots = 6) {
+  const main = [...new Set((primary ?? []).map(String))];
+  const event = [...new Set((catalyst ?? []).map(String))];
+  const maxSlots = Math.max(0, Math.min(Number(catalystSlots) || 0, Number(limit) || 0));
+  const eventSet = new Set(event);
+  const selected = [];
+  const selectedSet = new Set();
+  let mainIndex = 0;
+  let eventIndex = 0;
+  const targetLength = Math.min(Math.max(0, Number(limit) || 0), new Set([...main, ...event]).size);
+  const eventSpacing = Math.max(2, Math.floor(targetLength / Math.max(1, maxSlots)));
+  for (let slot = 0; slot < targetLength; slot++) {
+    const usedEventCount = selected.filter(code => eventSet.has(code)).length;
+    const shouldUseEvent = maxSlots > 0 && eventIndex < event.length &&
+      usedEventCount < maxSlots && (slot + 1) % eventSpacing === 0;
+    let code = null;
+    if (shouldUseEvent) {
+      while (eventIndex < event.length && selectedSet.has(event[eventIndex])) eventIndex++;
+      if (eventIndex < event.length) code = event[eventIndex++];
+    }
+    if (code === null) {
+      while (mainIndex < main.length && selectedSet.has(main[mainIndex])) mainIndex++;
+      if (mainIndex < main.length) code = main[mainIndex++];
+    }
+    if (code === null) {
+      while (eventIndex < event.length && selectedSet.has(event[eventIndex])) eventIndex++;
+      if (eventIndex < event.length) code = event[eventIndex++];
+    }
+    if (code !== null && !selectedSet.has(code)) { selectedSet.add(code); selected.push(code); }
+  }
+  for (const code of [...main, ...event]) {
+    if (selected.length >= targetLength) break;
+    if (!selectedSet.has(code)) { selectedSet.add(code); selected.push(code); }
+  }
+  return selected;
+}
+
+export function scoreCatalystConfirmed(record = {}) {
+  const overlay = record.psychology?.stockNewsFallback ?? record.psychology ?? {};
+  const headline = n(record.headlineCatalystScore ?? overlay.headlineCatalystScore);
+  const direction = record.headlineCatalystDirection ?? overlay.headlineCatalystDirection;
+  const base = record.base ?? record.score ?? null;
+  if (direction !== 'positive' || !Number.isFinite(headline) || !base ||
+      !Number.isFinite(Number(base.score)) || !record.preLimitUpEligible) return null;
+  const components = base.components ?? {};
+  const features = base.features ?? {};
+  const pct = n(record.quote?.pct ?? base.currentPct);
+  const priceReaction = pct === null ? 50 : clamp(45 + pct * 7, 0, 100);
+  const shortMomentum = avg([
+    n(features.r3Pct) !== null ? clamp(50 + Number(features.r3Pct) * 4, 0, 100) : NaN,
+    n(features.r5Pct) !== null ? clamp(50 + Number(features.r5Pct) * 2, 0, 100) : NaN
+  ]) ?? 50;
+  const headlineScore = clamp(headline);
+  const trend = clamp(n(components.trend) ?? 45);
+  const volumePrice = clamp(n(components.volumePrice) ?? 45);
+  const flow = clamp(n(components.flow) ?? 45);
+  const sector = clamp(n(components.sector) ?? 45);
+  const score = clamp(
+    0.35 * headlineScore + 0.15 * trend + 0.15 * volumePrice +
+    0.10 * flow + 0.15 * sector + 0.07 * priceReaction + 0.03 * shortMomentum
+  );
+  return {
+    code: String(record.code ?? base.code ?? ''),
+    name: String(record.name ?? base.name ?? record.code ?? ''),
+    board: record.board ?? base.board ?? 'UNKNOWN',
+    score: Number(score.toFixed(2)),
+    headlineCatalystScore: Number(headlineScore.toFixed(1)),
+    headlineCatalystDirection: direction,
+    components: {
+      headline: Number(headlineScore.toFixed(1)), trend: Number(trend.toFixed(1)),
+      volumePrice: Number(volumePrice.toFixed(1)), flow: Number(flow.toFixed(1)),
+      sector: Number(sector.toFixed(1)), priceReaction: Number(priceReaction.toFixed(1)),
+      shortMomentum: Number(shortMomentum.toFixed(1))
+    },
+    baseScore: Number(Number(base.score).toFixed(1)),
+    currentPct: pct,
+    evidence: record.catalystEvidence ?? overlay.catalystEvidence ?? [],
+    warning: 'Timestamped positive headline plus price/flow confirmation; research observation only, not a calibrated buy probability.'
+  };
+}
+
 export function interleaveCodes(primary,secondary,limit){
   const out=[],seen=new Set();let p=0,s=0,takePrimary=true;
   while(out.length<limit&&(p<primary.length||s<secondary.length)){
@@ -343,10 +424,26 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       catalystEvidence:overlay.catalystEvidence??[],baseScore:base?.score??null,
       preLimitUpEligible:base?isPreLimitUpCandidate(base,early):false};
   }).filter(Boolean);
+  const catalystConfirmed=catalystRows.map(row=>scoreCatalystConfirmed({
+    ...row, base:scoreByCode.get(row.code), psychology:recordByCode.get(row.code)?.psychology,
+    quote:recordByCode.get(row.code)?.quote, catalystEvidence:row.catalystEvidence
+  })).filter(Boolean).sort((a,b)=>b.score-a.score||b.headlineCatalystScore-a.headlineCatalystScore).slice(0,20);
   const catalystWatch=catalystRows.filter(row=>row.preLimitUpEligible&&row.headlineCatalystDirection==='positive')
     .sort((a,b)=>b.headlineCatalystScore-a.headlineCatalystScore||(Number(b.baseScore)||0)-(Number(a.baseScore)||0)).slice(0,20);
   const negativeCatalystRisk=catalystRows.filter(row=>row.headlineCatalystDirection==='negative')
     .sort((a,b)=>a.headlineCatalystScore-b.headlineCatalystScore).slice(0,20);
+  const overallCodes=interleaveCatalystCodes(balancedBlend.map(row=>row.code),catalystConfirmed.map(row=>row.code),30,6);
+  const balancedByCode=new Map(balancedBlend.map(row=>[row.code,row]));
+  const catalystByCode=new Map(catalystConfirmed.map(row=>[row.code,row]));
+  const overall=overallCodes.map((code,index)=>{
+    const main=balancedByCode.get(code), catalyst=catalystByCode.get(code);
+    if(catalyst&&!main)return {...(scoreByCode.get(code)??{}),...catalyst,rank:index+1,
+      modelVariant:'v13-live-catalyst-confirmed-blend',scorePath:'timestamped-catalyst-confirmed',
+      catalystRankScore:catalyst.score,catalystComponents:catalyst.components};
+    if(main&&catalyst)return {...main,rank:index+1,scorePath:'balanced-plus-catalyst-confirmed',
+      catalystRankScore:catalyst.score,catalystComponents:catalyst.components};
+    return {...main,rank:index+1};
+  }).filter(row=>row.code);
   const deepGood=records.filter(r=>r.source.klineSource==='eastmoney'&&r.source.flowSource==='eastmoney').length;
   const barsGood=records.filter(r=>r.source.barCount>=25).length,psychGood=records.filter(r=>r.psychology.available&&r.psychology.source!=='timestamped-stock-news-fallback').length;
   const quality={rankedSourceDegraded:ranked?.data?.degraded===true,rankedSourceStale:ranked?.data?.serverStale===true,rankedSourceMethod:ranked?.data?.method??null,
@@ -358,7 +455,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     newsResponseCount:newsSuccessCodes.size,newsResponseCoveragePct:+(newsSuccessCodes.size/Math.max(1,funnel.length)*100).toFixed(2),
     datedNewsCandidateCount:records.filter(r=>Math.max(r.psychology.datedNewsCount??0,r.psychology.stockNewsFallback?.datedNewsCount??0)>0).length,
     datedNewsCoveragePct:+(records.filter(r=>Math.max(r.psychology.datedNewsCount??0,r.psychology.stockNewsFallback?.datedNewsCount??0)>0).length/Math.max(1,funnel.length)*100).toFixed(2),sourceErrors};
-  const diagnosticRankings={overall:balancedBlend,trendTransition:rankedScores.slice(0,20),
+  const diagnosticRankings={overall:balancedBlend,catalystConfirmed,combinedOverall:overall,trendTransition:rankedScores.slice(0,20),
     emotionRepair:rankedScores.filter(r=>Number(r.components?.emotionRepair)>=65).sort((a,b)=>Number(b.components.emotionRepair)-Number(a.components.emotionRepair)).slice(0,20),
     oversold:rankedScores.filter(r=>Number(r.components?.oversoldReversal)>=65).sort((a,b)=>Number(b.components.oversoldReversal)-Number(a.components.oversoldReversal)).slice(0,20),
     coreRanking:rankedScores.slice(0,30),earlyOpportunity:earlyRows.slice(0,30),catalystWatch,negativeCatalystRisk};
@@ -369,7 +466,8 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     quality:{},coverage:{rawRankedCandidates:raw.length,funnelCandidates:funnel.length,scoredCandidates:rankedScores.length,
       preLimitUpEligibleCount:preLimitUpScores.length,earlyOpportunityCandidates:earlyRows.length,balancedBlendCount:balancedBlend.length},
     candidates:auditRecords,rankings:{
-      overall:balancedBlend,
+      overall,
+      catalystConfirmed,
       trendTransition:preLimitUpScores.slice(0,20),
       emotionRepair:diagnosticRankings.emotionRepair,
       oversold:diagnosticRankings.oversold,
