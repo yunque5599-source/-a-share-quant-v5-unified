@@ -12,6 +12,7 @@ This module is isolated from the production page, market API, current execution 
 - **No narrow same-day gain gate.** A candidate is not hard-rejected because it is up 4%, 8%, or close to its limit. Overheating is a soft risk penalty, not a discovery filter.
 - **The model seeks a transition, not just a strong snapshot.** It scores MA turning/stacking, price position versus the prior 20-day range, volume compression followed by expansion, closing strength, flow persistence/acceleration, and sector/theme breadth.
 - **A separate emotion-repair lane catches high-volatility dislocations.** It checks recent limit-up history, a sharp selloff, volume expansion, sector context, and early recovery. It is explicitly an observation/ranking lane, not an automatic buy signal; a limit-up history followed by a crash can also be a trap.
+- **An oversold-stabilization lane separates falling-knife risk from early repair.** It scores drawdown from the recent high, proximity to the 20-day range low, 3/5-day selloff, intraday close location, volume exhaustion, and whether fund-flow deterioration is easing. This path is experimental and must pass walk-forward comparison before production use.
 - **Each score is auditable.** Output includes six component scores, risk penalties, risk flags, confidence/data completeness, setup classification, board, and execution eligibility.
 - **Point-in-time cutoff.** When asOf is supplied, bars and fund-flow rows dated after that day are discarded. Undated rows are discarded under a cutoff to reduce look-ahead risk.
 
@@ -26,7 +27,7 @@ This module is isolated from the production page, market API, current execution 
 | Short momentum | 12% | 3/5/10-day returns, with diminishing benefit for extreme moves |
 | Base/room | 8% | Distance from prior 20-day low and high |
 
-The trend-transition path uses the six weighted components below. A separate emotion-repair score can outrank the core score when recent limit-up history is followed by a sharp, high-volume selloff or early recovery. The final score is the higher path score minus a soft risk penalty (capped at 30 points) for excessive gains, large gaps, extreme volume/volatility, weak liquidity, and extreme turnover. ST/delisting-risk names are excluded. Missing flow/sector inputs lower confidence and are flagged rather than silently treated as strong evidence.
+The trend-transition path uses the six weighted components below. Separate emotion-repair and oversold-stabilization scores can outrank the core score when recent limit-up history is followed by a sharp, high-volume selloff or when a drawdown near the recent low begins to stabilize. The final score is the highest path score minus a soft risk penalty (capped at 30 points) for excessive gains, large gaps, extreme volume/volatility, weak liquidity, and extreme turnover. ST/delisting-risk names are excluded. Missing flow/sector inputs lower confidence and are flagged rather than silently treated as strong evidence.
 
 ## Input schema
 
@@ -87,7 +88,7 @@ The walk-forward report remains `NOT_MEASURABLE` if the source replay has less t
 ## Validation gate before integration
 
 1. Reconstruct the complete eligible universe at the 2026-10-20 close and retrieve point-in-time bars, flows, and sector/theme information for all candidates.
-2. Score candidates using only data available before the target session; store the target rank, top-10/top-30 recall, and reasons for any miss.
+2. Score candidates using only data available before the target session; store the target rank, top-10/top-30 recall, and reasons for any miss. The current replay found that the emotion-repair path surfaced 莱美药业 at rank 69, while 三维天地 ranked 535, 兆讯传媒 ranked 4,971, and 致尚科技 ranked 4,172. These misses motivate an oversold-stabilization hypothesis, but are not themselves evidence that the new path generalizes; the next step is to compare against the walk-forward baseline.
 3. Run walk-forward evaluation across many dates, reporting top-k limit-up recall within 1/3/5 sessions, forward returns, maximum adverse excursion, turnover/cost assumptions, and board-separated results.
 4. Compare against the existing model and simple baselines. Keep this model research-only unless the out-of-sample uplift is repeatable and risk-adjusted.
 
