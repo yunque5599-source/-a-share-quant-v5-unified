@@ -557,11 +557,14 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     const code=String(row.f12),deep=deepByCode.get(code),bars=parseRows(deep?.kline?.data?.klines??[],'bar',requestedAsOf);
     const flowUsable=deep?.dataQuality?.flowSource==='eastmoney';
     const flows=flowUsable?parseRows(deep?.flow?.data?.klines??[],'flow',requestedAsOf).map(f=>({...f,amount:bars.find(b=>b.date===f.date)?.amount??0})):[];
+    const quoteMainNet=n(row.f62),quoteMainPct=n(row.f184);
+    const currentFlowSnapshot=flows.length===0&&(quoteMainNet!==null||quoteMainPct!==null)
+      ?{date:String(requestedAsOf).slice(0,10),mainNet:quoteMainNet,mainPct:quoteMainPct,amount:n(row.f6)??bars.at(-1)?.amount??0,source:'quote-snapshot'}:null;
     const themePsychology=buildPsychologySector(psychByCode.get(code)??[],capturedAt);
     const newsFallback=buildStockNewsFallback(code,String(row.f14??code),newsByCode.get(code)??[],capturedAt);
     const psychology={sector:{...themePsychology.sector,...(themePsychology.sector.catalystScore==null&&newsFallback.sector.catalystScore!=null?{catalystScore:newsFallback.sector.catalystScore}:{})},
       overlay:themePsychology.overlay.available?{...themePsychology.overlay,stockNewsFallback:newsFallback.overlay}:newsFallback.overlay};
-    const candidate={code,name:String(row.f14??code),asOf:requestedAsOf,isST:/(^|\*)ST(?=[\u4e00-\u9fff\d\s]|$)|^退/i.test(String(row.f14??'')),bars,flows,
+    const candidate={code,name:String(row.f14??code),asOf:requestedAsOf,isST:/(^|\*)ST(?=[\u4e00-\u9fff\d\s]|$)|^退/i.test(String(row.f14??'')),bars,flows,currentFlowSnapshot,
       sector:{...(industryContextByCode.get(code)??{}),...psychology.sector},
       amount:bars.at(-1)?.amount??n(row.f6),turnoverRate:bars.at(-1)?.turnoverRate??n(row.f8)};
     modelInputsByCode.set(code,candidate);
@@ -569,7 +572,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     records.push({code,name:candidate.name,board:boardForCode(code),funnelLanes:row.funnelLanes??[],
       quote:{price:n(row.f2),pct:n(row.f3),mainNetCny:n(row.f62),mainNetPct:n(row.f184),turnoverRate:n(row.f8),amount:n(row.f6),volumeRatio:n(row.f10),rankScore:n(row.rankScore),rankHits:n(row.rankHits),ranks:row.ranks??{}},
       score,psychology:psychology.overlay,source:{quoteTimestamp:n(row.f124),rankedGeneratedAt:ranked?.data?.generatedAt??null,
-      klineSource:dq.klineSource??null,flowSource:dq.flowSource??null,deepError:deep?.error??null,barCount:bars.length,flowCount:flows.length}});
+      klineSource:dq.klineSource??null,flowSource:flows.length>0&&flowUsable?'eastmoney':currentFlowSnapshot?'quote-snapshot':dq.flowSource??null,currentFlowSnapshotUsed:Boolean(currentFlowSnapshot),historicalFlowCount:flows.length,deepError:deep?.error??null,barCount:bars.length,flowCount:flows.length}});
   }
   const validRecords=records.filter(r=>r.score),recordByCode=new Map(validRecords.map(r=>[r.code,r]));
   const modelInputs=validRecords.map(r=>modelInputsByCode.get(r.code)).filter(Boolean);
@@ -631,13 +634,19 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     return {...main,rank:index+1};
   }).filter(row=>row.code);
   const deepGood=records.filter(r=>r.source.klineSource==='eastmoney'&&r.source.flowSource==='eastmoney').length;
-  const barsGood=records.filter(r=>r.source.barCount>=25).length,psychGood=records.filter(r=>r.psychology.available&&r.psychology.source!=='timestamped-stock-news-fallback').length;
+  const barsGood=records.filter(r=>r.source.barCount>=25).length;
+  const flowSignalGood=records.filter(r=>r.source.flowCount>0||r.source.currentFlowSnapshotUsed).length;
+  const historicalFlowGood=records.filter(r=>r.source.flowSource==='eastmoney'&&r.source.historicalFlowCount>=3).length;
+  const psychGood=records.filter(r=>r.psychology.available&&r.psychology.source!=='timestamped-stock-news-fallback').length;
   const quality={rankedSourceDegraded:rankingSourceDegraded,rankedSourceStale:rankingSourceStale,rankedSourceMethod:rankingSourceMethod,
     originalRankedSourceDegraded:ranked?.data?.degraded===true,originalRankedSourceMethod:ranked?.data?.method??null,
     rankedCandidateCount:raw.length,funnelCandidateCount:funnel.length,deepSuccessCount:deepGood,deepSuccessPct:+(deepGood/Math.max(1,funnel.length)*100).toFixed(2),
     industryContextCandidateCount:funnel.filter(row=>industryContextByCode.has(String(row.f12))).length,
     industryContextCoveragePct:+(funnel.filter(row=>industryContextByCode.has(String(row.f12))).length/Math.max(1,funnel.length)*100).toFixed(2),
     retryAttemptCount,retryRecoveredKlineCount,retryRecoveredFlowCount,
+    flowSignalCount:flowSignalGood,flowSignalCoveragePct:+(flowSignalGood/Math.max(1,funnel.length)*100).toFixed(2),
+    historicalFlowCount:historicalFlowGood,historicalFlowCoveragePct:+(historicalFlowGood/Math.max(1,funnel.length)*100).toFixed(2),
+    quoteFlowFallbackCount:records.filter(r=>r.source.currentFlowSnapshotUsed).length,
     barHistoryCount:barsGood,barHistoryCoveragePct:+(barsGood/Math.max(1,funnel.length)*100).toFixed(2),
     psychologyResponseCount:psychSuccessCodes.size,psychologyCoveragePct:+(psychSuccessCodes.size/Math.max(1,funnel.length)*100).toFixed(2),
     psychologyThemeCount:psychGood,psychologyThemeCoveragePct:+(psychGood/Math.max(1,funnel.length)*100).toFixed(2),
