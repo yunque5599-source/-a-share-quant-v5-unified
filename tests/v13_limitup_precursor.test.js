@@ -2,7 +2,7 @@
 
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { boardForCode, scoreCandidate, rankCandidates } from '../research/v13-limitup-precursor/precursor_score.js';
+import { boardForCode, isRestrictedListingName, scoreCandidate, rankCandidates } from '../research/v13-limitup-precursor/precursor_score.js';
 
 function makeCandidate({ code = '600001', name = '样本股', strong = true, pct = 4.2, future = false } = {}) {
   const bars = [];
@@ -228,4 +228,18 @@ test('scorer returns the same point-in-time score for sorted and unsorted histor
   assert.ok(a && b);
   assert.equal(a.score, b.score);
   assert.deepEqual(a.components, b.components);
+});
+
+
+test('PT, ST, and delisting-status names are excluded from discovery',()=>{
+ assert.equal(isRestrictedListingName('PT南洋'),true);
+ assert.equal(isRestrictedListingName('PT金田A'),true);
+ assert.equal(isRestrictedListingName('*ST风险'),true);
+ assert.equal(isRestrictedListingName('退市某公司'),true);
+ assert.equal(isRestrictedListingName('正常股份'),false);
+ for(const name of ['PT南洋','PT金田A']){
+  const result=scoreCandidate({...makeCandidate({code:'000556',name}),name});
+  assert.equal(result.discoveryEligible,false);
+  assert.equal(result.tradeabilityReason,'ST_OR_DELISTING');
+ }
 });
