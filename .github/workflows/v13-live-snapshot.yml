@@ -3,11 +3,6 @@ concurrency:
   group: v13-live-psychology-capture
   cancel-in-progress: true
 on:
-  push:
-    branches: [research/v13-limitup-precursor]
-    paths:
-      - 'research/v13-limitup-precursor/live_snapshot.js'
-      - '.github/workflows/v13-live-snapshot.yml'
   schedule:
     - cron: '45 2 * * 1-5'
     - cron: '30 3 * * 1-5'
