@@ -85,6 +85,22 @@ For each historical signal date, the evaluator reconstructs the model's inputs u
 
 The walk-forward report remains `NOT_MEASURABLE` if the source replay has less than 90% historical-bar coverage or fewer than three complete signal dates. Even a measurable report is evidence about the tested window only, not proof of a persistent trading edge.
 
+### New comparison: cross-sectional momentum-confirmed rank ensemble
+
+Because the first walk-forward run showed the raw 5-session momentum baseline beating the hand-built composites, the research branch now adds \`v13-rank-ensemble\`. It ranks candidates by cross-sectional percentiles instead of saturating raw returns into a 0–100 ramp:
+
+- 50% five-session return percentile
+- 15% three-session return percentile
+- 10% ten-session return percentile
+- 10% trend percentile
+- 6% volume-price percentile
+- 6% fund-flow percentile
+- 3% industry percentile
+- minus the existing soft risk penalty
+
+This is a new candidate ranking to test, not a claim of improvement. It is intentionally separate from the emotion-repair and oversold watchlists, which had high limit-up hit precision in some horizons but also severe adverse excursions and weak/negative average forward returns. The next walk-forward report must compare this rank ensemble against the raw momentum baseline and the existing models before any default ranking is changed.
+
+
 ## Initial historical results and decision
 
 The first full-universe replay for the 2026-10-20 signal close covered 5,897 of 5,922 current symbols (99.58% with sufficient bars) and had 98.69% flow-history coverage. This is measurable enough for diagnosis, but the universe is the current listing as a proxy, not an exchange-certified historical constituent snapshot.
