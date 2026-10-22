@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRows, selectCandidateFunnel, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, flattenNewsPayload, buildStockNewsFallback } from '../research/v13-limitup-precursor/live_snapshot.js';
+import { parseRows, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, flattenNewsPayload, buildStockNewsFallback } from '../research/v13-limitup-precursor/live_snapshot.js';
 
 test('parsers exclude future-dated rows and sort history',()=>{
  const bars=parseRows(['2026-10-21,10,10.5,10.6,9.9,200,2100000,0,0,0,4.2','2026-10-19,9,9.2,9.3,8.9,100,920000,0,0,0,2.1','2026-10-22,10.5,11,11.1,10.4,300,3300000,0,0,0,5.1'],'bar','2026-10-21T05:00:00Z');
@@ -164,4 +164,22 @@ test('catalyst blend reserves a limited share for event-confirmed candidates wit
  assert.ok(result.includes('X'));
  assert.ok(result.includes('Y'));
  assert.ok(result.includes('A'));
+});
+
+
+test('live industry fallback ranks sector breadth, limit-up participation and within-sector leaders',()=>{
+ const rows=[
+  {f12:'600001',f14:'传媒A',f100:'传媒',f3:3.0},
+  {f12:'600002',f14:'传媒B',f100:'传媒',f3:1.5},
+  {f12:'300001',f14:'传媒C',f100:'传媒',f3:19.98},
+  {f12:'600003',f14:'银行A',f100:'银行',f3:-1.0},
+  {f12:'600004',f14:'银行B',f100:'银行',f3:-0.5},
+  {f12:'600005',f14:'银行C',f100:'银行',f3:0.1}
+ ];
+ const context=deriveLiveIndustryContext(rows);
+ assert.ok(context.get('300001').themeHeat>context.get('600003').themeHeat);
+ assert.equal(context.get('300001').limitUpCount,1);
+ assert.ok(context.get('300001').leaderScore>context.get('600001').leaderScore);
+ assert.equal(context.get('300001').industryMemberCount,3);
+ assert.equal(context.get('300001').contextSource,'ranked-universe-cross-sectional-proxy');
 });
