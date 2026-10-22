@@ -1,0 +1,26 @@
+name: V13 limit-up precursor tests
+
+on:
+  push:
+    branches: [research/v13-limitup-precursor]
+    paths:
+      - 'research/v13-limitup-precursor/**'
+      - 'tests/v13_limitup_precursor.test.js'
+      - '.github/workflows/v13-limitup-precursor-tests.yml'
+  pull_request:
+    paths:
+      - 'research/v13-limitup-precursor/**'
+      - 'tests/v13_limitup_precursor.test.js'
+      - '.github/workflows/v13-limitup-precursor-tests.yml'
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run precursor scorer tests
+        run: node --test tests/v13_limitup_precursor.test.js
