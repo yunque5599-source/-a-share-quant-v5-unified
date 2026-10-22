@@ -67,7 +67,7 @@ export function buildPsychologySector(themes,capturedAt){
   const narrative=n(t.narrativeScore), imagination=n(t.imaginationScore);
   const catalystScore=datedNews.length?avg([narrative??NaN,imagination??NaN]):null;
   const b=breadth(t),l=leader(t),h=heat(t),r3=n(t.changePct),r5=n(t.change5dPct),lu=n(t.limitUpCount);
-  const sector={...(r3!==null?{return3Pct:r3}:{}),...(r5!==null?{return5Pct:r5}:{}),...(b!==null?{upRatio:b/100}:{}),
+  const sector={...(n(t.change3dPct)!==null?{return3Pct:n(t.change3dPct)}:{}),...(r5!==null?{return5Pct:r5}:{}),...(b!==null?{upRatio:b/100}:{}),
     ...(lu!==null?{limitUpCount:lu}:{}),...(l!==null?{leaderScore:l}:{}),...(catalystScore!==null?{catalystScore}:{}),...(h!==null?{themeHeat:h}:{})};
   return {sector,overlay:{available:true,primaryTheme:t.name??null,themeCode:t.code??null,leaderStatus:t.leaderStatus??null,
     candidateRank:n(t.candidateRank),emotionHeat:h,narrativeScore:narrative,imaginationScore:imagination,catalystScore,
@@ -118,12 +118,12 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       score,psychology:psychology.overlay,source:{quoteTimestamp:n(row.f124),rankedGeneratedAt:ranked?.data?.generatedAt??null,
       klineSource:dq.klineSource??null,flowSource:dq.flowSource??null,deepError:deep?.error??null,barCount:bars.length,flowCount:flows.length}});
   }
-  const validRecords=records.filter(r=>r.score),rankedScores=rankCandidates(validRecords.map(r=>{
+  const validRecords=records.filter(r=>r.score),recordByCode=new Map(validRecords.map(r=>[r.code,r])),rankedScores=rankCandidates(validRecords.map(r=>{
     const bars=parseRows(deepByCode.get(r.code)?.kline?.data?.klines??[],'bar',requestedAsOf);
     const flows=parseRows(deepByCode.get(r.code)?.flow?.data?.klines??[],'flow',requestedAsOf).map(f=>({...f,amount:bars.find(b=>b.date===f.date)?.amount??0}));
     const row=funnel.find(x=>String(x.f12)===r.code);const psych=buildPsychologySector(psychByCode.get(r.code)??[],capturedAt);
     return {code:r.code,name:r.name,isST:false,asOf:requestedAsOf,bars,flows,sector:psych.sector,amount:bars.at(-1)?.amount??n(row?.f6),turnoverRate:bars.at(-1)?.turnoverRate??n(row?.f8),_record:r};
-  }),{asOf:requestedAsOf}).map((s,i)=>({...s,rank:i+1,quote:s._record?.quote??{},psychology:s._record?.psychology??{},source:s._record?.source??{}}));
+  }),{asOf:requestedAsOf}).map((s,i)=>{const record=recordByCode.get(s.code);return {...s,rank:i+1,quote:record?.quote??{},psychology:record?.psychology??{},source:record?.source??{}};}));
   const deepGood=records.filter(r=>r.source.klineSource==='eastmoney'&&r.source.flowSource==='eastmoney').length;
   const barsGood=records.filter(r=>r.source.barCount>=25).length,psychGood=records.filter(r=>r.psychology.available).length;
   const quality={rankedSourceDegraded:ranked?.data?.degraded===true,rankedSourceStale:ranked?.data?.serverStale===true,rankedSourceMethod:ranked?.data?.method??null,
