@@ -155,84 +155,6 @@ function aggregateMetrics(perDate, rankingKey, topK) {
   return output;
 }
 
-export function auditTargetRanks(candidates, targets, signalDate) {
-  const validHistories = (Array.isArray(candidates) ? candidates : [])
-    .map(stock => ({ ...stock, bars: datedBars(stock) }))
-    .filter(stock => stock.bars.length >= 25);
-  const preCutoff = validHistories.map(stock => ({
-    ...stock,
-    asOf: signalDate,
-    bars: stock.bars.filter(bar => bar.date <= signalDate),
-    flows: (Array.isArray(stock.flows) ? stock.flows : [])
-      .filter(flow => /^\d{4}-\d{2}-\d{2}$/.test(String(flow?.date ?? '')) && flow.date <= signalDate)
-  })).filter(stock => stock.bars.length >= 25);
-  const withContext = addHistoricalIndustryContext(preCutoff);
-  const pointInTime = withContext.map(stock => {
-    const latest = stock.bars.at(-1);
-    return {
-      ...stock, asOf: signalDate,
-      isST: Boolean(stock.isST) || /ST|退/i.test(String(stock.name ?? '')),
-      amount: latest?.amount, turnoverRate: latest?.turnoverRate
-    };
-  });
-  const variants = [
-    ['currentComposite', 'v13-current'],
-    ['coreOnly', 'v13-core-only'],
-    ['earlyTurn', 'v13-early-turn']
-  ];
-  const rankedByVariant = new Map();
-  for (const [key, modelVariant] of variants) {
-    rankedByVariant.set(key, rankCandidates(pointInTime, { asOf: signalDate, modelVariant }));
-  }
-  const currentRanked = rankedByVariant.get('currentComposite') ?? [];
-  const emotionRepairRanked = [...currentRanked]
-    .filter(row => Number(row.components?.emotionRepair) >= 65)
-    .sort((a, b) => Number(b.components?.emotionRepair) - Number(a.components?.emotionRepair) || b.confidence - a.confidence);
-  const oversoldRanked = [...currentRanked]
-    .filter(row => Number(row.components?.oversoldReversal) >= 65)
-    .sort((a, b) => Number(b.components?.oversoldReversal) - Number(a.components?.oversoldReversal) || b.confidence - a.confidence);
-  const rankedLists = {
-    currentComposite: currentRanked,
-    coreOnly: rankedByVariant.get('coreOnly') ?? [],
-    earlyTurn: rankedByVariant.get('earlyTurn') ?? [],
-    emotionRepairWatch: emotionRepairRanked,
-    oversoldWatch: oversoldRanked
-  };
-  const ranks = {};
-  for (const [variant, ranked] of Object.entries(rankedLists)) {
-    const rankMap = new Map(ranked.map((row, index) => [String(row.code), { row, rank: index + 1 }]));
-    ranks[variant] = (Array.isArray(targets) ? targets : [])
-      .filter(target => !target.signalDate || target.signalDate === signalDate)
-      .map(target => {
-        const hit = rankMap.get(String(target.code));
-        return {
-          code: String(target.code), name: String(target.name ?? target.code),
-          knownOutcome: target.outcome ?? null,
-          rank: hit?.rank ?? null,
-          inTop10: Boolean(hit && hit.rank <= 10),
-          inTop30: Boolean(hit && hit.rank <= 30),
-          inTop50: Boolean(hit && hit.rank <= 50),
-          score: hit?.row.score ?? null,
-          scorePath: hit?.row.scorePath ?? null,
-          setup: hit?.row.setup ?? null,
-          components: hit?.row.components ?? null,
-          features: hit?.row.features ?? null,
-          riskFlags: hit?.row.riskFlags ?? [],
-          scored: Boolean(hit),
-          missingReason: hit ? null : 'not_scored_or_excluded'
-        };
-      });
-  }
-  return {
-    signalDate,
-    status: ['currentComposite', 'coreOnly', 'earlyTurn'].every(variant => (ranks[variant] ?? []).every(row => row.scored))
-      ? 'MEASURABLE' : 'NOT_MEASURABLE',
-    universeCount: pointInTime.length,
-    variants: ranks,
-    policy: 'Target outcomes are attached only after point-in-time ranks are computed; target labels never enter feature construction or score calculation.'
-  };
-}
-
 export function evaluateWalkForward(candidates, {
   signalDays = 15,
   sourceCoveragePct = null,
@@ -391,10 +313,6 @@ async function main(argv) {
   const report = evaluateWalkForward(candidates, {
     signalDays: args.signalDays, sourceCoveragePct, sourceQualityReasons
   });
-  const targetConfig = JSON.parse(await readFile(resolve('research/v13-limitup-precursor/target_symbols.json'), 'utf8'));
-  const targetDates = [...new Set((Array.isArray(targetConfig?.targets) ? targetConfig.targets : [])
-    .map(target => target.signalDate).filter(Boolean))];
-  report.targetAudit = targetDates.map(signalDate => auditTargetRanks(candidates, targetConfig.targets, signalDate));
   await mkdir(dirname(outputPath), { recursive: true });
   await writeFile(outputPath, JSON.stringify(report, null, 2));
   console.log(JSON.stringify({
