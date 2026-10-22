@@ -128,11 +128,13 @@ test('oversold stabilization is surfaced as a separate research lane without a r
   const candidate = makeCandidate({ code: '301102', name: '样本反转股', strong: false, pct: 1.2 });
   const closes = [12.0, 11.8, 11.55, 11.2, 10.85, 10.55, 10.3, 10.05, 10.17];
   const segmentStart = candidate.bars.length - closes.length;
-  const leadIn = candidate.bars[segmentStart - 1];
-  leadIn.close = 12.05;
-  leadIn.open = 12.05;
-  leadIn.high = 12.15;
-  leadIn.low = 11.95;
+  for (let j = segmentStart - 11; j < segmentStart; j++) {
+    const leadIn = candidate.bars[j];
+    leadIn.close = 12.1;
+    leadIn.open = 12.1;
+    leadIn.high = 12.2;
+    leadIn.low = 12.0;
+  }
   for (let i = 0; i < closes.length; i++) {
     const index = candidate.bars.length - closes.length + i;
     const bar = candidate.bars[index];
