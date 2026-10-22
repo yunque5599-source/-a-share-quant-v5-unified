@@ -22,7 +22,7 @@ jobs:
           node-version: 22
       - name: Find latest successful historical replay
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           RUN_ID=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow v13-limitup-historical-replay.yml --branch research/v13-limitup-precursor --limit 20 --json databaseId,conclusion,createdAt --jq '[.[] | select(.conclusion == "success")] | sort_by(.createdAt) | last | .databaseId')
           if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
@@ -33,7 +33,7 @@ jobs:
           echo "Using replay run $RUN_ID"
       - name: Download replay dataset artifact
         env:
-          GH_TOKEN: \${{ github.token }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           mkdir -p output/v13-history-replay
           gh run download "$REPLAY_RUN_ID" --repo "$GITHUB_REPOSITORY" --dir output/v13-history-replay
