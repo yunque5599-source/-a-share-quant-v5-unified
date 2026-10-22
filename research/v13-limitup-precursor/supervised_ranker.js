@@ -155,7 +155,7 @@ function datedBars(stock) {
     .filter(bar => /^\d{4}-\d{2}-\d{2}$/.test(String(bar?.date ?? '')) && Number(bar.close) > 0)
     .sort((a, b) => a.date.localeCompare(b.date));
 }
-function buildPointInTimeRows(rawCandidates, signalDate) {
+export function buildPointInTimeRows(rawCandidates, signalDate) {
   const preCutoff = rawCandidates.map(stock => ({
     ...stock,
     asOf: signalDate,
