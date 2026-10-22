@@ -1,7 +1,7 @@
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { rankCandidates } from './precursor_score.js';
+import { scoreCandidate, rankScoredCandidates } from './precursor_score.js';
 import { computeEarlyOpportunity } from '../v11-short-alpha/early_opportunity.js';
 import { addHistoricalIndustryContext, isTrueLimitUpOutcome } from './historical_replay.js';
 import { readNdjson } from './walk_forward_eval.js';
@@ -92,8 +92,11 @@ export function evaluateHoldoutAudit(candidates, {
     ['momentumHybrid', 'v13-momentum-hybrid'],
     ['rankEnsemble', 'v13-rank-ensemble']
   ];
+  const baseScored = enriched
+    .map(stock => scoreCandidate(stock, { asOf, modelVariant: 'v13-current' }))
+    .filter(Boolean);
   const rankedByVariant = Object.fromEntries(scoreVariants.map(([key, modelVariant]) => [
-    key, rankCandidates(enriched, { asOf, modelVariant })
+    key, rankScoredCandidates(baseScored, modelVariant)
   ]));
   rankedByVariant.momentumBaseline = [...rankedByVariant.current].sort((a, b) => {
     const ar = Number.isFinite(a.features?.r5Pct) ? a.features.r5Pct : -Infinity;
