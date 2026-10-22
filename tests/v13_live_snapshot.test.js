@@ -217,9 +217,12 @@ test('degraded ranked feed can be replaced by a full-universe live quote candida
   {code:'600003',name:'缺价格',industry:'其他',price:null,pct:4,amount:10000000,turnoverRate:2,mainNet:0,mainPct:0}
  ]);
  assert.equal(mapped.length,2);
- assert.equal(mapped[0].f100,'传媒');
- assert.equal(mapped[0].f3,2.5);
- assert.equal(mapped[0].f62,5000000);
+ const normal=mapped.find(row=>row.f12==='600001');
+ const highMomentum=mapped.find(row=>row.f12==='300001');
+ assert.equal(normal.f100,'传媒');
+ assert.equal(normal.f3,2.5);
+ assert.equal(normal.f62,5000000);
  assert.ok(mapped.every(row=>Number.isFinite(row.rankScore)));
- assert.ok(mapped[1].rankScore>mapped[0].rankScore);
+ assert.ok(highMomentum.rankScore>normal.rankScore);
+ assert.equal(mapped[0].f12,'300001');
 });
