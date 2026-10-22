@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRows, selectCandidateFunnel, normalizeDatedNews, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isPreLimitUpCandidate, interleaveCodes, flattenNewsPayload, buildStockNewsFallback } from '../research/v13-limitup-precursor/live_snapshot.js';
+import { parseRows, selectCandidateFunnel, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isPreLimitUpCandidate, interleaveCodes, flattenNewsPayload, buildStockNewsFallback } from '../research/v13-limitup-precursor/live_snapshot.js';
 
 test('parsers exclude future-dated rows and sort history',()=>{
  const bars=parseRows(['2026-10-21,10,10.5,10.6,9.9,200,2100000,0,0,0,4.2','2026-10-19,9,9.2,9.3,8.9,100,920000,0,0,0,2.1','2026-10-22,10.5,11,11.1,10.4,300,3300000,0,0,0,5.1'],'bar','2026-10-21T05:00:00Z');
@@ -36,7 +36,7 @@ test('balanced shortlist interleaves momentum and early-opportunity ranks withou
  assert.equal(new Set(result).size,result.length);
 });
 
-test('stock-news fallback only scores timestamp-verified headlines and flags its limited semantics',()=>{
+test('unclassified recent news is retained for audit but does not receive a positive catalyst score',()=>{
  const rows=flattenNewsPayload({result:{cmsArticleWebOld:{list:[
   {title:'Timed headline',date:'2026-10-22 05:00:00',mediaName:'Wire',url:'https://example.com/a'},
   {title:'Untimed headline',url:'https://example.com/b'}
@@ -44,8 +44,31 @@ test('stock-news fallback only scores timestamp-verified headlines and flags its
  assert.equal(rows.length,2);
  const out=buildStockNewsFallback('600001','样本股',rows,'2026-10-22T06:00:00Z');
  assert.equal(out.overlay.datedNewsCount,1);
- assert.ok(Number.isFinite(out.sector.catalystScore));
- assert.ok(out.overlay.warnings.some(x=>x.includes('no validated sentiment')));
+ assert.equal(out.sector.catalystScore,undefined);
+ assert.equal(out.overlay.headlineCatalystScore,null);
+ assert.ok(Number.isFinite(out.overlay.newsRecencyScore));
+ assert.ok(out.overlay.warnings.some(x=>x.includes('rule-based headline classification is experimental')));
+});
+
+test('timestamp-verified positive and negative headline events are classified separately',()=>{
+ const positive=classifyHeadlineCatalyst('公司AI赋能数字户外媒体业务发布并实现新业务落地');
+ const negative=classifyHeadlineCatalyst('公司被立案调查并收到行政处罚');
+ const neutral=classifyHeadlineCatalyst('公司召开年度普通股东大会');
+ assert.equal(positive.direction,'positive');
+ assert.ok(positive.score>=60);
+ assert.equal(negative.direction,'negative');
+ assert.ok(negative.score<=40);
+ assert.equal(neutral.direction,'unclassified');
+ assert.equal(neutral.score,null);
+ const out=buildStockNewsFallback('301102','兆讯传媒',[
+  {title:'公司AI赋能数字户外媒体业务发布并实现新业务落地',publishedAt:'2026-10-22T04:00:00Z'},
+  {title:'公司被立案调查并收到行政处罚',publishedAt:'2026-10-22T05:00:00Z'},
+  {title:'公司中标重大合同',publishedAt:'2026-10-22T07:00:00Z'}
+ ],'2026-10-22T06:00:00Z');
+ assert.equal(out.overlay.datedNewsCount,2);
+ assert.equal(out.overlay.positiveHeadlineCount,1);
+ assert.equal(out.overlay.negativeHeadlineCount,1);
+ assert.equal(out.overlay.catalystEvidence.some(x=>x.title.includes('中标重大合同')),false);
 });
 
 
