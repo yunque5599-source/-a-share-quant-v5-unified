@@ -204,10 +204,13 @@ export function evaluateWalkForward(candidates, {
       }
     }
     const universeCodes = modelCodes.filter(code => outcomeByCode.has(String(code)));
+    const t5OutcomeCount = modelCodes.filter(code => Number.isFinite(outcomeByCode.get(String(code))?.t5CloseReturnPct)).length;
+    const t5OutcomeCoveragePct = modelCodes.length ? Number((t5OutcomeCount / modelCodes.length * 100).toFixed(2)) : 0;
     const day = {
       signalDate,
       scoredUniverseCount: modelCodes.length,
-      outcomeCoverageCount: universeCodes.length,
+      outcomeCoverageCount: t5OutcomeCount,
+      t5OutcomeCoveragePct,
       modelTop10Codes: modelCodes.slice(0, 10),
       momentumTop10Codes: momentumCodes.slice(0, 10),
       modelTop30Codes: modelCodes.slice(0, 30),
@@ -227,6 +230,9 @@ export function evaluateWalkForward(candidates, {
   if (coveragePct === null) reasons.push('source-coverage-report-missing');
   else if (coveragePct < 90) reasons.push('historical-bar-coverage-below-90pct');
   if (eligibleDates.length < 3) reasons.push('fewer-than-three-complete-forward-evaluation-dates');
+  const outcomeCoverageValues = perDate.map(day => day.t5OutcomeCoveragePct).filter(Number.isFinite);
+  const minimumT5OutcomeCoveragePct = outcomeCoverageValues.length ? Math.min(...outcomeCoverageValues) : 0;
+  if (minimumT5OutcomeCoveragePct < 80) reasons.push('forward-outcome-coverage-below-80pct');
   const measurable = reasons.length === 0;
   const summary = {};
   for (const k of DEFAULT_TOP_KS) {
@@ -247,6 +253,7 @@ export function evaluateWalkForward(candidates, {
       noTargetTuning: 'The screenshot target labels are not loaded or used by this evaluator'
     },
     sourceCoveragePct: coveragePct,
+    minimumT5OutcomeCoveragePct,
     candidateCount: rows.length,
     historiesWithAtLeast25Bars: validHistories.length,
     availableSessionCount: sessionDates.length,
