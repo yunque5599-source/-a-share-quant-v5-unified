@@ -130,9 +130,12 @@ export function validateLiveSnapshot(s={}){
   if(!s.snapshotId)reasons.push('snapshot-id-missing');if(!s.capturedAt||!Number.isFinite(Date.parse(s.capturedAt)))reasons.push('captured-at-invalid');
   if(!s.asOf||!Number.isFinite(Date.parse(s.asOf)))reasons.push('asof-invalid');if(!Array.isArray(s.candidates)||s.candidates.length<50)reasons.push('candidate-count-insufficient');
   const q=s.quality??{};if(q.deepSuccessPct<90)reasons.push('deep-source-coverage-below-90-percent');
-  if(q.barHistoryCoveragePct<90)reasons.push('bar-history-coverage-below-90-percent');if(q.psychologyCoveragePct<70)reasons.push('psychology-coverage-below-70-percent');
+  if(q.barHistoryCoveragePct<90)reasons.push('bar-history-coverage-below-90-percent');
+  if(q.psychologyCoveragePct<70&&q.datedNewsCoveragePct<70)reasons.push('theme-psychology-and-dated-news-coverage-below-70-percent');
   if(q.rankedSourceDegraded||q.rankedSourceStale)reasons.push('ranked-source-degraded-or-stale');
-  return {valid:!reasons.length,status:reasons.length?'SOURCE_UNAVAILABLE':'CAPTURED',reasons};
+  const valid=!reasons.length;
+  const status=!valid?'SOURCE_UNAVAILABLE':q.psychologyCoveragePct>=70?'CAPTURED':'CAPTURED_WITH_NEWS_FALLBACK';
+  return {valid,status,reasons, ...(status==='CAPTURED_WITH_NEWS_FALLBACK'?{warnings:['theme psychology unavailable; only timestamp-verified stock-news recency proxy was available']}:{})};
 }
 export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=null}={}){
   const capturedAt=new Date().toISOString(),requestedAsOf=asOf||capturedAt;
