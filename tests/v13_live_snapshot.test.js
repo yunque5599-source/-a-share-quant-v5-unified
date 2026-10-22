@@ -23,6 +23,17 @@ test('psychology-derived catalyst score requires a timestamp-verified news item'
  assert.equal(buildPsychologySector([{...base,news:[{title:'No date'}]}],'2026-10-22T06:00:00Z').sector.catalystScore,undefined);
  assert.equal(buildPsychologySector([{...base,news:[{title:'Dated',publishedAt:'2026-10-22T04:00:00Z'}]}],'2026-10-22T06:00:00Z').sector.catalystScore,85);
 });
+test('snapshot quality gate rejects missing coverage metrics rather than treating them as zero-risk',()=>{
+ const base={schema:'v13-live-psychology-catalyst-snapshot-v1',snapshotId:'v13-missing-quality',
+  capturedAt:'2026-10-22T06:00:00Z',asOf:'2026-10-22T06:00:00Z',
+  candidates:Array.from({length:60},()=>({})),
+  quality:{barHistoryCoveragePct:95,psychologyCoveragePct:80,datedNewsCoveragePct:0}};
+ assert.equal(validateLiveSnapshot(base).valid,false);
+ assert.ok(validateLiveSnapshot(base).reasons.includes('deep-source-coverage-below-90-percent'));
+ const missingBars={...base,quality:{deepSuccessPct:95,psychologyCoveragePct:80,datedNewsCoveragePct:0}};
+ assert.equal(validateLiveSnapshot(missingBars).valid,false);
+ assert.ok(validateLiveSnapshot(missingBars).reasons.includes('bar-history-coverage-below-90-percent'));
+});
 test('snapshot quality gate fails closed on incomplete sources',()=>{
  const s={schema:'v13-live-psychology-catalyst-snapshot-v1',snapshotId:'v13-1',capturedAt:'2026-10-22T06:00:00Z',asOf:'2026-10-22T06:00:00Z',candidates:Array.from({length:60},()=>({})),quality:{deepSuccessPct:95,barHistoryCoveragePct:95,psychologyCoveragePct:75}};
  assert.equal(validateLiveSnapshot(s).valid,true);assert.equal(validateLiveSnapshot({...s,quality:{...s.quality,psychologyCoveragePct:20}}).valid,false);
