@@ -1,4 +1,6 @@
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
+import { createWriteStream } from 'node:fs';
+import { once } from 'node:events';
 import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { boardForCode, rankCandidates } from './precursor_score.js';
@@ -26,7 +28,7 @@ const USER_AGENT = 'Mozilla/5.0 AShareQuant/V13-historical-replay';
 const TARGETS_PATH = resolve('research/v13-limitup-precursor/target_symbols.json');
 
 function parseArgs(argv) {
-  const out = { asOf: process.env.AS_OF || '2026-10-20', outDir: 'output/v13-history-replay', concurrency: 14 };
+  const out = { asOf: process.env.AS_OF || '2026-10-20', outDir: 'output/v13-history-replay', concurrency: 6 };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--as-of' && argv[i + 1]) out.asOf = argv[++i];
     else if (argv[i] === '--out-dir' && argv[i + 1]) out.outDir = argv[++i];
@@ -121,6 +123,21 @@ export async function mapLimit(items, limit, worker, onProgress = null) {
   }
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, runWorker));
   return output;
+}
+
+export async function writeNdjson(filePath, rows) {
+  const stream = createWriteStream(filePath, { encoding: 'utf8' });
+  const finished = once(stream, 'finish');
+  try {
+    for (const row of rows) {
+      if (!stream.write(JSON.stringify(row) + '\n')) await once(stream, 'drain');
+    }
+    stream.end();
+    await finished;
+  } catch (error) {
+    stream.destroy();
+    throw error;
+  }
 }
 
 async function fetchUniversePage(page, pageSize, segmentFs, segmentKey = 'unknown') {
@@ -437,7 +454,7 @@ export function assessReplayQuality({ universeCount = 0, barSuccessCount = 0, ta
   };
 }
 
-export async function runHistoricalReplay({ asOf, outDir = 'output/v13-history-replay', concurrency = 14 } = {}) {
+export async function runHistoricalReplay({ asOf, outDir = 'output/v13-history-replay', concurrency = 6 } = {}) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(asOf ?? ''))) throw new Error('runHistoricalReplay requires asOf YYYY-MM-DD');
   const startedAt = new Date().toISOString();
   const targetsFile = JSON.parse(await readFile(TARGETS_PATH, 'utf8'));
@@ -552,7 +569,7 @@ export async function runHistoricalReplay({ asOf, outDir = 'output/v13-history-r
   const outPath = resolve(outDir);
   await mkdir(outPath, { recursive: true });
   await writeFile(resolve(outPath, 'replay_report.json'), JSON.stringify(report, null, 2));
-  await writeFile(resolve(outPath, 'replay_candidates.json'), JSON.stringify(candidates));
+  await writeNdjson(resolve(outPath, 'replay_candidates.ndjson'), candidates);
   await writeFile(resolve(outPath, 'replay_ranked.json'), JSON.stringify(rankedWithPosition));
   await writeFile(resolve(outPath, 'collector_diagnostics.json'), JSON.stringify({
     asOf, startedAt, completedAt: new Date().toISOString(),
@@ -598,7 +615,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1]
       },
       completedAt: new Date().toISOString()
     };
-    await writeFile(resolve(outPath, 'replay_report.json'), JSON.stringify(diagnostic, null, 2));
+    let reportExists = false;
+    try { await readFile(resolve(outPath, 'replay_report.json'), 'utf8'); reportExists = true; } catch {}
+    if (!reportExists) await writeFile(resolve(outPath, 'replay_report.json'), JSON.stringify(diagnostic, null, 2));
+    await writeFile(resolve(outPath, 'run_failure.json'), JSON.stringify(diagnostic, null, 2));
     await writeFile(resolve(outPath, 'collector_diagnostics.json'), JSON.stringify(diagnostic, null, 2));
     console.error('[replay] NOT_MEASURABLE: ' + String(error?.stack ?? error));
     process.exitCode = 1;
