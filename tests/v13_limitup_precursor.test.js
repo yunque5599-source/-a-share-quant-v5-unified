@@ -213,3 +213,19 @@ test('cross-sectional rank ensemble preserves relative momentum while using setu
   assert.ok(ranked[0].score > ranked[1].score);
   assert.ok(ranked[0].score <= 100 && ranked[0].score >= 0);
 });
+
+
+test('scorer returns the same point-in-time score for sorted and unsorted histories', () => {
+  const ordered = makeCandidate({ code: '600009', name: '排序样本', strong: true, pct: 2.5 });
+  const cutoff = ordered.bars.at(-1).date;
+  const unsorted = {
+    ...ordered,
+    bars: [...ordered.bars].reverse(),
+    flows: [...ordered.flows].reverse()
+  };
+  const a = scoreCandidate(ordered, { asOf: cutoff });
+  const b = scoreCandidate(unsorted, { asOf: cutoff });
+  assert.ok(a && b);
+  assert.equal(a.score, b.score);
+  assert.deepEqual(a.components, b.components);
+});
