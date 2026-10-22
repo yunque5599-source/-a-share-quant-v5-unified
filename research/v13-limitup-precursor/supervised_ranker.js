@@ -24,7 +24,7 @@ function parseArgs(argv) {
     qualityReport: 'output/v13-history-replay/replay_report.json',
     targets: 'research/v13-limitup-precursor/target_symbols.json',
     output: 'output/v13-history-replay/supervised_report.json',
-    signalDays: 25
+    signalDays: 60
   };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--input' && argv[i + 1]) out.input = argv[++i];
@@ -273,11 +273,24 @@ function summarizeImportance(model) {
   })).sort((a, b) => Math.abs(b.standardizedCoefficient) - Math.abs(a.standardizedCoefficient));
 }
 
+export function splitSignalDates(eligibleDates) {
+  const dates = Array.isArray(eligibleDates) ? eligibleDates : [];
+  const purgeWindow = 5;
+  const testWindow = dates.length >= 45 ? 15 : 5;
+  const trainCount = Math.max(0, dates.length - purgeWindow - testWindow);
+  return {
+    trainDates: dates.slice(0, trainCount),
+    purgeDates: dates.slice(trainCount, trainCount + purgeWindow),
+    testDates: dates.slice(trainCount + purgeWindow),
+    purgeWindow, testWindow
+  };
+}
+
 export function evaluateSupervisedRanker(rawCandidates, {
   sourceCoveragePct = null,
   targets = [],
   asOf = null,
-  signalDays = 25
+  signalDays = 60
 } = {}) {
   const rows = Array.isArray(rawCandidates) ? rawCandidates : [];
   const rawByCode = new Map(rows.map(stock => [String(stock.code), { ...stock, bars: datedBars(stock) }]));
@@ -291,9 +304,7 @@ export function evaluateSupervisedRanker(rawCandidates, {
       availableSignalDates: eligibleDates.length, sourceCoveragePct
     };
   }
-  const trainDates = eligibleDates.slice(0, -10);
-  const purgeDates = eligibleDates.slice(-10, -5);
-  const testDates = eligibleDates.slice(-5);
+  const { trainDates, purgeDates, testDates, purgeWindow, testWindow } = splitSignalDates(eligibleDates);
   const samplesByDate = new Map();
   const featureRowsByDate = new Map();
   const dataDiagnostics = [];
@@ -383,8 +394,8 @@ export function evaluateSupervisedRanker(rawCandidates, {
     objective: 'Predict a limit-up event within the next five trading sessions using point-in-time features',
     label: 'limitUpWithin5; labels are generated only from bars strictly after each signal date',
     split: {
-      eligibleDates, trainDates, purgeDates, testDates,
-      leakageGuard: 'Last five training label horizons end no later than the purge block; test dates are strictly later than training labels'
+      eligibleDates, trainDates, purgeDates, testDates, purgeWindow, testWindow,
+      leakageGuard: 'Each training label horizon ends within the purge block or earlier; all test dates begin after the purge block and after every training label horizon'
     },
     sourceCoveragePct: coverage,
     candidateCount: rows.length,
