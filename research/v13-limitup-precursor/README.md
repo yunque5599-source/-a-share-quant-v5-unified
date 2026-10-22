@@ -98,7 +98,7 @@ The held-out screenshot audit was run after ranking, with target labels excluded
 | 兆讯传媒 (301102) | 895 | 4,924 | 2,818 | Oversold watch rank 389 |
 | 致尚科技 (301486) | 485 | 4,090 | 4,008 | Oversold watch rank 1,163; this was not a closed limit-up |
 
-None of the three true limit-up targets reached the top 30 in the current composite, core-only, early-turn, momentum-hybrid, or raw five-session-momentum global rankings. In the momentum-hybrid variant, the target ranks were 625 (三维天地), 286 (莱美药业), 5,049 (兆讯传媒), and 4,394 (致尚科技). The raw five-session-momentum ranks were 1,173, 44, 4,333, and 5,392 respectively; it at least surfaced 莱美药业 within the top 50, but missed the other three. The emotion-repair lane surfaced 莱美药业 at rank 1, but its global rank was poor; the oversold lane still produced too many weak candidates. This is a model miss, not a successful prediction.
+None of the three true limit-up targets reached the top 30 in the current composite, core-only, early-turn, momentum-hybrid, raw five-session-momentum, or V12 Early Opportunity global rankings. The momentum-hybrid ranks were 625 (三维天地), 286 (莱美药业), 5,049 (兆讯传媒), and 4,394 (致尚科技). The raw five-session-momentum ranks were 1,173, 44, 4,333, and 5,392; it surfaced 莱美药业 within the top 50 but missed the other three. V12 Early Opportunity ranks were 2,570, 5,249, 2,969, and 4,076 respectively. The emotion-repair lane surfaced 莱美药业 at rank 1, but its global rank was poor; the oversold lane still produced too many weak candidates. This is a model miss, not a successful prediction.
 
 A 15-signal-date walk-forward comparison also found that the heuristic rankings underperformed the raw five-session-momentum baseline on the tested window:
 
@@ -107,13 +107,17 @@ A 15-signal-date walk-forward comparison also found that the heuristic rankings 
 | Current composite, top 10 | -2.93% | 31.22% | 2.74% |
 | Core-only, top 10 | -2.48% | 34.67% | 5.33% |
 | Early-turn, top 10 | -3.30% | 32.07% | 9.33% |
+| Momentum-hybrid, top 10 | -3.31% | 33.33% | 14.00% |
+| V12 Early Opportunity, top 10 | +0.04% | 40.26% | 4.98% |
 | Five-session momentum baseline, top 10 | +1.55% | 42.23% | 32.33% |
 | Current composite, top 30 | -2.36% | 33.11% | 4.58% |
+| Momentum-hybrid, top 30 | -4.48% | 29.76% | 11.68% |
+| V12 Early Opportunity, top 30 | -0.20% | 38.78% | 3.03% |
 | Five-session momentum baseline, top 30 | -2.09% | 37.31% | 22.41% |
 
 The separate emotion-repair watchlist had higher limit-up hit precision (38.67% for its top 10 within five sessions), but a -2.40% mean T+5 close return and -10.42% mean maximum adverse excursion. It should remain a high-risk observation lane, not be promoted to an unconditional buy list.
 
-**Decision: do not merge this heuristic into the production one-click selector yet.** The results show that technical price/volume/flow features alone do not distinguish the four target setups reliably. The next research iteration should compare a supervised, point-in-time limit-up/forward-return ranker against the momentum baseline and add genuinely time-stamped catalyst/theme/news features. In particular, 兆讯传媒's and 致尚科技's weak pre-event momentum and flow show why simply raising the oversold weight would overfit and create falling-knife false positives. Keep the screenshot names as a holdout set; do not train or tune directly on their outcomes.
+**Decision: do not merge any new ranking into the production one-click selector yet.** V12 Early Opportunity had a near-flat T+5 return with lower adverse excursion (about -2.5%), so it may serve as a more defensive low-base watchlist; however, its limit-up hit precision was only 4.98% for top 10. The raw five-session-momentum baseline remains materially better at identifying near-term limit-up events in this 15-date sample, while its drawdowns are larger. None of the tested price/volume/flow variants reliably identified all four holdout targets. The next research iteration should test a supervised, point-in-time limit-up/forward-return ranker and add genuinely time-stamped catalyst/theme/news features. In particular, 兆讯传媒's and 致尚科技's weak pre-event momentum and flow show why simply raising the oversold weight would overfit and create falling-knife false positives. Keep the screenshot names as a holdout set; do not train or tune directly on their outcomes.
 
 ## Validation gate before integration
 
