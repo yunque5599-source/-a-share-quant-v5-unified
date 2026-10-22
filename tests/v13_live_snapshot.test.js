@@ -37,7 +37,7 @@ test('snapshot quality gate rejects missing coverage metrics rather than treatin
  assert.ok(validateLiveSnapshot(missingBars).reasons.includes('bar-history-coverage-below-90-percent'));
 });
 test('snapshot quality gate fails closed on incomplete sources',()=>{
- const s={schema:'v13-live-psychology-catalyst-snapshot-v1',snapshotId:'v13-1',capturedAt:'2026-10-22T06:00:00Z',asOf:'2026-10-22T06:00:00Z',candidates:Array.from({length:60},()=>({})),quality:{deepSuccessPct:95,barHistoryCoveragePct:95,psychologyCoveragePct:75}};
+ const s={schema:'v13-live-psychology-catalyst-snapshot-v1',snapshotId:'v13-1',capturedAt:'2026-10-22T06:00:00Z',asOf:'2026-10-22T06:00:00Z',candidates:Array.from({length:60},()=>({})),quality:{deepSuccessPct:95,barHistoryCoveragePct:95,flowSignalCoveragePct:95,psychologyCoveragePct:75}};
  assert.equal(validateLiveSnapshot(s).valid,true);assert.equal(validateLiveSnapshot({...s,quality:{...s.quality,psychologyCoveragePct:20}}).valid,false);
  const fallback=validateLiveSnapshot({...s,quality:{...s.quality,psychologyCoveragePct:0,datedNewsCoveragePct:82}});
  assert.equal(fallback.valid,true);assert.equal(fallback.status,'CAPTURED_WITH_NEWS_FALLBACK');
