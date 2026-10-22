@@ -140,7 +140,7 @@ async function fetchUniversePage(page, pageSize) {
   throw new Error('market page ' + page + ' failed after retries: ' + String(lastError?.message ?? lastError));
 }
 
-export async function fetchUniverse({ concurrency = 4, pageSize = 200 } = {}) {
+export async function fetchUniverse({ concurrency = 4, pageSize = 100 } = {}) {
   const first = await fetchUniversePage(1, pageSize);
   const total = first.total;
   if (total < 3000) throw new Error('market universe returned fewer than 3000 rows; refusing a misleading partial-universe replay (' + total + ')');
@@ -151,6 +151,7 @@ export async function fetchUniverse({ concurrency = 4, pageSize = 200 } = {}) {
   const failedPages = pageResults.filter(result => result?.error);
   if (failedPages.length) throw new Error('universe page collection incomplete: ' + failedPages.length + '/' + restPages.length + ' pages failed');
   const allRows = [...first.rows, ...pageResults.flatMap(result => result?.rows ?? [])];
+  if (allRows.length < total * 0.9) throw new Error('provider page-size/coverage mismatch: received ' + allRows.length + ' rows for reported total ' + total);
   const seen = new Map();
   for (const row of allRows) {
     const code = String(row?.f12 ?? '');
@@ -374,7 +375,7 @@ export async function runHistoricalReplay({ asOf, outDir = 'output/v13-history-r
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(asOf ?? ''))) throw new Error('runHistoricalReplay requires asOf YYYY-MM-DD');
   const startedAt = new Date().toISOString();
   console.log('[replay] collecting current symbol list; historical bars will be cutoff at ' + asOf);
-  const universe = await fetchUniverse({ concurrency: Math.min(4, concurrency), pageSize: 200 });
+  const universe = await fetchUniverse({ concurrency: Math.min(4, concurrency), pageSize: 100 });
   console.log('[replay] universe rows=' + universe.rows.length + ', providerTotal=' + universe.providerTotal);
 
   const barFailures = [];
