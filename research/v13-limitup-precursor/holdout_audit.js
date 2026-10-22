@@ -2,6 +2,7 @@ import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import { resolve, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { rankCandidates } from './precursor_score.js';
+import { computeEarlyOpportunity } from '../v11-short-alpha/early_opportunity.js';
 import { addHistoricalIndustryContext, isTrueLimitUpOutcome } from './historical_replay.js';
 import { readNdjson } from './walk_forward_eval.js';
 
@@ -98,8 +99,31 @@ export function evaluateHoldoutAudit(candidates, {
     const br = Number.isFinite(b.features?.r5Pct) ? b.features.r5Pct : -Infinity;
     return br - ar || b.confidence - a.confidence;
   });
-  const reportVariants = [...scoreVariants.map(([key]) => key), 'momentumBaseline'];
   const current = rankedByVariant.current;
+  const currentByCode = new Map(current.map(row => [String(row.code), row]));
+  rankedByVariant.v12EarlyOpportunity = enriched.map(stock => {
+    const base = currentByCode.get(String(stock.code));
+    if (!base) return null;
+    const opportunity = computeEarlyOpportunity({
+      bars: stock.bars,
+      asOf,
+      features: {
+        sector: { score: base.components?.sector },
+        capital: { score: base.components?.flow }
+      }
+    });
+    if (!Number.isFinite(Number(opportunity.score))) return null;
+    return {
+      ...base,
+      score: Number(opportunity.score),
+      scorePath: 'v12-early-opportunity',
+      setup: opportunity.stage,
+      components: { ...base.components, v12EarlyOpportunity: Number(opportunity.score) },
+      features: { ...base.features, earlyOpportunity: opportunity },
+      confidence: Number((opportunity.confidence * 100).toFixed(1))
+    };
+  }).filter(Boolean).sort((a, b) => b.score - a.score || b.confidence - a.confidence);
+  const reportVariants = [...scoreVariants.map(([key]) => key), 'momentumBaseline', 'v12EarlyOpportunity'];
   const emotionRepair = laneRanks(current, 'emotionRepair', 65);
   const oversold = laneRanks(current, 'oversoldReversal', 65);
   const earlyTurn = laneRanks(current, 'earlyTurn', 0);
