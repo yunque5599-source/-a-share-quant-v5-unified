@@ -111,7 +111,7 @@ jobs:
           node research/v13-limitup-precursor/walk_forward_eval.js \
             --input output/v13-history-replay/replay_candidates.ndjson \
             --quality-report output/v13-history-replay/replay_report.json \
-            --signal-days 15 \
+            --signal-days 60 \
             --output output/v13-history-replay/walk_forward_report.json
       - name: Audit screenshot holdout after ranking
         run: |
@@ -126,7 +126,7 @@ jobs:
             --input output/v13-history-replay/replay_candidates.ndjson \
             --quality-report output/v13-history-replay/replay_report.json \
             --targets research/v13-limitup-precursor/target_symbols.json \
-            --signal-days 25 \
+            --signal-days 60 \
             --output output/v13-history-replay/supervised_report.json
       - name: Upload walk-forward, holdout and supervised reports
         if: always()
