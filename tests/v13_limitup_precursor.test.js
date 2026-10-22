@@ -44,6 +44,7 @@ test('board classification keeps ChiNext names in research universe but separate
   assert.equal(boardForCode('301159'), 'CHINEXT');
   assert.equal(boardForCode('300006'), 'CHINEXT');
   assert.equal(boardForCode('600707'), 'SH_MAIN');
+  assert.equal(boardForCode('920025'), 'BSE');
   const result = scoreCandidate(makeCandidate({ code: '301159', name: '三维天地' }));
   assert.ok(result);
   assert.equal(result.discoveryEligible, true);
