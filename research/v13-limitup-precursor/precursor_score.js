@@ -44,6 +44,12 @@ function boardForCode(code) {
   if (/^00|^001|^002|^003/.test(c)) return 'SZ_MAIN';
   return 'UNKNOWN';
 }
+function limitThresholdPct(code) {
+  const board = boardForCode(code);
+  if (board === 'CHINEXT' || board === 'STAR') return 19.0;
+  if (board === 'BSE') return 28.5;
+  return 9.3;
+}
 function cleanDatedRows(rows, asOf, kind) {
   const cutoff = asOf ? String(asOf).slice(0, 10) : '';
   const seen = new Map();
@@ -129,6 +135,15 @@ function deriveFeatures(candidate, options = {}) {
   const amount = num(latest.amount, num(candidate.amount));
   const turnoverRate = num(latest.turnoverRate, num(candidate.turnoverRate));
   const currentPct = previous?.close > 0 ? (close / previous.close - 1) * 100 : NaN;
+  const priorBars = bars.slice(0, -1);
+  const priorReturns = priorBars.slice(1).map((bar, i) => {
+    const prior = priorBars[i]?.close;
+    return prior > 0 ? (bar.close / prior - 1) * 100 : NaN;
+  });
+  const limitThreshold = limitThresholdPct(candidate.code);
+  const recentLimitUp5Count = priorReturns.slice(-5).filter(value => value >= limitThreshold).length;
+  const recentLimitUp10Count = priorReturns.slice(-10).filter(value => value >= limitThreshold).length;
+  const recentStrongUp10Count = priorReturns.slice(-10).filter(value => value >= limitThreshold * 0.75).length;
 
   return {
     bars, flows, asOf: latest.date || asOf || null, price: close, currentPct,
@@ -142,6 +157,7 @@ function deriveFeatures(candidate, options = {}) {
     volumeExpansion, priorVolumeCompression, closeLocation: clamp(closeLocation, 0, 1),
     gapPct, atrProxyPct, amount, turnoverRate, mainNet5, mainNet3, previousMainNet3,
     flowPositiveShare, mainFlowRatioPct, mainPctLatest, flowCount: flows.length,
+    recentLimitUp5Count, recentLimitUp10Count, recentStrongUp10Count,
     sectorFieldsPresent, sector
   };
 }
@@ -197,6 +213,25 @@ function baseScore(f) {
   const nearBreakout = bandScore(f.distHigh20Pct, -9, 2, -28, 16);
   return clamp(0.55 * lowProximity + 0.45 * nearBreakout);
 }
+function emotionRepairScore(f) {
+  // Separate high-risk observation lane: recent limit-up history followed by a
+  // sharp, high-attention selloff or an early recovery. This is not a buy signal.
+  const priorLimit = ramp(f.recentLimitUp10Count, 0, 2);
+  const priorStrength = ramp(f.recentStrongUp10Count, 0, 3);
+  const flush = f.currentPct <= -12 ? 100
+    : f.currentPct <= -7 ? 85
+    : f.currentPct <= -3 ? 65
+    : f.currentPct < 0 ? 45 : 25;
+  const volume = bandScore(f.volumeExpansion, 1.2, 3.0, 0.5, 5.5);
+  const sector = sectorScore(f);
+  const recovery = f.currentPct > 0 && f.r3Pct > 0 && f.closeLocation > 0.55 ? 80 : 35;
+  let score = 0.27 * priorLimit + 0.18 * priorStrength + 0.22 * flush
+    + 0.13 * volume + 0.10 * sector + 0.10 * recovery;
+  if (f.recentLimitUp10Count === 0) score = Math.min(score, 55);
+  if (f.recentLimitUp10Count > 0 && f.currentPct <= -7 && f.volumeExpansion >= 1.0) score = Math.max(score, 75);
+  if (f.recentLimitUp10Count > 0 && f.currentPct > 0 && f.r3Pct > 0 && f.closeLocation > 0.55) score = Math.max(score, 68);
+  return clamp(score);
+}
 function computeRisk(f, candidate) {
   const flags = [];
   let penalty = 0;
@@ -248,7 +283,8 @@ function computeRisk(f, candidate) {
   }
   return { penalty: clamp(penalty, 0, 30), flags, excluded: false, reason: null };
 }
-function classifySetup(f) {
+function classifySetup(f, repairScore, coreScore) {
+  if (repairScore >= 65 && repairScore > coreScore) return '情绪反核观察';
   if (f.distHigh20Pct >= 0 && f.volumeExpansion >= 1.2) return '放量突破';
   if (f.price > f.ma5 && f.ma5 > f.prevMa5 && f.r3Pct > 0 && f.distLow20Pct <= 28 && f.currentPct <= 7.5) return '底部转强';
   if (f.priorVolumeCompression < 0.8 && f.distHigh20Pct >= -10) return '平台蓄势';
@@ -267,9 +303,12 @@ function scoreCandidate(candidate, options = {}) {
   const sector = sectorScore(f);
   const momentum = momentumScore(f);
   const base = baseScore(f);
+  const repair = emotionRepairScore(f);
   const risk = computeRisk(f, candidate);
-  const grossScore = 0.22 * trend + 0.20 * volumePrice + 0.20 * flow + 0.18 * sector + 0.12 * momentum + 0.08 * base;
+  const coreGrossScore = 0.22 * trend + 0.20 * volumePrice + 0.20 * flow + 0.18 * sector + 0.12 * momentum + 0.08 * base;
+  const grossScore = Math.max(coreGrossScore, repair);
   const score = clamp(grossScore - risk.penalty);
+  const scorePath = repair > coreGrossScore ? 'emotion-repair' : 'trend-transition';
   const confidence = clamp(30
     + (f.bars.length >= 60 ? 20 : f.bars.length >= 40 ? 12 : 5)
     + (f.flowCount >= 5 ? 20 : f.flowCount >= 3 ? 12 : 0)
@@ -288,18 +327,23 @@ function scoreCandidate(candidate, options = {}) {
     board, asOf: f.asOf, price: Number(f.price.toFixed(4)), currentPct: Number(f.currentPct.toFixed(2)),
     score: Number(score.toFixed(1)), grossScore: Number(grossScore.toFixed(1)),
     riskPenalty: Number(risk.penalty.toFixed(1)), confidence: Number(confidence.toFixed(1)),
-    setup: classifySetup(f), horizonTradingDays: [1, 5], discoveryEligible, executionEligible,
+    setup: classifySetup(f, repair, coreGrossScore), scorePath,
+    horizonTradingDays: [1, 5], discoveryEligible, executionEligible,
     tradeabilityReason,
     components: {
       trend: Number(trend.toFixed(1)), volumePrice: Number(volumePrice.toFixed(1)),
       flow: Number(flow.toFixed(1)), sector: Number(sector.toFixed(1)),
-      momentum: Number(momentum.toFixed(1)), base: Number(base.toFixed(1))
+      momentum: Number(momentum.toFixed(1)), base: Number(base.toFixed(1)),
+      coreComposite: Number(coreGrossScore.toFixed(1)), emotionRepair: Number(repair.toFixed(1))
     },
     riskFlags,
     features: {
       r3Pct: Number(f.r3Pct.toFixed(2)), r5Pct: Number(f.r5Pct.toFixed(2)),
       r10Pct: Number(f.r10Pct.toFixed(2)), distHigh20Pct: Number(f.distHigh20Pct.toFixed(2)),
       distLow20Pct: Number(f.distLow20Pct.toFixed(2)),
+      recentLimitUp5Count: f.recentLimitUp5Count,
+      recentLimitUp10Count: f.recentLimitUp10Count,
+      recentStrongUp10Count: f.recentStrongUp10Count,
       volumeExpansion: Number.isFinite(f.volumeExpansion) ? Number(f.volumeExpansion.toFixed(2)) : null,
       priorVolumeCompression: Number.isFinite(f.priorVolumeCompression) ? Number(f.priorVolumeCompression.toFixed(2)) : null,
       mainNet5: Number(f.mainNet5.toFixed(0)),
@@ -318,5 +362,5 @@ function rankCandidates(candidates, options = {}) {
 
 export {
   boardForCode, deriveFeatures, scoreCandidate, rankCandidates,
-  trendScore, volumePriceScore, flowScore, sectorScore, momentumScore, baseScore
+  trendScore, volumePriceScore, flowScore, sectorScore, momentumScore, baseScore, emotionRepairScore
 };
