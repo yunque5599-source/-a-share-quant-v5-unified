@@ -58,7 +58,7 @@ const POSITIVE_HEADLINE_RULES=[
   {category:'approval_or_registration',weight:26,pattern:/获批|批准上市|注册获批|取得.*批件|临床试验获批|纳入.*医保目录|通过.*认证/},
   {category:'capital_return',weight:20,pattern:/股份回购|股票回购|股东增持|高管增持|股权激励/},
   {category:'strategic_deal',weight:22,pattern:/战略合作|签署.*协议|合作协议|并购|收购.*股权|资产重组|控制权变更/},
-  {category:'product_or_capacity',weight:18,pattern:/新品发布|新产品发布|产品上线|正式上线|实现量产|投产|产能释放|技术突破|产品落地|AI赋能|业务落地/},
+  {category:'product_or_capacity',weight:18,pattern:/新品发布|新产品发布|产品上线|正式上线|推出|实现量产|投产|产能释放|技术突破|产品落地|AI赋能|业务落地|(?:AI|人工智能|智能化|数字化).{0,8}(?:发布|上线|落地|转型|升级)|发布.{0,8}(?:平台|产品|系统|服务)|新业务.{0,8}(?:落地|增长|上线)/},
   {category:'policy_or_industry',weight:17,pattern:/政策支持|专项资金|政府补贴|纳入试点|入选试点|行业标准|产业扶持|重大项目获批/}
 ];
 const NEGATIVE_HEADLINE_RULES=[
