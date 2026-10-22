@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  trainLogisticRegression, predictProbability, extractFeatureVector, buildPointInTimeRows
+  trainLogisticRegression, predictProbability, extractFeatureVector, buildPointInTimeRows, splitSignalDates
 } from '../research/v13-limitup-precursor/supervised_ranker.js';
 
 function makeHistory(code, name, slope, industry) {
@@ -65,4 +65,19 @@ test('supervised feature builder ignores bars and flows after the signal cutoff'
   const b = second.find(row => row.code === '300006');
   assert.ok(a && b);
   assert.deepEqual(extractFeatureVector(a), extractFeatureVector(b));
+});
+
+
+test('supervised chronological split reserves a five-session purge and a larger test window', () => {
+  const short = splitSignalDates(Array.from({ length: 25 }, (_, i) => 'short-' + i));
+  assert.equal(short.trainDates.length, 15);
+  assert.equal(short.purgeDates.length, 5);
+  assert.equal(short.testDates.length, 5);
+  const long = splitSignalDates(Array.from({ length: 60 }, (_, i) => 'long-' + i));
+  assert.equal(long.trainDates.length, 40);
+  assert.equal(long.purgeDates.length, 5);
+  assert.equal(long.testDates.length, 15);
+  assert.equal(long.trainDates.at(-1), 'long-39');
+  assert.equal(long.purgeDates[0], 'long-40');
+  assert.equal(long.testDates[0], 'long-45');
 });
