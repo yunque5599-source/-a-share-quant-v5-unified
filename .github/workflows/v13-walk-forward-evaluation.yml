@@ -61,8 +61,20 @@ jobs:
           } catch {}
           const coverage = Number(report?.coverage?.barCoveragePct);
           const status = report?.validation?.status;
-          const qualified = status === 'MEASURABLE' && Number.isFinite(coverage) && coverage >= 90;
-          console.log(JSON.stringify({ status: status ?? null, coverage: Number.isFinite(coverage) ? coverage : null, qualified }));
+          const targetCount = Number(report?.validation?.targetCount);
+          const targetScoredCount = Number(report?.validation?.targetScoredCount);
+          const missingTargets = Array.isArray(report?.validation?.missingTargetCodes)
+            ? report.validation.missingTargetCodes.length : 0;
+          const targetsComplete = Number.isFinite(targetCount) && targetCount > 0
+            && targetScoredCount === targetCount && missingTargets === 0;
+          const qualified = status === 'MEASURABLE' && Number.isFinite(coverage)
+            && coverage >= 90 && targetsComplete;
+          console.log(JSON.stringify({
+            status: status ?? null, coverage: Number.isFinite(coverage) ? coverage : null,
+            targetCount: Number.isFinite(targetCount) ? targetCount : null,
+            targetScoredCount: Number.isFinite(targetScoredCount) ? targetScoredCount : null,
+            missingTargets, targetsComplete, qualified
+          }));
           if (!qualified) {
             appendFileSync(process.env.GITHUB_OUTPUT, 'fallback=true\n');
             rmSync('output/v13-history-replay', { recursive: true, force: true });
