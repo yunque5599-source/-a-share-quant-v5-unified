@@ -73,7 +73,7 @@ A replay is `MEASURABLE` only when at least 90% of the collected current univers
 
 ### Walk-forward evaluation
 
-After a replay run has produced `replay_candidates.ndjson` and `replay_report.json`, run the offline evaluator:
+The historical replay workflow now runs the offline evaluator automatically after collection succeeds. To rerun the analysis manually on an existing artifact, use:
 
     node research/v13-limitup-precursor/walk_forward_eval.js \
       --input output/v13-history-replay/replay_candidates.ndjson \
