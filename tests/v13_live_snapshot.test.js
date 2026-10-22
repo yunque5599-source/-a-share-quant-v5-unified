@@ -52,9 +52,12 @@ test('unclassified recent news is retained for audit but does not receive a posi
 
 test('timestamp-verified positive and negative headline events are classified separately',()=>{
  const positive=classifyHeadlineCatalyst('公司AI赋能数字户外媒体业务发布并实现新业务落地');
+ const realWorldStyle=classifyHeadlineCatalyst('兆讯传媒“跃然AI”发布 推进户外大屏内容服务AI化转型');
  const negative=classifyHeadlineCatalyst('公司被立案调查并收到行政处罚');
  const neutral=classifyHeadlineCatalyst('公司召开年度普通股东大会');
  assert.equal(positive.direction,'positive');
+ assert.equal(realWorldStyle.direction,'positive');
+ assert.ok(realWorldStyle.positiveCategories.includes('product_or_capacity'));
  assert.ok(positive.score>=60);
  assert.equal(negative.direction,'negative');
  assert.ok(negative.score<=40);
