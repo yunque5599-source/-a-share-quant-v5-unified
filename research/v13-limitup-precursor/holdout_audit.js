@@ -31,6 +31,29 @@ function laneRanks(rows, field, minimum = 0) {
     .sort((a, b) => Number(b.components?.[field]) - Number(a.components?.[field]) || b.confidence - a.confidence)
     .map(row => row.code);
 }
+function interleaveRankedRows(primary, secondary) {
+  const out = [];
+  const seen = new Set();
+  let p = 0, s = 0, takePrimary = true;
+  while (out.length < primary.length + secondary.length && (p < primary.length || s < secondary.length)) {
+    const list = takePrimary ? primary : secondary;
+    let index = takePrimary ? p : s;
+    if (index >= list.length) {
+      takePrimary = !takePrimary;
+      continue;
+    }
+    const row = list[index];
+    if (takePrimary) p++; else s++;
+    takePrimary = !takePrimary;
+    const code = String(row.code);
+    if (!seen.has(code)) {
+      seen.add(code);
+      out.push(row);
+    }
+  }
+  return out;
+}
+
 function targetRows(targets, ranked, laneRanksByCode, measurable, rankMetric = 'modelScore') {
   const indexByCode = new Map(ranked.map((row, index) => [row.code, { row, rank: index + 1 }]));
   return targets.map(target => {
@@ -49,7 +72,7 @@ function targetRows(targets, ranked, laneRanksByCode, measurable, rankMetric = '
       inTop50: measurable ? Boolean(hit && hit.rank <= 50) : null,
       score: rankMetric === 'modelScore' ? hit?.row.score ?? null : null,
       rankMetric,
-      rankValue: rankMetric === 'r5Pct' ? hit?.row.features?.r5Pct ?? null : hit?.row.score ?? null,
+      rankValue: rankMetric === 'r5Pct' ? hit?.row.features?.r5Pct ?? null : rankMetric === 'laneBlendRank' ? null : hit?.row.score ?? null,
       scorePath: hit?.row.scorePath ?? null,
       setup: hit?.row.setup ?? null,
       confidence: hit?.row.confidence ?? null,
@@ -127,7 +150,11 @@ export function evaluateHoldoutAudit(candidates, {
       confidence: Number((opportunity.confidence * 100).toFixed(1))
     };
   }).filter(Boolean).sort((a, b) => b.score - a.score || b.confidence - a.confidence);
-  const reportVariants = [...scoreVariants.map(([key]) => key), 'momentumBaseline', 'v12EarlyOpportunity'];
+  rankedByVariant.balancedBlend = interleaveRankedRows(
+    rankedByVariant.momentumBaseline,
+    rankedByVariant.v12EarlyOpportunity
+  );
+  const reportVariants = [...scoreVariants.map(([key]) => key), 'momentumBaseline', 'v12EarlyOpportunity', 'balancedBlend'];
   const emotionRepair = laneRanks(current, 'emotionRepair', 65);
   const oversold = laneRanks(current, 'oversoldReversal', 65);
   const earlyTurn = laneRanks(current, 'earlyTurn', 0);
@@ -139,7 +166,7 @@ export function evaluateHoldoutAudit(candidates, {
   const variantsReport = {};
   for (const key of reportVariants) {
     const ranked = rankedByVariant[key];
-    const rankMetric = key === 'momentumBaseline' ? 'r5Pct' : 'modelScore';
+    const rankMetric = key === 'momentumBaseline' ? 'r5Pct' : key === 'balancedBlend' ? 'laneBlendRank' : 'modelScore';
     const audited = targetRows(targets, ranked, laneRanksByCode, measurable, rankMetric);
     const trueLimitUps = audited.filter(row => row.isTrueLimitUp);
     variantsReport[key] = {
@@ -178,7 +205,7 @@ export function evaluateHoldoutAudit(candidates, {
     dataPolicy: {
       features: 'All K-line and flow rows after asOf are removed before sector context or scoring is calculated',
       labels: 'Target outcomes are read only after all three candidate rankings and observation lanes are generated',
-      variants: 'Legacy blended, core-only, early-turn, momentum-led hybrid and cross-sectional momentum-confirmed ranking, plus a raw five-session-momentum baseline; emotion-repair and oversold are independent observation lanes',
+      variants: 'Legacy blended, core-only, early-turn, momentum-led hybrid and cross-sectional momentum-confirmed ranking, plus a raw five-session-momentum baseline, V12 early-opportunity ranking, and a 50/50 interleaved shortlist; emotion-repair and oversold are independent observation lanes',
       noHardcoding: 'Target stock codes do not enter score formulas or ranking weights'
     },
     laneTop10: {
