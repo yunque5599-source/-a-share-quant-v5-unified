@@ -58,7 +58,7 @@ Dates must be YYYY-MM-DD. Returns and mainPct are expressed in percentage points
 
 ## Screenshot target set
 
-target_symbols.json records the four screenshot names as holdout replay targets for the 2026-10-21 session, using 2026-10-20 as the signal cutoff. Public history shows 三维天地 +20.00%, 莱美药业 +20.00%, and 兆讯传媒 +19.98%; 致尚科技 rose +17.12% but did not close at its limit. References: [三维天地](https://stock.stockstar.com/RB2026102100028252.shtml), [莱美药业](https://www.dabanke.com/gupiao-300006.html), [兆讯传媒](https://finance.sina.com.cn/stock/aiassist/ydfx/2026-10-21/doc-inivxvuy4796816.shtml), [致尚科技历史行情](https://cn.investing.com/equities/shenzhen-zesum-technology-historical-data). The full pre-limit-up bars, fund flow, and same-day full-universe ranks still need to be replayed before we can say whether the new model would have selected them. Do not tune weights to force these four names to rank highly and then report them as successful validation.
+target_symbols.json records the four screenshot names as holdout replay targets for the 2026-10-21 session, using 2026-10-20 as the signal cutoff. Public history shows 三维天地 +20.00%, 莱美药业 +20.00%, and 兆讯传媒 +19.98%; 致尚科技 rose +17.12% but did not close at its limit. References: [三维天地](https://stock.stockstar.com/RB2026102100028252.shtml), [莱美药业](https://www.dabanke.com/gupiao-300006.html), [兆讯传媒](https://finance.sina.com.cn/stock/aiassist/ydfx/2026-10-21/doc-inivxvuy4796816.shtml), [致尚科技历史行情](https://cn.investing.com/equities/shenzhen-zesum-technology-historical-data). The point-in-time full-universe replay has now been run. It reconstructs the four names' ranks at the 2026-10-20 close, but none of the main global rankings placed the three true limit-up targets in the top 30. The results are recorded below. Do not tune weights to force these four names to rank highly and then report them as successful validation.
 
 ## Historical replay artifacts and quality gate
 
@@ -98,7 +98,7 @@ Because the first walk-forward run showed the raw 5-session momentum baseline be
 - 3% industry percentile
 - minus the existing soft risk penalty
 
-This is a new candidate ranking to test, not a claim of improvement. It is intentionally separate from the emotion-repair and oversold watchlists, which had high limit-up hit precision in some horizons but also severe adverse excursions and weak/negative average forward returns. The next walk-forward report must compare this rank ensemble against the raw momentum baseline and the existing models before any default ranking is changed.
+The first 15-date walk-forward comparison found this rank ensemble did not beat the raw momentum baseline: top-10 T+5 mean close return was -2.84% versus +1.55% for raw five-session momentum, and limit-up hit precision within five sessions was 10.67% versus 32.33%. It remains research-only. A new 50/50 interleaved shortlist combines raw momentum with the existing V12 Early Opportunity ranking; it is being added as a separately measured risk/return compromise, not assumed to be better.
 
 
 ## Initial historical results and decision
