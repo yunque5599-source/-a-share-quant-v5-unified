@@ -85,6 +85,36 @@ For each historical signal date, the evaluator reconstructs the model's inputs u
 
 The walk-forward report remains `NOT_MEASURABLE` if the source replay has less than 90% historical-bar coverage or fewer than three complete signal dates. Even a measurable report is evidence about the tested window only, not proof of a persistent trading edge.
 
+## Initial historical results and decision
+
+The first full-universe replay for the 2026-10-20 signal close covered 5,897 of 5,922 current symbols (99.58% with sufficient bars) and had 98.69% flow-history coverage. This is measurable enough for diagnosis, but the universe is the current listing as a proxy, not an exchange-certified historical constituent snapshot.
+
+The held-out screenshot audit was run after ranking, with target labels excluded from feature construction:
+
+| Target | Current composite rank | Core-only rank | Early-turn rank | Best separate observation lane |
+|---|---:|---:|---:|---|
+| 三维天地 (301159) | 3,919 | 460 | 154 | Early-turn component rank 199 |
+| 莱美药业 (300006) | 4,033 | 3,115 | 4,311 | Emotion-repair watch rank 1 |
+| 兆讯传媒 (301102) | 895 | 4,924 | 2,818 | Oversold watch rank 389 |
+| 致尚科技 (301486) | 485 | 4,090 | 4,008 | Oversold watch rank 1,163; this was not a closed limit-up |
+
+None of the three true limit-up targets reached the top 30 in the current composite, core-only, or early-turn global rankings. The emotion-repair lane surfaced 莱美药业 at rank 1, but its global rank was poor; the oversold lane still produced too many weak candidates. This is a model miss, not a successful prediction.
+
+A 15-signal-date walk-forward comparison also found that the heuristic rankings underperformed the raw five-session-momentum baseline on the tested window:
+
+| Top-K ranking | T+5 mean close return | T+5 win rate | Limit-up hit precision within 5 sessions |
+|---|---:|---:|---:|
+| Current composite, top 10 | -2.93% | 31.22% | 2.74% |
+| Core-only, top 10 | -2.48% | 34.67% | 5.33% |
+| Early-turn, top 10 | -3.30% | 32.07% | 9.33% |
+| Five-session momentum baseline, top 10 | +1.55% | 42.23% | 32.33% |
+| Current composite, top 30 | -2.36% | 33.11% | 4.58% |
+| Five-session momentum baseline, top 30 | -2.09% | 37.31% | 22.41% |
+
+The separate emotion-repair watchlist had higher limit-up hit precision (38.67% for its top 10 within five sessions), but a -2.40% mean T+5 close return and -10.42% mean maximum adverse excursion. It should remain a high-risk observation lane, not be promoted to an unconditional buy list.
+
+**Decision: do not merge this heuristic into the production one-click selector yet.** The results show that technical price/volume/flow features alone do not distinguish the four target setups reliably. The next research iteration should compare a supervised, point-in-time limit-up/forward-return ranker against the momentum baseline and add genuinely time-stamped catalyst/theme/news features. In particular, 兆讯传媒's and 致尚科技's weak pre-event momentum and flow show why simply raising the oversold weight would overfit and create falling-knife false positives. Keep the screenshot names as a holdout set; do not train or tune directly on their outcomes.
+
 ## Validation gate before integration
 
 1. Reconstruct the complete eligible universe at the 2026-10-20 close and retrieve point-in-time bars, flows, and sector/theme information for all candidates.
