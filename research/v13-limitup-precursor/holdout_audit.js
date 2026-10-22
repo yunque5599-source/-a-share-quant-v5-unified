@@ -82,14 +82,20 @@ export function evaluateHoldoutAudit(candidates, {
       turnoverRate: latest?.turnoverRate
     };
   });
-  const variants = [
+  const scoreVariants = [
     ['current', 'v13-current'],
     ['coreOnly', 'v13-core-only'],
     ['earlyTurn', 'v13-early-turn']
   ];
-  const rankedByVariant = Object.fromEntries(variants.map(([key, modelVariant]) => [
+  const rankedByVariant = Object.fromEntries(scoreVariants.map(([key, modelVariant]) => [
     key, rankCandidates(enriched, { asOf, modelVariant })
   ]));
+  rankedByVariant.momentumBaseline = [...rankedByVariant.current].sort((a, b) => {
+    const ar = Number.isFinite(a.features?.r5Pct) ? a.features.r5Pct : -Infinity;
+    const br = Number.isFinite(b.features?.r5Pct) ? b.features.r5Pct : -Infinity;
+    return br - ar || b.confidence - a.confidence;
+  });
+  const reportVariants = [...scoreVariants.map(([key]) => key), 'momentumBaseline'];
   const current = rankedByVariant.current;
   const emotionRepair = laneRanks(current, 'emotionRepair', 65);
   const oversold = laneRanks(current, 'oversoldReversal', 65);
@@ -100,7 +106,7 @@ export function evaluateHoldoutAudit(candidates, {
   const missingTargets = targetCodes.filter(code => !current.some(row => row.code === code));
   const measurable = qualityCoverage !== null && qualityCoverage >= 90 && missingTargets.length === 0;
   const variantsReport = {};
-  for (const [key] of variants) {
+  for (const key of reportVariants) {
     const ranked = rankedByVariant[key];
     const audited = targetRows(targets, ranked, laneRanksByCode, measurable);
     const trueLimitUps = audited.filter(row => row.isTrueLimitUp);
@@ -129,7 +135,7 @@ export function evaluateHoldoutAudit(candidates, {
     dataPolicy: {
       features: 'All K-line and flow rows after asOf are removed before sector context or scoring is calculated',
       labels: 'Target outcomes are read only after all three candidate rankings and observation lanes are generated',
-      variants: 'Legacy blended score, core-only score, and experimental early-turn score; emotion-repair and oversold are independent observation lanes',
+      variants: 'Legacy blended score, core-only score, experimental early-turn score, and a raw five-session-momentum baseline; emotion-repair and oversold are independent observation lanes',
       noHardcoding: 'Target stock codes do not enter score formulas or ranking weights'
     },
     laneTop10: {
