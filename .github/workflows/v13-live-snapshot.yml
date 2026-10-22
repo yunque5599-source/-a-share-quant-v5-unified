@@ -3,6 +3,12 @@ concurrency:
   group: v13-live-psychology-capture
   cancel-in-progress: true
 on:
+  push:
+    branches: [research/v13-limitup-precursor]
+    paths:
+      - 'research/v13-limitup-precursor/live_snapshot.js'
+      - 'research/v13-limitup-precursor/precursor_score.js'
+      - '.github/workflows/v13-live-snapshot.yml'
   schedule:
     - cron: '15 1 * * 1-5'
     - cron: '45 2 * * 1-5'
@@ -42,7 +48,7 @@ jobs:
           require('fs').appendFileSync(process.env.GITHUB_OUTPUT,'in_session='+yes+'\n');console.log('in_session='+yes);
           NODE
       - name: Capture timestamped snapshot
-        if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch' || github.event.schedule == '15 1 * * 1-5' || github.event.schedule == '15 1 * * 1-5'
+        if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.schedule == '15 1 * * 1-5'
         env:
           WIDE_NEWS_SCAN: ${{ github.event.schedule == '15 1 * * 1-5' || github.event.inputs.wide_news_scan == 'true' }}
         run: |
@@ -64,7 +70,7 @@ jobs:
             node --input-type=module -e "import fs from 'node:fs';const x=JSON.parse(fs.readFileSync('output/v13-live-snapshots/snapshot.json','utf8'));console.log(JSON.stringify({snapshotId:x.snapshotId,capturedAt:x.capturedAt,recommendationStatus:x.recommendationStatus,recommendationsAvailable:x.recommendationsAvailable,quality:x.quality,top10:x.rankings?.overall?.slice(0,10).map(r=>({rank:r.rank,code:r.code,name:r.name,score:r.score,setup:r.setup}))},null,2))"
           else echo 'No snapshot created (outside session or source capture failed).'; fi
       - name: Enforce recommendation quality gate
-        if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch'
+        if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
         run: |
           if [ ! -s output/v13-live-snapshots/snapshot.json ]; then
             echo 'Snapshot is missing; no recommendations are available.'
