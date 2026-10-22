@@ -160,7 +160,9 @@ Target labels were read only after rankings were computed. They are not used as 
 
 ## Current experiment
 
-A separate supervised classifier for **T+5 close return of at least +3%** is now being evaluated alongside the limit-up classifier. This keeps “probability of a limit-up event” distinct from “probability of a profitable short-horizon trade.” The next live-only experiment is to combine a broad candidate funnel with time-stamped psychology/catalyst features, then capture daily point-in-time snapshots before outcomes occur.
+A separate supervised classifier for **T+5 close return of at least +3%** was evaluated alongside the limit-up classifier. On the 15-date test window, the positive-return model's top 10 had -1.13% mean T+5 close return, 35.42% win rate, and 16.76% positive-return precision; top 30 had -0.77% return, 37.12% win rate, and 20.91% positive-return precision. Raw five-session momentum performed better on this test window (+1.55% top-10 T+5 return and 37.51% positive-return precision). Therefore neither supervised model is currently a standalone buy-list engine.
+
+The V13 live snapshot experiment now captures a 120-symbol funnel formed from consensus rank, price momentum, capital inflow and cross-rank agreement, requests historical bars/flows plus psychology/theme/news evidence, applies the V13 scorer, and writes an immutable timestamped artifact. News contributes to the catalyst score only when a parseable publication timestamp is no later than capture time; un-timestamped headlines remain audit-only. The first live run exposed upstream 502/fetch failures and did **not** pass the source-quality gate. A snapshot can be uploaded for diagnosis while still being marked `SOURCE_UNAVAILABLE`; it must not be used as a valid ranked shortlist. The scheduled workflow is research-only and its cron triggers become active only if the workflow is present on the repository's default branch. This capture does not change the production app.
 
 ## Validation gate before integration
 
