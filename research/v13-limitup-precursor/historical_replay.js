@@ -126,7 +126,7 @@ async function fetchUniversePage(page, pageSize) {
     return host + '/api/qt/clist/get?' + p;
   };
   const result = await fetchFromHosts(buildUrl, MARKET_HOSTS,
-    json => Number.isInteger(Number(json?.data?.total)) && Array.isArray(json?.data?.diff), 6000);
+    json => Number.isInteger(Number(json?.data?.total)) && !!json?.data?.diff && (Array.isArray(json.data.diff) || typeof json.data.diff === 'object'), 6000);
   return { total: Number(result.json.data.total), rows: rowsOf(result.json.data.diff) };
 }
 
