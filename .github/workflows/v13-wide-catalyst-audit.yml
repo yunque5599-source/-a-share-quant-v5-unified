@@ -27,7 +27,7 @@ jobs:
       - name: Run full-universe timestamped catalyst scan
         run: |
           node research/v13-limitup-precursor/live_snapshot.js \
-            --limit "\${{ github.event.inputs.candidate_limit || '120' }}" \
+            --limit "${{ github.event.inputs.candidate_limit || '120' }}" \
             --wide-news-scan \
             --out output/v13-wide-catalyst-audit/snapshot.json
       - name: Print source quality and catalyst funnel
@@ -54,7 +54,7 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v13-wide-catalyst-audit-\${{ github.run_id }}
+          name: v13-wide-catalyst-audit-${{ github.run_id }}
           path: output/v13-wide-catalyst-audit/
           if-no-files-found: warn
           retention-days: 30
