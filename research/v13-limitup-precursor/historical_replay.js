@@ -125,12 +125,22 @@ async function fetchUniversePage(page, pageSize) {
     });
     return host + '/api/qt/clist/get?' + p;
   };
-  const result = await fetchFromHosts(buildUrl, MARKET_HOSTS,
-    json => Number.isInteger(Number(json?.data?.total)) && !!json?.data?.diff && (Array.isArray(json.data.diff) || typeof json.data.diff === 'object'), 6000);
-  return { total: Number(result.json.data.total), rows: rowsOf(result.json.data.diff) };
+  let lastError = null;
+  for (let attempt = 1; attempt <= 3; attempt++) {
+    try {
+      const result = await fetchFromHosts(buildUrl, MARKET_HOSTS,
+        json => Number.isInteger(Number(json?.data?.total)) && !!json?.data?.diff &&
+          (Array.isArray(json.data.diff) || typeof json.data.diff === 'object'), 7000);
+      return { total: Number(result.json.data.total), rows: rowsOf(result.json.data.diff) };
+    } catch (error) {
+      lastError = error;
+      if (attempt < 3) await new Promise(resolve => setTimeout(resolve, 350 * (2 ** (attempt - 1))));
+    }
+  }
+  throw new Error('market page ' + page + ' failed after retries: ' + String(lastError?.message ?? lastError));
 }
 
-export async function fetchUniverse({ concurrency = 8, pageSize = 100 } = {}) {
+export async function fetchUniverse({ concurrency = 4, pageSize = 200 } = {}) {
   const first = await fetchUniversePage(1, pageSize);
   const total = first.total;
   if (total < 3000) throw new Error('market universe returned fewer than 3000 rows; refusing a misleading partial-universe replay (' + total + ')');
@@ -364,7 +374,7 @@ export async function runHistoricalReplay({ asOf, outDir = 'output/v13-history-r
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(asOf ?? ''))) throw new Error('runHistoricalReplay requires asOf YYYY-MM-DD');
   const startedAt = new Date().toISOString();
   console.log('[replay] collecting current symbol list; historical bars will be cutoff at ' + asOf);
-  const universe = await fetchUniverse({ concurrency: Math.min(8, concurrency) });
+  const universe = await fetchUniverse({ concurrency: Math.min(4, concurrency), pageSize: 200 });
   console.log('[replay] universe rows=' + universe.rows.length + ', providerTotal=' + universe.providerTotal);
 
   const barFailures = [];
