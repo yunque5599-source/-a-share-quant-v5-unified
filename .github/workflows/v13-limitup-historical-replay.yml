@@ -5,7 +5,6 @@ on:
     branches: [research/v13-limitup-precursor]
     paths:
       - 'research/v13-limitup-precursor/historical_replay.js'
-      - '.github/workflows/v13-limitup-historical-replay.yml'
   workflow_dispatch:
     inputs:
       as_of:
@@ -34,6 +33,10 @@ jobs:
           AS_OF: ${{ github.event.inputs.as_of || '2026-10-20' }}
         run: |
           node research/v13-limitup-precursor/historical_replay.js --as-of "$AS_OF" --out-dir output/v13-history-replay --concurrency ${{ github.event.inputs.concurrency || '6' }}
+      - name: Evaluate point-in-time walk-forward performance
+        if: success() && hashFiles('output/v13-history-replay/replay_candidates.ndjson') != ''
+        run: |
+          node research/v13-limitup-precursor/walk_forward_eval.js --input output/v13-history-replay/replay_candidates.ndjson --quality-report output/v13-history-replay/replay_report.json --signal-days 15
       - name: Upload replay dataset and report
         if: always()
         uses: actions/upload-artifact@v4
