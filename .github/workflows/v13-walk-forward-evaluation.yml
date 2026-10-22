@@ -29,11 +29,18 @@ jobs:
             echo "No successful V13 historical replay run found." >&2
             exit 1
           fi
+          ARTIFACT_NAME=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$RUN_ID/artifacts" --jq '[.artifacts[] | select(.name | startswith("v13-historical-replay-"))] | sort_by(.created_at) | last | .name')
+          if [ -z "$ARTIFACT_NAME" ] || [ "$ARTIFACT_NAME" = "null" ]; then
+            echo "Replay artifact name not found for run $RUN_ID." >&2
+            exit 1
+          fi
           echo "REPLAY_RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
-          echo "Using replay run $RUN_ID"
+          echo "REPLAY_ARTIFACT_NAME=$ARTIFACT_NAME" >> "$GITHUB_ENV"
+          echo "Using replay run $RUN_ID and artifact $ARTIFACT_NAME"
       - name: Download replay dataset artifact
         uses: actions/download-artifact@v4
         with:
+          name: ${{ env.REPLAY_ARTIFACT_NAME }}
           run-id: ${{ env.REPLAY_RUN_ID }}
           repository: ${{ github.repository }}
           github-token: ${{ github.token }}
