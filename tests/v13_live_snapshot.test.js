@@ -9,7 +9,7 @@ test('parsers exclude future-dated rows and sort history',()=>{
  assert.equal(flows.length,1);assert.equal(flows[0].mainNet,5000);assert.equal(flows[0].mainPct,2.4);
 });
 test('funnel diversifies consensus, momentum and capital-flow candidates and excludes ST',()=>{
- const rows=Array.from({length:200},(_,i)=>({f12:String(600000+i),f14:'Stock '+i,rankScore:100-i/2,rankHits:i%4,f3:i,f62:i*1000}));
+ const rows=Array.from({length:200},(_,i)=>({f12:String(600000+i),f14:'样本'+i,rankScore:100-i/2,rankHits:i%4,f3:i,f62:i*1000}));
  rows.push({f12:'600999',f14:'*ST risk',rankScore:1000,f3:10,f62:10000});
  const result=selectCandidateFunnel(rows,120);assert.equal(result.length,120);assert.ok(!result.some(x=>x.f12==='600999'));
  assert.ok(result.some(x=>x.funnelLanes.includes('price-momentum')));assert.ok(result.some(x=>x.funnelLanes.includes('capital-inflow')));
