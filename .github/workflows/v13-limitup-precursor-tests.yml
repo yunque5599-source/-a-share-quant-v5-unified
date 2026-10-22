@@ -8,6 +8,8 @@ on:
       - 'tests/v13_limitup_precursor.test.js'
       - 'tests/v13_historical_replay.test.js'
       - 'tests/v13_walk_forward_eval.test.js'
+      - 'tests/v13_live_snapshot.test.js'
+      - 'tests/v13_live_snapshot.test.js'
       - 'tests/v13_holdout_audit.test.js'
       - 'tests/v13_supervised_ranker.test.js'
       - '.github/workflows/v13-limitup-precursor-tests.yml'
