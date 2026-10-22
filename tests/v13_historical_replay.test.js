@@ -1,6 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseKlineRows, parseFlowRows, addHistoricalIndustryContext, assessReplayQuality, isTrueLimitUpOutcome } from '../research/v13-limitup-precursor/historical_replay.js';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { parseKlineRows, parseFlowRows, addHistoricalIndustryContext, assessReplayQuality, isTrueLimitUpOutcome, writeNdjson } from '../research/v13-limitup-precursor/historical_replay.js';
 
 test('historical K-line parser excludes bars after the signal cutoff and sorts by date', () => {
   const rows = [
@@ -80,4 +83,17 @@ test('non-limit-up large-gain target is not counted as a true limit-up outcome',
   assert.equal(isTrueLimitUpOutcome('limit_up_20.00_percent'), true);
   assert.equal(isTrueLimitUpOutcome('limit_up_19.98_percent'), true);
   assert.equal(isTrueLimitUpOutcome('large_gain_17.12_percent_not_closed_limit_up'), false);
+});
+
+
+test('candidate NDJSON writer emits parseable records without one giant array string', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'v13-replay-'));
+  const file = join(dir, 'candidates.ndjson');
+  try {
+    await writeNdjson(file, [{ code: '000001' }, { code: '301159' }]);
+    const lines = (await readFile(file, 'utf8')).trim().split('\n');
+    assert.deepEqual(lines.map(line => JSON.parse(line).code), ['000001', '301159']);
+  } finally {
+    await rm(dir, { recursive: true, force: true });
+  }
 });
