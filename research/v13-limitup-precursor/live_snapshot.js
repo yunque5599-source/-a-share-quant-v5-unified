@@ -123,7 +123,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     const flows=parseRows(deepByCode.get(r.code)?.flow?.data?.klines??[],'flow',requestedAsOf).map(f=>({...f,amount:bars.find(b=>b.date===f.date)?.amount??0}));
     const row=funnel.find(x=>String(x.f12)===r.code);const psych=buildPsychologySector(psychByCode.get(r.code)??[],capturedAt);
     return {code:r.code,name:r.name,isST:false,asOf:requestedAsOf,bars,flows,sector:psych.sector,amount:bars.at(-1)?.amount??n(row?.f6),turnoverRate:bars.at(-1)?.turnoverRate??n(row?.f8),_record:r};
-  }),{asOf:requestedAsOf}).map((s,i)=>{const record=recordByCode.get(s.code);return {...s,rank:i+1,quote:record?.quote??{},psychology:record?.psychology??{},source:record?.source??{}};}));
+  }),{asOf:requestedAsOf}).map((s,i)=>{const record=recordByCode.get(s.code);return {...s,rank:i+1,quote:record?.quote??{},psychology:record?.psychology??{},source:record?.source??{}};});
   const deepGood=records.filter(r=>r.source.klineSource==='eastmoney'&&r.source.flowSource==='eastmoney').length;
   const barsGood=records.filter(r=>r.source.barCount>=25).length,psychGood=records.filter(r=>r.psychology.available).length;
   const quality={rankedSourceDegraded:ranked?.data?.degraded===true,rankedSourceStale:ranked?.data?.serverStale===true,rankedSourceMethod:ranked?.data?.method??null,
