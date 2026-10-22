@@ -463,8 +463,6 @@ function applyCrossSectionalRankEnsemble(rows) {
     sector: percentileRank(rows, row => row.components?.sector)
   };
   return rows.map((row, index) => {
-    // Cross-sectional percentiles avoid saturating strong 5-day momentum at 100.
-    // Trend, volume, capital and sector are confirmation signals, not hard gates.
     const grossScore = 0.50 * features.r5[index]
       + 0.15 * features.r3[index]
       + 0.10 * features.r10[index]
@@ -495,19 +493,71 @@ function applyCrossSectionalRankEnsemble(rows) {
   });
 }
 
-function rankCandidates(candidates, options = {}) {
-  const rows = (Array.isArray(candidates) ? candidates : [])
-    .map(candidate => scoreCandidate(candidate, options))
+function technicalSetup(row) {
+  if (row.features?.distHigh20Pct >= 0 && row.features?.volumeExpansion >= 1.2) return '放量突破';
+  if (row.features?.r3Pct > 0 && row.features?.r5Pct > 0) return '短线动量';
+  if (row.features?.priorVolumeCompression < 0.8 && row.features?.distHigh20Pct >= -10) return '平台蓄势';
+  return '观察';
+}
+
+function rankScoredCandidates(scoredRows, modelVariant = 'v13-current') {
+  const rows = (Array.isArray(scoredRows) ? scoredRows : [])
     .filter(result => result && result.discoveryEligible);
-  if (options.modelVariant === 'v13-rank-ensemble') {
+  if (modelVariant === 'v13-rank-ensemble') {
     return applyCrossSectionalRankEnsemble(rows)
       .sort((a, b) => b.score - a.score || b.confidence - a.confidence);
   }
-  return rows.sort((a, b) => b.score - a.score || b.confidence - a.confidence);
+  const ranked = rows.map(row => {
+    const core = Number(row.components?.coreComposite ?? row.grossScore);
+    const repair = Number(row.components?.emotionRepair ?? 0);
+    const oversold = Number(row.components?.oversoldReversal ?? 0);
+    const earlyTurn = Number(row.components?.earlyTurn ?? 0);
+    const momentumHybrid = Number(row.components?.momentumHybrid ?? 0);
+    let grossScore = core;
+    let scorePath = 'trend-transition';
+    let setup = technicalSetup(row);
+    if (modelVariant === 'v13-current') {
+      grossScore = Math.max(core, repair, oversold);
+      scorePath = oversold > core && oversold > repair
+        ? 'oversold-reversal'
+        : repair > core && repair >= oversold ? 'emotion-repair' : 'trend-transition';
+      setup = row.setup;
+    } else if (modelVariant === 'v13-core-only') {
+      grossScore = core;
+    } else if (modelVariant === 'v13-early-turn') {
+      grossScore = Math.max(core, earlyTurn);
+      if (earlyTurn > core) {
+        scorePath = 'early-turn';
+        setup = '底部转强候选';
+      }
+    } else if (modelVariant === 'v13-momentum-hybrid') {
+      grossScore = momentumHybrid;
+      scorePath = 'momentum-hybrid';
+      setup = row.features?.r5Pct > 0 ? '动量确认' : technicalSetup(row);
+    }
+    const score = clamp(grossScore - Number(row.riskPenalty || 0));
+    return {
+      ...row,
+      modelVariant,
+      score: Number(score.toFixed(1)),
+      grossScore: Number(grossScore.toFixed(1)),
+      scorePath,
+      setup
+    };
+  });
+  return ranked.sort((a, b) => b.score - a.score || b.confidence - a.confidence);
 }
 
+function rankCandidates(candidates, options = {}) {
+  // All variants share the same raw feature pass. Only their ranking policy differs.
+  const baseOptions = { ...options, modelVariant: 'v13-current' };
+  const scored = (Array.isArray(candidates) ? candidates : [])
+    .map(candidate => scoreCandidate(candidate, baseOptions))
+    .filter(result => result && result.discoveryEligible);
+  return rankScoredCandidates(scored, options.modelVariant || 'v13-current');
+}
 export {
   boardForCode, deriveFeatures, scoreCandidate, rankCandidates,
   trendScore, volumePriceScore, flowScore, sectorScore, momentumScore, baseScore,
-  r5MomentumScore, momentumHybridScore, earlyTurnScore, emotionRepairScore, oversoldReversalScore
+  r5MomentumScore, momentumHybridScore, earlyTurnScore, emotionRepairScore, oversoldReversalScore, rankScoredCandidates
 };
