@@ -92,18 +92,27 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const ranked=parseResult('ranked_candidates',await invoke(marketHandler,'/api/market?action=ranked_candidates'));
   const raw=ranked?.data?.candidates??[],funnel=selectCandidateFunnel(raw,candidateLimit);
   if(funnel.length<50)throw Error('ranked candidate funnel returned fewer than 50 symbols');
-  const batches=await mapLimit(chunks(funnel,30),2,async group=>{
+  const batches=await mapLimit(chunks(funnel,30),1,async group=>{
     const codes=group.map(r=>String(r.f12)),query=encodeURIComponent(codes.join(','));
-    const [deepR,psychR]=await Promise.all([
+    const [deepR,psychR]=await Promise.allSettled([
       invoke(marketHandler,'/api/market?action=deep_batch&codes='+query),
       invoke(psychologyHandler,'/api/psychology_universe?codes='+query+'&asOf='+encodeURIComponent(requestedAsOf))
     ]);
-    return {deep:parseResult('deep_batch',deepR),psych:parseResult('psychology_universe',psychR)};
+    let deep=null,psych=null,deepError=null,psychError=null;
+    try { if(deepR.status==='fulfilled') deep=parseResult('deep_batch',deepR.value); else deepError=String(deepR.reason?.message??deepR.reason); }
+    catch(e) { deepError=String(e?.message??e); }
+    try { if(psychR.status==='fulfilled') psych=parseResult('psychology_universe',psychR.value); else psychError=String(psychR.reason?.message??psychR.reason); }
+    catch(e) { psychError=String(e?.message??e); }
+    return {codes,deep,psych,deepError,psychError};
   });
-  const deepByCode=new Map(),psychByCode=new Map(),sourceErrors=[];
-  for(const batch of batches){if(batch?.error){sourceErrors.push(batch.error);continue;}
-    for(const item of batch.deep?.items??[])deepByCode.set(String(item.code??''),item);
-    for(const [code,themes] of Object.entries(batch.psych?.data?.themeBySymbol??{}))psychByCode.set(code,Array.isArray(themes)?themes:[]);
+  const deepByCode=new Map(),psychByCode=new Map(),psychSuccessCodes=new Set(),sourceErrors=[];
+  for(const batch of batches){
+    if(batch.deep) for(const item of batch.deep.items??[]) deepByCode.set(String(item.code??''),item);
+    else sourceErrors.push('deep_batch: '+batch.deepError);
+    if(batch.psych){
+      for(const code of batch.codes) psychSuccessCodes.add(code);
+      for(const [code,themes] of Object.entries(batch.psych.data?.themeBySymbol??{})) psychByCode.set(code,Array.isArray(themes)?themes:[]);
+    } else sourceErrors.push('psychology_universe: '+batch.psychError);
   }
   const records=[];
   for(const row of funnel){
@@ -129,7 +138,8 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const quality={rankedSourceDegraded:ranked?.data?.degraded===true,rankedSourceStale:ranked?.data?.serverStale===true,rankedSourceMethod:ranked?.data?.method??null,
     rankedCandidateCount:raw.length,funnelCandidateCount:funnel.length,deepSuccessCount:deepGood,deepSuccessPct:+(deepGood/Math.max(1,funnel.length)*100).toFixed(2),
     barHistoryCount:barsGood,barHistoryCoveragePct:+(barsGood/Math.max(1,funnel.length)*100).toFixed(2),
-    psychologyCandidateCount:psychGood,psychologyCoveragePct:+(psychGood/Math.max(1,funnel.length)*100).toFixed(2),sourceErrors};
+    psychologyResponseCount:psychSuccessCodes.size,psychologyCoveragePct:+(psychSuccessCodes.size/Math.max(1,funnel.length)*100).toFixed(2),
+    psychologyThemeCount:psychGood,psychologyThemeCoveragePct:+(psychGood/Math.max(1,funnel.length)*100).toFixed(2),sourceErrors};
   const snapshot={schema:'v13-live-psychology-catalyst-snapshot-v1',modelVersion:MODEL_VERSION,
     snapshotId:'v13-'+capturedAt.replace(/[-:.TZ]/g,''),capturedAt,asOf:requestedAsOf,
     sourcePolicy:{provider:'Eastmoney public quote/history and psychology/theme/news endpoint',pointInTime:'captured-at-source',
