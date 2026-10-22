@@ -127,6 +127,12 @@ test('a sharp flush after a recent limit-up is surfaced through the separate emo
 test('oversold stabilization is surfaced as a separate research lane without a recent limit-up', () => {
   const candidate = makeCandidate({ code: '301102', name: '样本反转股', strong: false, pct: 1.2 });
   const closes = [12.0, 11.8, 11.55, 11.2, 10.85, 10.55, 10.3, 10.05, 10.17];
+  const segmentStart = candidate.bars.length - closes.length;
+  const leadIn = candidate.bars[segmentStart - 1];
+  leadIn.close = 12.05;
+  leadIn.open = 12.05;
+  leadIn.high = 12.15;
+  leadIn.low = 11.95;
   for (let i = 0; i < closes.length; i++) {
     const index = candidate.bars.length - closes.length + i;
     const bar = candidate.bars[index];
