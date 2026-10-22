@@ -5,6 +5,7 @@ import marketHandler from '../../api/market.js';
 import psychologyHandler from '../../api/psychology_universe.js';
 import { boardForCode, isRestrictedListingName, scoreCandidate, rankCandidates } from './precursor_score.js';
 import { computeEarlyOpportunity } from '../../research/v11-short-alpha/early_opportunity.js';
+import { fetchUniverse } from './historical_replay.js';
 
 const MODEL_VERSION = 'V13-live-psychology-catalyst-overlay-research-v1';
 const n = v => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
@@ -335,10 +336,93 @@ export function applySnapshotQualityGate(snapshot={}){
   return output;
 }
 
-export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=null}={}){
+export async function scanUniverseCatalystNews(universeRows, capturedAt, {limit=60, concurrency=2, batchSize=8}={}) {
+  const stocks=Array.isArray(universeRows)?universeRows:[];
+  const stockByCode=new Map(stocks.map(row=>[String(row.code),row]));
+  const groups=chunks(stocks,Math.max(1,Math.min(8,batchSize)));
+  const failures=[];
+  let successfulSymbolCount=0;
+  const candidates=[];
+  const batches=await mapLimit(groups,Math.max(1,Math.min(4,concurrency)),async group=>{
+    const codes=group.map(row=>String(row.code)).filter(code=>/^\d{6}$/.test(code));
+    if(!codes.length)return {items:[]};
+    const payload=parseResult('wide_news_batch',await invoke(marketHandler,'/api/market?action=news_batch&codes='+codes.join(',')));
+    return {items:payload?.data?.items??[]};
+  });
+  for(let i=0;i<batches.length;i++){
+    const batch=batches[i];
+    if(batch?.error){failures.push({batch:i,error:batch.error});continue;}
+    for(const item of batch.items??[]){
+      const code=String(item?.code??''),stock=stockByCode.get(code);
+      if(!stock||item?.error||!item?.news)continue;
+      successfulSymbolCount++;
+      const newsItems=flattenNewsPayload(item.news);
+      const overlay=buildStockNewsFallback(code,stock.name,newsItems,capturedAt).overlay;
+      if(overlay.headlineCatalystDirection!=='positive'||!Number.isFinite(Number(overlay.headlineCatalystScore))||!overlay.datedNewsCount)continue;
+      if(isRestrictedListingName(stock.name))continue;
+      candidates.push({code,name:stock.name,board:stock.board??boardForCode(code),
+        headlineCatalystScore:Number(overlay.headlineCatalystScore),
+        positiveHeadlineCount:Number(overlay.positiveHeadlineCount)||0,
+        datedNewsCount:Number(overlay.datedNewsCount)||0,
+        newsRecencyScore:Number(overlay.newsRecencyScore)||0,
+        catalystEvidence:overlay.catalystEvidence??[],newsItems});
+    }
+  }
+  candidates.sort((a,b)=>{
+    const sa=.75*a.headlineCatalystScore+.20*a.newsRecencyScore+2*Math.min(3,a.positiveHeadlineCount);
+    const sb=.75*b.headlineCatalystScore+.20*b.newsRecencyScore+2*Math.min(3,b.positiveHeadlineCount);
+    return sb-sa||b.datedNewsCount-a.datedNewsCount;
+  });
+  return {candidates:candidates.slice(0,Math.max(1,Math.min(100,limit))),
+    diagnostics:{enabled:true,universeCount:stocks.length,batchCount:groups.length,successfulSymbolCount,
+      positiveCatalystCount:candidates.length,selectedCount:Math.min(candidates.length,Math.max(1,Math.min(100,limit))),
+      failedBatchCount:failures.length,failures:failures.slice(0,20),
+      policy:'Only timestamp-verified positive headlines at or before capturedAt; headline classifier is experimental.'}};
+}
+
+async function fetchCurrentQuoteForNewsCandidate(stock) {
+  try {
+    const payload=parseResult('news_candidate_quote',await invoke(marketHandler,'/api/market?action=quote&code='+encodeURIComponent(stock.code)));
+    const q=payload?.data?.data??payload?.data??{};
+    const pct=n(q.f170),price=n(q.f43);
+    if(price===null||price<=0||pct===null)return null;
+    const board=stock.board??boardForCode(stock.code);
+    const limitPct=board==='CHINEXT'||board==='STAR'?20:board==='BSE'?30:10;
+    if(pct>=limitPct*.75)return null;
+    return {f12:stock.code,f14:stock.name,f2:price,f3:pct,f6:n(q.f48),f8:n(q.f168),
+      f62:n(q.f62),f184:n(q.f184),f100:stock.industry??q.f100??'',rankScore:0,rankHits:0,ranks:{},
+      board,funnelLanes:['wide-news-catalyst']};
+  } catch { return null; }
+}
+
+export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=null,wideNewsScan=false}={}){
   const capturedAt=new Date().toISOString(),requestedAsOf=asOf||capturedAt;
   const ranked=parseResult('ranked_candidates',await invoke(marketHandler,'/api/market?action=ranked_candidates'));
-  const raw=ranked?.data?.candidates??[],funnel=selectCandidateFunnel(raw,candidateLimit);
+  const raw=ranked?.data?.candidates??[];
+  let funnel=selectCandidateFunnel(raw,candidateLimit);
+  const seededNewsByCode=new Map();
+  let wideNewsDiagnostics={enabled:false,reason:'not-requested'};
+  if(wideNewsScan){
+    try{
+      const universe=await fetchUniverse({concurrency:4,pageSize:100});
+      const scan=await scanUniverseCatalystNews(universe.rows,capturedAt,{limit:60,concurrency:2,batchSize:8});
+      wideNewsDiagnostics={...scan.diagnostics,providerTotal:universe.providerTotal,pageCount:universe.pageCount};
+      const existing=new Set(funnel.map(row=>String(row.f12)));
+      const candidates=scan.candidates.filter(row=>!existing.has(row.code)).slice(0,60);
+      const quotes=await mapLimit(candidates,4,fetchCurrentQuoteForNewsCandidate);
+      const additions=quotes.filter(Boolean).slice(0,20);
+      for(const stock of additions){
+        const source=candidates.find(row=>row.code===stock.f12);
+        if(source)seededNewsByCode.set(stock.f12,source.newsItems??[]);
+      }
+      funnel=[...funnel,...additions];
+      wideNewsDiagnostics={...wideNewsDiagnostics,quoteCheckedCount:candidates.length,
+        quoteEligibleCount:quotes.filter(Boolean).length,addedToFunnelCount:additions.length};
+    }catch(error){
+      wideNewsDiagnostics={enabled:true,failed:true,error:String(error?.message??error),
+        policy:'Wide scan failure does not invalidate the normal funnel; no unverified news candidates are added.'};
+    }
+  }
   const industryContextByCode=deriveLiveIndustryContext(raw);
   if(funnel.length<50)throw Error('ranked candidate funnel returned fewer than 50 symbols');
   const batches=await mapLimit(chunks(funnel,30),1,async group=>{
@@ -391,8 +475,9 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       }catch{}
     }
   });
-  const newsByCode=new Map(),newsSuccessCodes=new Set();
-  const newsBatches=await mapLimit(chunks(funnel,8),2,async group=>{
+  const newsByCode=new Map(seededNewsByCode),newsSuccessCodes=new Set(seededNewsByCode.keys());
+  const alreadyScanned=new Set(seededNewsByCode.keys());
+  const newsBatches=await mapLimit(chunks(funnel.filter(row=>!alreadyScanned.has(String(row.f12))),8),2,async group=>{
     const codes=group.map(r=>String(r.f12)),query=encodeURIComponent(codes.join(','));
     try{
       const payload=parseResult('news_batch',await invoke(marketHandler,'/api/market?action=news_batch&codes='+query));
@@ -508,7 +593,8 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     sourcePolicy:{provider:'Eastmoney public quote/history and psychology/theme/news endpoint',pointInTime:'captured-at-source',
       futureDatedBarsExcluded:true,catalystOnlyUsedWhenNewsTimestampVerified:true,brokerConnected:false,automaticOrderPlacement:false},
     quality:{},coverage:{rawRankedCandidates:raw.length,funnelCandidates:funnel.length,scoredCandidates:rankedScores.length,
-      preLimitUpEligibleCount:preLimitUpScores.length,earlyOpportunityCandidates:earlyRows.length,balancedBlendCount:balancedBlend.length},
+      preLimitUpEligibleCount:preLimitUpScores.length,earlyOpportunityCandidates:earlyRows.length,balancedBlendCount:balancedBlend.length,
+      wideNewsScan:wideNewsDiagnostics},
     candidates:auditRecords,rankings:{
       overall,
       catalystConfirmed,
@@ -530,7 +616,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   return finalSnapshot;
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
-  const a=process.argv.slice(2);let out=null,candidateLimit=120,asOf=null;
-  for(let i=0;i<a.length;i++){if(a[i]==='--out'&&a[i+1])out=a[++i];else if(a[i]==='--limit'&&a[i+1])candidateLimit=Math.max(50,Math.min(180,Number(a[++i])||120));else if(a[i]==='--as-of'&&a[i+1])asOf=a[++i];}
-  await captureV13LiveSnapshot({out,candidateLimit,asOf});
+  const a=process.argv.slice(2);let out=null,candidateLimit=120,asOf=null,wideNewsScan=false;
+  for(let i=0;i<a.length;i++){if(a[i]==='--out'&&a[i+1])out=a[++i];else if(a[i]==='--limit'&&a[i+1])candidateLimit=Math.max(50,Math.min(180,Number(a[++i])||120));else if(a[i]==='--as-of'&&a[i+1])asOf=a[++i];else if(a[i]==='--wide-news-scan')wideNewsScan=true;}
+  await captureV13LiveSnapshot({out,candidateLimit,asOf,wideNewsScan});
 }
