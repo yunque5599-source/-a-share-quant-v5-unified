@@ -1,0 +1,10 @@
+{
+  "purpose": "Historical replay targets from the user's prior screenshots; holdout audit set, not training labels.",
+  "policy": "Do not tune weights to force these names to rank highly. For each symbol, replay only bars and information available before its observed limit-up session. The observed limit-up date must be independently verified before evaluation.",
+  "targets": [
+    { "code": "301159", "name": "三维天地", "board": "CHINEXT", "auditStatus": "date_and_pre_limitup_bars_required" },
+    { "code": "300006", "name": "莱美药业", "board": "CHINEXT", "auditStatus": "date_and_pre_limitup_bars_required" },
+    { "code": "301102", "name": "兆讯传媒", "board": "CHINEXT", "auditStatus": "date_and_pre_limitup_bars_required" },
+    { "code": "301486", "name": "致尚科技", "board": "CHINEXT", "auditStatus": "date_and_pre_limitup_bars_required" }
+  ]
+}
