@@ -375,9 +375,9 @@ function scoreCandidate(candidate, options = {}) {
   const tradeabilityReason = !discoveryEligible ? risk.reason : executionEligible ? null : 'BOARD_OR_ACCOUNT_PERMISSION:' + board;
   const setup = scorePath === 'early-turn'
     ? '底部转强候选'
-    : modelVariant === 'v13-core-only'
-      ? classifySetup(f, -Infinity, -Infinity, coreGrossScore)
-      : classifySetup(f, repair, oversold, coreGrossScore);
+    : modelVariant === 'v13-current'
+      ? classifySetup(f, repair, oversold, coreGrossScore)
+      : classifySetup(f, -Infinity, -Infinity, coreGrossScore);
   const riskFlags = [...risk.flags];
   if (f.flowCount < 3) riskFlags.push('资金流历史不足，资金评分置信度较低');
   if (f.sectorFieldsPresent < 2) riskFlags.push('题材/行业数据不足，板块评分为弱证据');
