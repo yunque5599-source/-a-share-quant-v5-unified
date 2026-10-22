@@ -82,10 +82,16 @@ async function mapLimit(items,limit,fn){const out=new Array(items.length);let ne
 export function interleaveCodes(primary,secondary,limit){
   const out=[],seen=new Set();let p=0,s=0,takePrimary=true;
   while(out.length<limit&&(p<primary.length||s<secondary.length)){
-    const list=takePrimary?primary:secondary,index=takePrimary?p:s;
-    if(index>=list.length){takePrimary=!takePrimary;continue;}
-    const code=String(list[index]);if(takePrimary)p++;else s++;takePrimary=!takePrimary;
-    if(!seen.has(code)){seen.add(code);out.push(code);}
+    const list=takePrimary?primary:secondary;
+    if(takePrimary){
+      while(p<primary.length&&seen.has(String(primary[p])))p++;
+      if(p>=primary.length){takePrimary=false;continue;}
+      const code=String(primary[p++]);seen.add(code);out.push(code);takePrimary=false;
+    }else{
+      while(s<secondary.length&&seen.has(String(secondary[s])))s++;
+      if(s>=secondary.length){takePrimary=true;continue;}
+      const code=String(secondary[s++]);seen.add(code);out.push(code);takePrimary=true;
+    }
   }
   return out;
 }
