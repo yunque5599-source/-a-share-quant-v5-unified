@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRows, selectCandidateFunnel, normalizeDatedNews, buildPsychologySector, validateLiveSnapshot, interleaveCodes, flattenNewsPayload, buildStockNewsFallback } from '../research/v13-limitup-precursor/live_snapshot.js';
+import { parseRows, selectCandidateFunnel, normalizeDatedNews, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isPreLimitUpCandidate, interleaveCodes, flattenNewsPayload, buildStockNewsFallback } from '../research/v13-limitup-precursor/live_snapshot.js';
 
 test('parsers exclude future-dated rows and sort history',()=>{
  const bars=parseRows(['2026-10-21,10,10.5,10.6,9.9,200,2100000,0,0,0,4.2','2026-10-19,9,9.2,9.3,8.9,100,920000,0,0,0,2.1','2026-10-22,10.5,11,11.1,10.4,300,3300000,0,0,0,5.1'],'bar','2026-10-21T05:00:00Z');
@@ -46,4 +46,41 @@ test('stock-news fallback only scores timestamp-verified headlines and flags its
  assert.equal(out.overlay.datedNewsCount,1);
  assert.ok(Number.isFinite(out.sector.catalystScore));
  assert.ok(out.overlay.warnings.some(x=>x.includes('no validated sentiment')));
+});
+
+
+test('overextended stocks are excluded from the early actionable shortlist but remain diagnosable',()=>{
+ const extendedChiNext={code:'300839',currentPct:20,features:{r5Pct:64,distHigh20Pct:16},quote:{pct:20}};
+ const earlyMainBoard={code:'600406',currentPct:2.15,features:{r5Pct:3.29,distHigh20Pct:0.65},quote:{pct:2.15}};
+ assert.equal(isPreLimitUpCandidate(extendedChiNext,{stage:'extended'}),false);
+ assert.equal(isPreLimitUpCandidate(earlyMainBoard,{stage:'early-base'}),true);
+ assert.equal(isPreLimitUpCandidate({code:'600001',quote:{pct:8},features:{r5Pct:10,distHigh20Pct:4}}, {stage:'early-base'}),false);
+ assert.equal(isPreLimitUpCandidate({code:'300001',quote:{pct:3},features:{r5Pct:27,distHigh20Pct:4}}, {stage:'early-base'}),false);
+});
+
+test('invalid source quality suppresses all recommendation rankings and preserves them as diagnostics',()=>{
+ const snapshot={
+  schema:'v13-live-psychology-catalyst-snapshot-v1',snapshotId:'v13-invalid',capturedAt:'2026-10-22T06:00:00Z',
+  asOf:'2026-10-22T06:00:00Z',candidates:Array.from({length:60},()=>({})),
+  quality:{deepSuccessPct:99,barHistoryCoveragePct:95,psychologyCoveragePct:0,datedNewsCoveragePct:0},
+  rankings:{overall:[{code:'300839',name:'已大涨股票'}],trendTransition:[{code:'600001'}],emotionRepair:[{code:'300006'}]}
+ };
+ const result=applySnapshotQualityGate(snapshot);
+ assert.equal(result.recommendationsAvailable,false);
+ assert.equal(result.recommendationStatus,'SOURCE_UNAVAILABLE');
+ assert.deepEqual(result.rankings,{overall:[],trendTransition:[],emotionRepair:[]});
+ assert.equal(result.diagnosticRankings.overall[0].code,'300839');
+});
+
+test('valid source quality leaves gated rankings available',()=>{
+ const snapshot={
+  schema:'v13-live-psychology-catalyst-snapshot-v1',snapshotId:'v13-valid',capturedAt:'2026-10-22T06:00:00Z',
+  asOf:'2026-10-22T06:00:00Z',candidates:Array.from({length:60},()=>({})),
+  quality:{deepSuccessPct:99,barHistoryCoveragePct:95,psychologyCoveragePct:80,datedNewsCoveragePct:0},
+  rankings:{overall:[{code:'600406',name:'测试股'}]}
+ };
+ const result=applySnapshotQualityGate(snapshot);
+ assert.equal(result.recommendationsAvailable,true);
+ assert.equal(result.recommendationStatus,'CAPTURED');
+ assert.equal(result.rankings.overall[0].code,'600406');
 });
