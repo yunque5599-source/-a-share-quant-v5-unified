@@ -189,3 +189,14 @@ test('early-turn variant has an auditable score and never uses observation lanes
   assert.ok(['early-turn', 'trend-transition'].includes(earlyTurn.scorePath));
   assert.ok(!['emotion-repair', 'oversold-reversal'].includes(earlyTurn.scorePath));
 });
+
+
+test('momentum-hybrid variant exposes its score without mixing observation-only lanes', () => {
+  const candidate = makeCandidate({ code: '300006', name: '样本动量股', strong: true, pct: 3.1 });
+  const hybrid = scoreCandidate(candidate, { modelVariant: 'v13-momentum-hybrid' });
+  assert.ok(hybrid);
+  assert.equal(hybrid.modelVariant, 'v13-momentum-hybrid');
+  assert.equal(hybrid.scorePath, 'momentum-hybrid');
+  assert.ok(Number.isFinite(hybrid.components.momentumHybrid));
+  assert.ok(!['emotion-repair', 'oversold-reversal'].includes(hybrid.scorePath));
+});
