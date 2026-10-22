@@ -89,7 +89,8 @@ export function evaluateHoldoutAudit(candidates, {
     ['current', 'v13-current'],
     ['coreOnly', 'v13-core-only'],
     ['earlyTurn', 'v13-early-turn'],
-    ['momentumHybrid', 'v13-momentum-hybrid']
+    ['momentumHybrid', 'v13-momentum-hybrid'],
+    ['rankEnsemble', 'v13-rank-ensemble']
   ];
   const rankedByVariant = Object.fromEntries(scoreVariants.map(([key, modelVariant]) => [
     key, rankCandidates(enriched, { asOf, modelVariant })
@@ -174,7 +175,7 @@ export function evaluateHoldoutAudit(candidates, {
     dataPolicy: {
       features: 'All K-line and flow rows after asOf are removed before sector context or scoring is calculated',
       labels: 'Target outcomes are read only after all three candidate rankings and observation lanes are generated',
-      variants: 'Legacy blended, core-only, early-turn and momentum-led hybrid scores, plus a raw five-session-momentum baseline; emotion-repair and oversold are independent observation lanes',
+      variants: 'Legacy blended, core-only, early-turn, momentum-led hybrid and cross-sectional momentum-confirmed ranking, plus a raw five-session-momentum baseline; emotion-repair and oversold are independent observation lanes',
       noHardcoding: 'Target stock codes do not enter score formulas or ranking weights'
     },
     laneTop10: {
