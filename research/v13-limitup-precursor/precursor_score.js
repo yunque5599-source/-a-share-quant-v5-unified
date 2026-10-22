@@ -208,6 +208,21 @@ function sectorScore(f) {
 function momentumScore(f) {
   return clamp(0.45 * ramp(f.r3Pct, -5, 8) + 0.35 * ramp(f.r5Pct, -8, 18) + 0.20 * ramp(f.r10Pct, -12, 32));
 }
+function r5MomentumScore(f) {
+  return clamp(ramp(f.r5Pct, -5, 15));
+}
+function momentumHybridScore(f) {
+  // Experimental short-horizon variant: keep five-session momentum dominant,
+  // then use volume/price, flow and sector as confirmation rather than replacement.
+  return clamp(
+    0.45 * r5MomentumScore(f)
+    + 0.20 * momentumScore(f)
+    + 0.15 * flowScore(f)
+    + 0.10 * volumePriceScore(f)
+    + 0.05 * sectorScore(f)
+    + 0.05 * baseScore(f)
+  );
+}
 function baseScore(f) {
   const lowProximity = bandScore(f.distLow20Pct, 5, 24, -2, 55);
   const nearBreakout = bandScore(f.distHigh20Pct, -9, 2, -28, 16);
@@ -348,6 +363,7 @@ function scoreCandidate(candidate, options = {}) {
   const repair = emotionRepairScore(f);
   const oversold = oversoldReversalScore(f);
   const earlyTurn = earlyTurnScore(f);
+  const momentumHybrid = momentumHybridScore(f);
   const risk = computeRisk(f, candidate);
   const coreGrossScore = 0.22 * trend + 0.20 * volumePrice + 0.20 * flow + 0.18 * sector + 0.12 * momentum + 0.08 * base;
   const modelVariant = options.modelVariant || 'v13-current';
@@ -355,7 +371,9 @@ function scoreCandidate(candidate, options = {}) {
     ? coreGrossScore
     : modelVariant === 'v13-early-turn'
       ? Math.max(coreGrossScore, earlyTurn)
-      : Math.max(coreGrossScore, repair, oversold);
+      : modelVariant === 'v13-momentum-hybrid'
+        ? momentumHybrid
+        : Math.max(coreGrossScore, repair, oversold);
   const score = clamp(grossScore - risk.penalty);
   const scorePath = modelVariant === 'v13-current'
     ? grossScore === oversold && oversold > coreGrossScore && oversold > repair
@@ -363,7 +381,7 @@ function scoreCandidate(candidate, options = {}) {
       : repair > coreGrossScore && repair >= oversold ? 'emotion-repair' : 'trend-transition'
     : modelVariant === 'v13-early-turn' && earlyTurn > coreGrossScore
       ? 'early-turn'
-      : 'trend-transition';
+      : modelVariant === 'v13-momentum-hybrid' ? 'momentum-hybrid' : 'trend-transition';
   const confidence = clamp(30
     + (f.bars.length >= 60 ? 20 : f.bars.length >= 40 ? 12 : 5)
     + (f.flowCount >= 5 ? 20 : f.flowCount >= 3 ? 12 : 0)
@@ -396,6 +414,7 @@ function scoreCandidate(candidate, options = {}) {
       flow: Number(flow.toFixed(1)), sector: Number(sector.toFixed(1)),
       momentum: Number(momentum.toFixed(1)), base: Number(base.toFixed(1)),
       coreComposite: Number(coreGrossScore.toFixed(1)), earlyTurn: Number(earlyTurn.toFixed(1)),
+      momentumHybrid: Number(momentumHybrid.toFixed(1)),
       emotionRepair: Number(repair.toFixed(1)), oversoldReversal: Number(oversold.toFixed(1))
     },
     riskFlags,
@@ -426,5 +445,5 @@ function rankCandidates(candidates, options = {}) {
 export {
   boardForCode, deriveFeatures, scoreCandidate, rankCandidates,
   trendScore, volumePriceScore, flowScore, sectorScore, momentumScore, baseScore,
-  earlyTurnScore, emotionRepairScore, oversoldReversalScore
+  r5MomentumScore, momentumHybridScore, earlyTurnScore, emotionRepairScore, oversoldReversalScore
 };
