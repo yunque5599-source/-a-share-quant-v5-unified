@@ -6,7 +6,6 @@ import psychologyHandler from '../../api/psychology_universe.js';
 import { boardForCode, isRestrictedListingName, scoreCandidate, rankCandidates } from './precursor_score.js';
 import { computeEarlyOpportunity } from '../../research/v11-short-alpha/early_opportunity.js';
 import { fetchUniverse } from './historical_replay.js';
-import { fetchUniverse } from './historical_replay.js';
 
 const MODEL_VERSION = 'V13-live-psychology-catalyst-overlay-research-v2-wide-news';
 const n = v => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
