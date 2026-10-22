@@ -37,6 +37,20 @@ jobs:
         if: success() && hashFiles('output/v13-history-replay/replay_candidates.ndjson') != ''
         run: |
           node research/v13-limitup-precursor/walk_forward_eval.js --input output/v13-history-replay/replay_candidates.ndjson --quality-report output/v13-history-replay/replay_report.json --signal-days 15
+      - name: Enforce historical source-quality gate
+        if: success() && hashFiles('output/v13-history-replay/replay_report.json') != ''
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const report = JSON.parse(readFileSync('output/v13-history-replay/replay_report.json', 'utf8'));
+          const coverage = Number(report.coverage?.barCoveragePct);
+          const status = report.validation?.status;
+          console.log(JSON.stringify({ status, coverage, missingTargets: report.validation?.missingTargets ?? [] }));
+          if (status !== 'MEASURABLE' || !Number.isFinite(coverage) || coverage < 90) {
+            console.error('Replay source quality is not sufficient for a valid ranking.');
+            process.exit(1);
+          }
+          NODE
       - name: Upload replay dataset and report
         if: always()
         uses: actions/upload-artifact@v4
