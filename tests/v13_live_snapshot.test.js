@@ -110,3 +110,17 @@ test('valid source quality leaves gated rankings available',()=>{
  assert.equal(result.recommendationStatus,'CAPTURED');
  assert.equal(result.rankings.overall[0].code,'600406');
 });
+
+
+test('timezone-naive A-share news timestamps are interpreted as China Standard Time',()=>{
+ const rows=normalizeDatedNews([{code:'301102',name:'兆讯传媒',news:[
+  {title:'Before cutoff',publishedAt:'2026-10-22 13:30:00'},
+  {title:'After cutoff',publishedAt:'2026-10-22 14:30:00'},
+  {title:'Date only',publishedAt:'2026-10-21'}
+ ]}],'2026-10-22T06:00:00Z');
+ assert.equal(rows[0].usableAsPointInTimeCatalyst,true);
+ assert.equal(rows[0].publishedAt,'2026-10-22T05:30:00.000Z');
+ assert.equal(rows[1].usableAsPointInTimeCatalyst,false);
+ assert.equal(rows[2].usableAsPointInTimeCatalyst,true);
+ assert.equal(rows[2].publishedAt,'2026-10-20T16:00:00.000Z');
+});
