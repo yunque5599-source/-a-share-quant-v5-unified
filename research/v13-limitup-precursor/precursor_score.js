@@ -52,7 +52,10 @@ function limitThresholdPct(code) {
 }
 function cleanDatedRows(rows, asOf, kind) {
   const cutoff = asOf ? String(asOf).slice(0, 10) : '';
-  const seen = new Map();
+  const normalized = [];
+  const keys = new Set();
+  let alreadyOrdered = true;
+  let previousDate = '';
   for (const raw of Array.isArray(rows) ? rows : []) {
     const date = String(raw?.date || '').slice(0, 10);
     if (cutoff && (!date || date > cutoff)) continue;
@@ -71,9 +74,19 @@ function cleanDatedRows(rows, asOf, kind) {
       row.amount = num(raw.amount);
       row.mainPct = num(raw.mainPct, num(raw.pct));
     }
-    seen.set(date || ('undated-' + seen.size), row);
+    const key = date || ('undated-' + normalized.length);
+    if (!date || keys.has(key) || (previousDate && date <= previousDate)) alreadyOrdered = false;
+    keys.add(key);
+    normalized.push(row);
+    previousDate = date;
   }
-  return [...seen.values()].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+  if (alreadyOrdered) return normalized;
+  const deduplicated = new Map();
+  for (let i = 0; i < normalized.length; i++) {
+    const row = normalized[i];
+    deduplicated.set(row.date || ('undated-' + i), row);
+  }
+  return [...deduplicated.values()].sort((a, b) => String(a.date).localeCompare(String(b.date)));
 }
 function returns(bars, n) {
   if (bars.length <= n) return NaN;
