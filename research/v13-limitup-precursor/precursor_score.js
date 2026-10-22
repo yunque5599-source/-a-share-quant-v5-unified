@@ -232,6 +232,28 @@ function emotionRepairScore(f) {
   if (f.recentLimitUp10Count > 0 && f.currentPct > 0 && f.r3Pct > 0 && f.closeLocation > 0.55) score = Math.max(score, 68);
   return clamp(score);
 }
+function oversoldReversalScore(f) {
+  // Research-only contrarian path: a meaningful drawdown near the recent range low,
+  // short-term selling pressure, and signs of stabilization. This is not a buy signal.
+  const drawdownFromHigh = bandScore(-f.distHigh20Pct, 5, 24, 0, 42);
+  const nearRangeLow = bandScore(f.distLow20Pct, 2, 14, -2, 32);
+  const selloff3 = bandScore(f.r3Pct, -12, -1.5, -28, 7);
+  const selloff5 = bandScore(f.r5Pct, -20, -3, -42, 10);
+  const selloff = 0.55 * selloff3 + 0.45 * selloff5;
+  const stabilization = 0.55 * clamp(f.closeLocation * 100)
+    + 0.45 * bandScore(f.currentPct, -2.5, 4.5, -12, 10);
+  const volumeExhaustion = bandScore(f.volumeExpansion, 0.45, 1.45, 0.1, 4.0);
+  const flowNotWorsening = f.mainNet3 > f.previousMainNet3 ? 72
+    : f.mainNet3 > 0 ? 62
+    : f.flowCount >= 3 ? 32 : 45;
+  const score = 0.22 * drawdownFromHigh + 0.22 * nearRangeLow
+    + 0.22 * selloff + 0.18 * stabilization
+    + 0.10 * volumeExhaustion + 0.06 * flowNotWorsening;
+  // Avoid labeling an ordinary downtrend as a reversal setup without both a pullback
+  // and proximity to the range low. The remaining score is still visible for research.
+  if (f.distLow20Pct > 22 || f.distHigh20Pct > -2) return Math.min(score, 58);
+  return clamp(score);
+}
 function computeRisk(f, candidate) {
   const flags = [];
   let penalty = 0;
@@ -283,8 +305,9 @@ function computeRisk(f, candidate) {
   }
   return { penalty: clamp(penalty, 0, 30), flags, excluded: false, reason: null };
 }
-function classifySetup(f, repairScore, coreScore) {
-  if (repairScore >= 65 && repairScore > coreScore) return '情绪反核观察';
+function classifySetup(f, repairScore, oversoldScore, coreScore) {
+  if (repairScore >= 65 && repairScore > coreScore && repairScore >= oversoldScore) return '情绪反核观察';
+  if (oversoldScore >= 65 && oversoldScore > coreScore && oversoldScore > repairScore) return '超跌修复观察';
   if (f.distHigh20Pct >= 0 && f.volumeExpansion >= 1.2) return '放量突破';
   if (f.price > f.ma5 && f.ma5 > f.prevMa5 && f.r3Pct > 0 && f.distLow20Pct <= 28 && f.currentPct <= 7.5) return '底部转强';
   if (f.priorVolumeCompression < 0.8 && f.distHigh20Pct >= -10) return '平台蓄势';
@@ -304,11 +327,14 @@ function scoreCandidate(candidate, options = {}) {
   const momentum = momentumScore(f);
   const base = baseScore(f);
   const repair = emotionRepairScore(f);
+  const oversold = oversoldReversalScore(f);
   const risk = computeRisk(f, candidate);
   const coreGrossScore = 0.22 * trend + 0.20 * volumePrice + 0.20 * flow + 0.18 * sector + 0.12 * momentum + 0.08 * base;
-  const grossScore = Math.max(coreGrossScore, repair);
+  const grossScore = Math.max(coreGrossScore, repair, oversold);
   const score = clamp(grossScore - risk.penalty);
-  const scorePath = repair > coreGrossScore ? 'emotion-repair' : 'trend-transition';
+  const scorePath = grossScore === oversold && oversold > coreGrossScore && oversold > repair
+    ? 'oversold-reversal'
+    : repair > coreGrossScore && repair >= oversold ? 'emotion-repair' : 'trend-transition';
   const confidence = clamp(30
     + (f.bars.length >= 60 ? 20 : f.bars.length >= 40 ? 12 : 5)
     + (f.flowCount >= 5 ? 20 : f.flowCount >= 3 ? 12 : 0)
@@ -327,20 +353,22 @@ function scoreCandidate(candidate, options = {}) {
     board, asOf: f.asOf, price: Number(f.price.toFixed(4)), currentPct: Number(f.currentPct.toFixed(2)),
     score: Number(score.toFixed(1)), grossScore: Number(grossScore.toFixed(1)),
     riskPenalty: Number(risk.penalty.toFixed(1)), confidence: Number(confidence.toFixed(1)),
-    setup: classifySetup(f, repair, coreGrossScore), scorePath,
+    setup: classifySetup(f, repair, oversold, coreGrossScore), scorePath,
     horizonTradingDays: [1, 5], discoveryEligible, executionEligible,
     tradeabilityReason,
     components: {
       trend: Number(trend.toFixed(1)), volumePrice: Number(volumePrice.toFixed(1)),
       flow: Number(flow.toFixed(1)), sector: Number(sector.toFixed(1)),
       momentum: Number(momentum.toFixed(1)), base: Number(base.toFixed(1)),
-      coreComposite: Number(coreGrossScore.toFixed(1)), emotionRepair: Number(repair.toFixed(1))
+      coreComposite: Number(coreGrossScore.toFixed(1)), emotionRepair: Number(repair.toFixed(1)),
+      oversoldReversal: Number(oversold.toFixed(1))
     },
     riskFlags,
     features: {
       r3Pct: Number(f.r3Pct.toFixed(2)), r5Pct: Number(f.r5Pct.toFixed(2)),
       r10Pct: Number(f.r10Pct.toFixed(2)), distHigh20Pct: Number(f.distHigh20Pct.toFixed(2)),
       distLow20Pct: Number(f.distLow20Pct.toFixed(2)),
+      closeLocation: Number(f.closeLocation.toFixed(2)),
       recentLimitUp5Count: f.recentLimitUp5Count,
       recentLimitUp10Count: f.recentLimitUp10Count,
       recentStrongUp10Count: f.recentStrongUp10Count,
@@ -362,5 +390,5 @@ function rankCandidates(candidates, options = {}) {
 
 export {
   boardForCode, deriveFeatures, scoreCandidate, rankCandidates,
-  trendScore, volumePriceScore, flowScore, sectorScore, momentumScore, baseScore, emotionRepairScore
+  trendScore, volumePriceScore, flowScore, sectorScore, momentumScore, baseScore, emotionRepairScore, oversoldReversalScore
 };
