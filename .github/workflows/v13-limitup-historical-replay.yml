@@ -1,11 +1,6 @@
 name: V13 historical limit-up replay
 
 on:
-  push:
-    branches: [research/v13-limitup-precursor]
-    paths:
-      - 'research/v13-limitup-precursor/historical_replay.js'
-      - '.github/workflows/v13-limitup-historical-replay.yml'
   workflow_dispatch:
     inputs:
       as_of:
@@ -31,13 +26,14 @@ jobs:
           node-version: 22
       - name: Collect point-in-time bars and replay V13
         env:
-          AS_OF: ${{ github.event.inputs.as_of || '2026-10-20' }}
+          AS_OF: \${{ github.event.inputs.as_of || '2026-10-20' }}
         run: |
-          node research/v13-limitup-precursor/historical_replay.js --as-of "$AS_OF" --out-dir output/v13-history-replay --concurrency ${{ github.event.inputs.concurrency || '14' }}
+          node research/v13-limitup-precursor/historical_replay.js --as-of "$AS_OF" --out-dir output/v13-history-replay --concurrency \${{ github.event.inputs.concurrency || '14' }}
       - name: Upload replay dataset and report
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v13-historical-replay-${{ github.event.inputs.as_of || '2026-10-20' }}
+          name: v13-historical-replay-\${{ github.event.inputs.as_of || '2026-10-20' }}
           path: output/v13-history-replay/
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
