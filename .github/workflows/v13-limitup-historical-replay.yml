@@ -59,3 +59,11 @@ jobs:
           path: output/v13-history-replay/
           if-no-files-found: warn
           retention-days: 30
+      - name: Upload small replay quality report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v13-replay-quality-${{ github.event.inputs.as_of || '2026-10-20' }}
+          path: output/v13-history-replay/replay_report.json
+          if-no-files-found: warn
+          retention-days: 30
