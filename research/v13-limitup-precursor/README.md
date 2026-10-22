@@ -116,37 +116,57 @@ The held-out screenshot audit was run after ranking, with target labels excluded
 
 None of the three true limit-up targets reached the top 30 in the current composite, core-only, early-turn, momentum-hybrid, cross-sectional rank-ensemble, raw five-session-momentum, or V12 Early Opportunity global rankings. The momentum-hybrid ranks were 625 (三维天地), 286 (莱美药业), 5,049 (兆讯传媒), and 4,394 (致尚科技); the cross-sectional rank-ensemble ranks were 509, 1,443, 4,458, and 5,175. The raw five-session-momentum ranks were 1,173, 44, 4,333, and 5,392; it surfaced 莱美药业 within the top 50 but missed the other three. V12 Early Opportunity ranks were 2,570, 5,249, 2,969, and 4,076 respectively. The emotion-repair lane surfaced 莱美药业 at rank 1, but its global rank was poor; the oversold lane still produced too many weak candidates. This is a model miss, not a successful prediction.
 
-A 15-signal-date walk-forward comparison also found that the heuristic rankings underperformed the raw five-session-momentum baseline on the tested window:
+## 60-date walk-forward evaluation
 
-| Top-K ranking | T+5 mean close return | T+5 win rate | Limit-up hit precision within 5 sessions |
-|---|---:|---:|---:|
-| Current composite, top 10 | -2.93% | 31.22% | 2.74% |
-| Core-only, top 10 | -2.48% | 34.67% | 5.33% |
-| Early-turn, top 10 | -3.30% | 32.07% | 9.33% |
-| Momentum-hybrid, top 10 | -3.31% | 33.33% | 14.00% |
-| Cross-sectional rank-ensemble, top 10 | -2.84% | 33.33% | 10.67% |
-| V12 Early Opportunity, top 10 | +0.04% | 40.26% | 4.98% |
-| Five-session momentum baseline, top 10 | +1.55% | 42.23% | 32.33% |
-| Current composite, top 30 | -2.36% | 33.11% | 4.58% |
-| Momentum-hybrid, top 30 | -4.48% | 29.76% | 11.68% |
-| Cross-sectional rank-ensemble, top 30 | -3.84% | 33.16% | 9.02% |
-| V12 Early Opportunity, top 30 | -0.20% | 38.78% | 3.03% |
-| Five-session momentum baseline, top 30 | -2.09% | 37.31% | 22.41% |
+The qualified replay covered 5,897 of 5,922 current symbols (99.58% historical-bar coverage) and 98.56% T+5 outcome coverage across 60 signal dates. The current listing is used as a proxy for the historical universe, not an exchange-certified point-in-time constituent snapshot.
 
-The separate emotion-repair watchlist had higher limit-up hit precision (38.67% for its top 10 within five sessions), but a -2.40% mean T+5 close return and -10.42% mean maximum adverse excursion. It should remain a high-risk observation lane, not be promoted to an unconditional buy list. The cross-sectional rank ensemble improved T+1 average return to +0.12% in its top 10 but still had -2.84% T+5 mean return and did not capture the holdout limit-up targets in its top 30.
+| Top-K ranking | T+5 mean close return | T+5 win rate | Limit-up hit precision within 5 sessions | Mean maximum adverse excursion |
+|---|---:|---:|---:|---:|
+| Balanced blend, top 10 | +1.79% | 50.79% | 21.27% | -6.56% |
+| Five-session momentum, top 10 | +0.63% | 43.50% | 38.51% | -11.92% |
+| V12 Early Opportunity, top 10 | +0.09% | 44.63% | 1.62% | -2.41% |
+| Emotion-repair watch, top 10 | -1.15% | 42.17% | 35.00% | -10.04% |
+| Current composite, top 10 | -0.46% | 42.69% | 5.67% | -4.95% |
+| Balanced blend, top 30 | -0.22% | 43.45% | 17.46% | -7.13% |
+| Five-session momentum, top 30 | -1.45% | 39.07% | 27.31% | -11.32% |
+| V12 Early Opportunity, top 30 | +0.12% | 46.35% | 1.47% | -2.49% |
+| Emotion-repair watch, top 30 | -1.85% | 41.03% | 30.64% | -9.92% |
 
-**Decision: do not merge any new ranking into the production one-click selector yet.** V12 Early Opportunity had a near-flat T+5 return with lower adverse excursion (about -2.5%), so it may serve as a more defensive low-base watchlist; however, its limit-up hit precision was only 4.98% for top 10. The raw five-session-momentum baseline remains materially better at identifying near-term limit-up events in this 15-date sample, while its drawdowns are larger. None of the tested price/volume/flow variants reliably identified all four holdout targets. The next research iteration should test a supervised, point-in-time limit-up/forward-return ranker and add genuinely time-stamped catalyst/theme/news features. In particular, 兆讯传媒's and 致尚科技's weak pre-event momentum and flow show why simply raising the oversold weight would overfit and create falling-knife false positives. Keep the screenshot names as a holdout set; do not train or tune directly on their outcomes.
+The 50/50 balanced blend is the strongest current risk/return compromise in this 60-date sample. Raw momentum finds more limit-up events, but has substantially larger adverse excursions. V12 Early Opportunity is more defensive but is not a strong limit-up detector. Emotion-repair detects many later limit-up events, but its negative T+5 returns and high adverse excursion make it a high-risk observation lane rather than a buy list.
+
+## Supervised limit-up classifier
+
+The point-in-time logistic classifier used 60 eligible signal dates, with 40 training dates, a five-date purge block, and 15 test dates. It used 212,937 training samples and 11,964 positive limit-up labels (5.62%).
+
+| Ranking | Test top 10 T+5 return | Win rate | Limit-up hit precision | Test top 30 T+5 return | Top-30 limit-up precision |
+|---|---:|---:|---:|---:|---:|
+| Supervised limit-up classifier | -3.82% | 34.52% | 37.02% | -3.44% | 36.90% |
+| Raw five-session momentum | +1.55% | 42.23% | 32.33% | -2.09% | 22.41% |
+
+The classifier identifies more limit-up events in the test window, but the negative forward returns mean it is not a profitable standalone ranking. It ranked 莱美药业 #23 on the 2026-10-20 held-out signal close, but ranked 三维天地 #3,720 and 兆讯传媒 #5,252. It captured only one of the three true limit-up targets in the top 30.
+
+## Held-out screenshot audit
+
+Target labels were read only after rankings were computed. They are not used as training labels or model features.
+
+| Target | Current composite | Core-only | Early-turn | Momentum-hybrid | Rank-ensemble | Raw momentum | V12 Early Opportunity | Balanced blend | Supervised limit-up |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| 三维天地 (301159) | 3,919 | 460 | 154 | 625 | 509 | 1,173 | 2,570 | 1,939 | 3,720 |
+| 莱美药业 (300006) | 4,025 | 3,091 | 4,300 | 286 | 1,443 | 44 | 5,249 | 87 | 23 |
+| 兆讯传媒 (301102) | 895 | 4,924 | 2,818 | 5,049 | 4,458 | 4,333 | 2,969 | 3,665 | 5,252 |
+| 致尚科技 (301486) | 485 | 4,090 | 4,008 | 4,394 | 5,175 | 5,392 | 4,076 | 4,561 | 3,868 |
+
+致尚科技 rose 17.12% but did not close limit-up. The technical-only rankings still miss 三维天地 and 兆讯传媒. The early-turn lane surfaces 三维天地 at #154, but that is a watchlist signal rather than a top-30 pick. The main missing information is timestamped catalyst/theme/news evidence; simply increasing oversold weight would create falling-knife false positives.
+
+## Current experiment
+
+A separate supervised classifier for **T+5 close return of at least +3%** is now being evaluated alongside the limit-up classifier. This keeps “probability of a limit-up event” distinct from “probability of a profitable short-horizon trade.” The next live-only experiment is to combine a broad candidate funnel with time-stamped psychology/catalyst features, then capture daily point-in-time snapshots before outcomes occur.
 
 ## Validation gate before integration
 
-1. Reconstruct the complete eligible universe at the 2026-10-20 close and retrieve point-in-time bars, flows, and sector/theme information for all candidates.
-2. Score candidates using only data available before the target session; store the target rank, top-10/top-30 recall, and reasons for any miss. The updated holdout audit ranked 三维天地 3,919, 莱美药业 4,033, 兆讯传媒 895, and 致尚科技 485 in the current composite; early-turn improved 三维天地 to 154 but still missed the top 30. The V12 Early Opportunity score is now being compared as another independent ranking rather than assuming the new V13 heuristic is better.
-3. Run walk-forward evaluation across many dates, reporting top-k limit-up recall within 1/3/5 sessions, forward returns, maximum adverse excursion, turnover/cost assumptions, and board-separated results.
-4. Compare against the existing model and simple baselines. Keep this model research-only unless the out-of-sample uplift is repeatable and risk-adjusted.
+1. Keep the screenshot names as a held-out audit set; do not tune directly on their outcomes.
+2. Expand point-in-time data collection, especially historical capital-flow and timestamped theme/news features.
+3. Compare limit-up precision, T+1/T+3/T+5 returns, positive-return precision, drawdown, liquidity, and transaction-cost assumptions across multiple market regimes.
+4. Keep this model research-only until out-of-sample improvement is repeatable and risk-adjusted.
 
 A high score means worth investigating, not buy now. Execution eligibility and account permission remain separate gates.
-
-
-### Initial supervised baseline (preliminary)
-
-The first supervised point-in-time logistic ranker run used 15 eligible signal dates, with 15 train dates, a five-date purge, and only five test dates. It reported top-10 T+5 mean return +0.29%, win rate 40.36%, and limit-up hit precision 37.50%, versus +0.78%, 36.39%, and 26.67% for the raw momentum baseline. At top 30, supervised hit precision was 39.71% versus 23.85%, but both had negative mean T+5 returns (-4.80% versus -5.61%). The held-out 2026-10-20 rank placed 莱美药业 31st, while the other three screenshot names remained far down the list. Five test dates are too few to select a production model; the evaluation window has been expanded to 60 signal dates with 15 test dates and a five-session purge.
