@@ -50,5 +50,13 @@ jobs:
         if: always()
         run: |
           if [ -s output/v13-live-snapshots/snapshot.json ]; then
-            node --input-type=module -e "import fs from 'node:fs';const x=JSON.parse(fs.readFileSync('output/v13-live-snapshots/snapshot.json','utf8'));console.log(JSON.stringify({snapshotId:x.snapshotId,capturedAt:x.capturedAt,quality:x.quality,top10:x.rankings?.overall?.slice(0,10).map(r=>({rank:r.rank,code:r.code,name:r.name,score:r.score,setup:r.setup}))},null,2))"
+            node --input-type=module -e "import fs from 'node:fs';const x=JSON.parse(fs.readFileSync('output/v13-live-snapshots/snapshot.json','utf8'));console.log(JSON.stringify({snapshotId:x.snapshotId,capturedAt:x.capturedAt,recommendationStatus:x.recommendationStatus,recommendationsAvailable:x.recommendationsAvailable,quality:x.quality,top10:x.rankings?.overall?.slice(0,10).map(r=>({rank:r.rank,code:r.code,name:r.name,score:r.score,setup:r.setup}))},null,2))"
           else echo 'No snapshot created (outside session or source capture failed).'; fi
+      - name: Enforce recommendation quality gate
+        if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch'
+        run: |
+          if [ ! -s output/v13-live-snapshots/snapshot.json ]; then
+            echo 'Snapshot is missing; no recommendations are available.'
+            exit 1
+          fi
+          node --input-type=module -e "import fs from 'node:fs';const x=JSON.parse(fs.readFileSync('output/v13-live-snapshots/snapshot.json','utf8'));if(x.recommendationsAvailable!==true){console.error('SOURCE_UNAVAILABLE: suppressing recommendations because source quality gates failed:',(x.quality?.reasons||[]).join(', '));process.exit(1)}"
