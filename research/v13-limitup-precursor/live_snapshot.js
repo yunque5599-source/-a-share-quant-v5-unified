@@ -221,15 +221,15 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const auditRecords=records.map(r=>({...r,score:scoreByCode.get(r.code)??r.score,
     observationScores:{emotionRepair:r.score?.components?.emotionRepair??null,oversoldReversal:r.score?.components?.oversoldReversal??null}}));
   const deepGood=records.filter(r=>r.source.klineSource==='eastmoney'&&r.source.flowSource==='eastmoney').length;
-  const barsGood=records.filter(r=>r.source.barCount>=25).length,psychGood=records.filter(r=>r.psychology.available).length;
+  const barsGood=records.filter(r=>r.source.barCount>=25).length,psychGood=records.filter(r=>r.psychology.available&&r.psychology.source!=='timestamped-stock-news-fallback').length;
   const quality={rankedSourceDegraded:ranked?.data?.degraded===true,rankedSourceStale:ranked?.data?.serverStale===true,rankedSourceMethod:ranked?.data?.method??null,
     rankedCandidateCount:raw.length,funnelCandidateCount:funnel.length,deepSuccessCount:deepGood,deepSuccessPct:+(deepGood/Math.max(1,funnel.length)*100).toFixed(2),
     barHistoryCount:barsGood,barHistoryCoveragePct:+(barsGood/Math.max(1,funnel.length)*100).toFixed(2),
     psychologyResponseCount:psychSuccessCodes.size,psychologyCoveragePct:+(psychSuccessCodes.size/Math.max(1,funnel.length)*100).toFixed(2),
     psychologyThemeCount:psychGood,psychologyThemeCoveragePct:+(psychGood/Math.max(1,funnel.length)*100).toFixed(2),
     newsResponseCount:newsSuccessCodes.size,newsResponseCoveragePct:+(newsSuccessCodes.size/Math.max(1,funnel.length)*100).toFixed(2),
-    datedNewsCandidateCount:records.filter(r=>r.psychology.datedNewsCount>0).length,
-    datedNewsCoveragePct:+(records.filter(r=>r.psychology.datedNewsCount>0).length/Math.max(1,funnel.length)*100).toFixed(2),sourceErrors};
+    datedNewsCandidateCount:records.filter(r=>(r.psychology.datedNewsCount??r.psychology.stockNewsFallback?.datedNewsCount??0)>0).length,
+    datedNewsCoveragePct:+(records.filter(r=>(r.psychology.datedNewsCount??r.psychology.stockNewsFallback?.datedNewsCount??0)>0).length/Math.max(1,funnel.length)*100).toFixed(2),sourceErrors};
   const snapshot={schema:'v13-live-psychology-catalyst-snapshot-v1',modelVersion:MODEL_VERSION,
     snapshotId:'v13-'+capturedAt.replace(/[-:.TZ]/g,''),capturedAt,asOf:requestedAsOf,
     sourcePolicy:{provider:'Eastmoney public quote/history and psychology/theme/news endpoint',pointInTime:'captured-at-source',
