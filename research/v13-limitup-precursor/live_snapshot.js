@@ -196,7 +196,7 @@ export function scoreCatalystConfirmed(record = {}) {
   const headline = n(record.headlineCatalystScore ?? overlay.headlineCatalystScore);
   const direction = record.headlineCatalystDirection ?? overlay.headlineCatalystDirection;
   const base = record.base ?? record.score ?? null;
-  if (direction !== 'positive' || !Number.isFinite(headline) || !base ||
+  if (record.timestampVerified !== true || direction !== 'positive' || !Number.isFinite(headline) || !base ||
       !Number.isFinite(Number(base.score)) || !record.preLimitUpEligible) return null;
   const components = base.components ?? {};
   const features = base.features ?? {};
@@ -421,7 +421,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       headlineCatalystDirection:overlay.headlineCatalystDirection??'unclassified',
       classifiedHeadlineCount:overlay.classifiedHeadlineCount??0,
       positiveHeadlineCount:overlay.positiveHeadlineCount??0,negativeHeadlineCount:overlay.negativeHeadlineCount??0,
-      catalystEvidence:overlay.catalystEvidence??[],baseScore:base?.score??null,
+      catalystEvidence:overlay.catalystEvidence??[],timestampVerified:true,baseScore:base?.score??null,
       preLimitUpEligible:base?isPreLimitUpCandidate(base,early):false};
   }).filter(Boolean);
   const catalystConfirmed=catalystRows.map(row=>scoreCatalystConfirmed({
