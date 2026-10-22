@@ -98,7 +98,7 @@ Because the first walk-forward run showed the raw 5-session momentum baseline be
 - 3% industry percentile
 - minus the existing soft risk penalty
 
-The first 15-date walk-forward comparison found this rank ensemble did not beat the raw momentum baseline: top-10 T+5 mean close return was -2.84% versus +1.55% for raw five-session momentum, and limit-up hit precision within five sessions was 10.67% versus 32.33%. It remains research-only. A new 50/50 interleaved shortlist combines raw momentum with the existing V12 Early Opportunity ranking; it is being added as a separately measured risk/return compromise, not assumed to be better.
+The first 15-date walk-forward comparison found this rank ensemble did not beat the raw momentum baseline: top-10 T+5 mean close return was -2.84% versus +1.55% for raw five-session momentum, and limit-up hit precision within five sessions was 10.67% versus 32.33%. It remains research-only. A 50/50 interleaved shortlist combining raw momentum with V12 Early Opportunity was then evaluated on the same 15 dates: top-10 T+5 mean return +2.68%, win rate 50.26%, limit-up hit precision 16.63%, and mean maximum adverse excursion -5.41%; the raw momentum top-10 baseline was +1.55%, 42.23%, 32.33%, and -11.17%, respectively. For top 30, the blend averaged -0.09% T+5 versus -2.09% for the baseline, with -6.81% versus -11.39% mean maximum adverse excursion. This suggests a better return/drawdown compromise, but fewer limit-up hits than momentum alone; these are initial 15-date results and not yet the final selection policy.
 
 
 ## Initial historical results and decision
@@ -145,3 +145,8 @@ The separate emotion-repair watchlist had higher limit-up hit precision (38.67% 
 4. Compare against the existing model and simple baselines. Keep this model research-only unless the out-of-sample uplift is repeatable and risk-adjusted.
 
 A high score means worth investigating, not buy now. Execution eligibility and account permission remain separate gates.
+
+
+### Initial supervised baseline (preliminary)
+
+The first supervised point-in-time logistic ranker run used 15 eligible signal dates, with 15 train dates, a five-date purge, and only five test dates. It reported top-10 T+5 mean return +0.29%, win rate 40.36%, and limit-up hit precision 37.50%, versus +0.78%, 36.39%, and 26.67% for the raw momentum baseline. At top 30, supervised hit precision was 39.71% versus 23.85%, but both had negative mean T+5 returns (-4.80% versus -5.61%). The held-out 2026-10-20 rank placed 莱美药业 31st, while the other three screenshot names remained far down the list. Five test dates are too few to select a production model; the evaluation window has been expanded to 60 signal dates with 15 test dates and a five-session purge.
