@@ -1,8 +1,8 @@
 'use strict';
 
-const fs = require('node:fs');
-const path = require('node:path');
-const { rankCandidates } = require('./precursor_score');
+import fs from 'node:fs';
+import path from 'node:path';
+import { rankCandidates } from './precursor_score.js';
 
 function arg(name) {
   const index = process.argv.indexOf(name);
