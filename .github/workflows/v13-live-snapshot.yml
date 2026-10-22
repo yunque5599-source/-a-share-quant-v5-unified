@@ -4,6 +4,7 @@ concurrency:
   cancel-in-progress: true
 on:
   schedule:
+    - cron: '15 1 * * 1-5'
     - cron: '45 2 * * 1-5'
     - cron: '30 3 * * 1-5'
     - cron: '15 5 * * 1-5'
@@ -14,12 +15,17 @@ on:
         description: 'Candidate funnel size (50-180)'
         required: true
         default: '120'
+      wide_news_scan:
+        description: 'Scan timestamped positive news across the full listed universe (slow)'
+        required: true
+        type: boolean
+        default: false
 permissions:
   contents: read
 jobs:
   capture:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -36,8 +42,13 @@ jobs:
           require('fs').appendFileSync(process.env.GITHUB_OUTPUT,'in_session='+yes+'\n');console.log('in_session='+yes);
           NODE
       - name: Capture timestamped snapshot
-        if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch'
-        run: node research/v13-limitup-precursor/live_snapshot.js --limit "${{ github.event.inputs.candidate_limit || '120' }}" --out output/v13-live-snapshots/snapshot.json
+        if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch' || github.event.schedule == '15 1 * * 1-5' || github.event.schedule == '15 1 * * 1-5'
+        env:
+          WIDE_NEWS_SCAN: ${{ github.event.schedule == '15 1 * * 1-5' || github.event.inputs.wide_news_scan == 'true' }}
+        run: |
+          EXTRA_ARGS=""
+          if [ "$WIDE_NEWS_SCAN" = "true" ]; then EXTRA_ARGS="--wide-news-scan"; fi
+          node research/v13-limitup-precursor/live_snapshot.js --limit "${{ github.event.inputs.candidate_limit || '120' }}" --out output/v13-live-snapshots/snapshot.json $EXTRA_ARGS
       - name: Upload immutable snapshot
         if: always()
         uses: actions/upload-artifact@v4
