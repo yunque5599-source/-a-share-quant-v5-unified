@@ -347,7 +347,7 @@ export async function scanUniverseCatalystNews(universeRows, capturedAt, {limit=
     const codes=group.map(row=>String(row.code)).filter(code=>/^\d{6}$/.test(code));
     if(!codes.length)return {items:[]};
     const payload=parseResult('wide_news_batch',await invoke(marketHandler,'/api/market?action=news_batch&codes='+codes.join(',')));
-    return {items:payload?.data?.items??[]};
+    return {items:payload?.items??payload?.data?.items??[]};
   });
   for(let i=0;i<batches.length;i++){
     const batch=batches[i];
@@ -423,7 +423,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
         policy:'Wide scan failure does not invalidate the normal funnel; no unverified news candidates are added.'};
     }
   }
-  const industryContextByCode=deriveLiveIndustryContext(raw);
+  const industryContextByCode=deriveLiveIndustryContext([...raw,...funnel]);
   if(funnel.length<50)throw Error('ranked candidate funnel returned fewer than 50 symbols');
   const batches=await mapLimit(chunks(funnel,30),1,async group=>{
     const codes=group.map(r=>String(r.f12)),query=encodeURIComponent(codes.join(','));
