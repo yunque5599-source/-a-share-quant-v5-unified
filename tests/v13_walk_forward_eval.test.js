@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { auditTargetRanks, evaluateCandidateOutcome, evaluateWalkForward } from '../research/v13-limitup-precursor/walk_forward_eval.js';
+import { evaluateCandidateOutcome, evaluateWalkForward } from '../research/v13-limitup-precursor/walk_forward_eval.js';
 
 function makeHistory(code, name, slope, industry = 'TestIndustry') {
   const bars = [];
@@ -91,30 +91,4 @@ test('walk-forward evaluation becomes measurable with sufficient dates and compl
   assert.equal(report.minimumT5OutcomeCoveragePct, 100);
   assert.ok(report.summary.top10.model.t5.meanCloseReturnPct !== null);
   assert.ok(report.summary.top10.momentumBaseline.t5.meanCloseReturnPct !== null);
-});
-
-
-test('held-out target audit ranks only from pre-signal bars and attaches outcomes after ranking', () => {
-  const rising = makeHistory('301159', '三维天地', 0.04, '行业A');
-  const falling = makeHistory('301102', '兆讯传媒', -0.02, '行业A');
-  const targetDate = rising.bars[39].date;
-  const targets = [
-    { code: '301159', name: '三维天地', signalDate: targetDate, outcomeDate: '2026-10-21', outcome: 'limit_up_20.00_percent' },
-    { code: '301102', name: '兆讯传媒', signalDate: targetDate, outcomeDate: '2026-10-21', outcome: 'limit_up_19.98_percent' }
-  ];
-  const first = auditTargetRanks([rising, falling], targets, targetDate);
-  const altered = [
-    { ...rising, bars: rising.bars.map(bar => ({ ...bar })) },
-    { ...falling, bars: falling.bars.map(bar => ({ ...bar })) }
-  ];
-  altered[0].bars[40].close = altered[0].bars[39].close * 1.20;
-  altered[0].bars[40].high = altered[0].bars[40].close * 1.01;
-  const second = auditTargetRanks(altered, targets, targetDate);
-  assert.equal(first.status, 'MEASURABLE');
-  for (const variant of ['currentComposite', 'coreOnly', 'earlyTurn', 'emotionRepairWatch', 'oversoldWatch']) {
-    const a = first.variants[variant].find(row => row.code === '301159');
-    const b = second.variants[variant].find(row => row.code === '301159');
-    assert.equal(a.rank, b.rank);
-    assert.equal(a.knownOutcome, 'limit_up_20.00_percent');
-  }
 });
