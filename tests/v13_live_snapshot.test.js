@@ -26,6 +26,8 @@ test('psychology-derived catalyst score requires a timestamp-verified news item'
 test('snapshot quality gate fails closed on incomplete sources',()=>{
  const s={schema:'v13-live-psychology-catalyst-snapshot-v1',snapshotId:'v13-1',capturedAt:'2026-10-22T06:00:00Z',asOf:'2026-10-22T06:00:00Z',candidates:Array.from({length:60},()=>({})),quality:{deepSuccessPct:95,barHistoryCoveragePct:95,psychologyCoveragePct:75}};
  assert.equal(validateLiveSnapshot(s).valid,true);assert.equal(validateLiveSnapshot({...s,quality:{...s.quality,psychologyCoveragePct:20}}).valid,false);
+ const fallback=validateLiveSnapshot({...s,quality:{...s.quality,psychologyCoveragePct:0,datedNewsCoveragePct:82}});
+ assert.equal(fallback.valid,true);assert.equal(fallback.status,'CAPTURED_WITH_NEWS_FALLBACK');
 });
 
 test('balanced shortlist interleaves momentum and early-opportunity ranks without duplicates',()=>{
