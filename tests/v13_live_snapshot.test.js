@@ -30,7 +30,8 @@ test('snapshot quality gate rejects missing coverage metrics rather than treatin
   candidates:Array.from({length:60},()=>({})),
   quality:{barHistoryCoveragePct:95,psychologyCoveragePct:80,datedNewsCoveragePct:0}};
  assert.equal(validateLiveSnapshot(base).valid,false);
- assert.ok(validateLiveSnapshot(base).reasons.includes('deep-source-coverage-below-90-percent'));
+ assert.ok(validateLiveSnapshot(base).reasons.includes('deep-source-coverage-metric-missing'));
+  assert.ok(validateLiveSnapshot(base).reasons.includes('flow-signal-coverage-below-90-percent'));
  const missingBars={...base,quality:{deepSuccessPct:95,psychologyCoveragePct:80,datedNewsCoveragePct:0}};
  assert.equal(validateLiveSnapshot(missingBars).valid,false);
  assert.ok(validateLiveSnapshot(missingBars).reasons.includes('bar-history-coverage-below-90-percent'));
@@ -114,7 +115,7 @@ test('valid source quality leaves gated rankings available',()=>{
  const snapshot={
   schema:'v13-live-psychology-catalyst-snapshot-v1',snapshotId:'v13-valid',capturedAt:'2026-10-22T06:00:00Z',
   asOf:'2026-10-22T06:00:00Z',candidates:Array.from({length:60},()=>({})),
-  quality:{deepSuccessPct:99,barHistoryCoveragePct:95,psychologyCoveragePct:80,datedNewsCoveragePct:0},
+  quality:{deepSuccessPct:99,barHistoryCoveragePct:95,flowSignalCoveragePct:95,psychologyCoveragePct:80,datedNewsCoveragePct:0},
   rankings:{overall:[{code:'600406',name:'测试股'}]}
  };
  const result=applySnapshotQualityGate(snapshot);
