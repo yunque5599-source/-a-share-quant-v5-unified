@@ -21,7 +21,7 @@ const MARKET_SEGMENTS = [
   { key: 'CHINEXT', fs: 'm:0+t:80' },
   { key: 'SH_MAIN', fs: 'm:1+t:2' },
   { key: 'STAR', fs: 'm:1+t:23' },
-  { key: 'BSE', fs: 'm:0+t:81+s:2048' }
+  { key: 'BSE', fs: 'm:0+t:81' }
 ];
 const MARKET_FIELDS = 'f12,f14,f2,f3,f6,f8,f62,f184,f100';
 const USER_AGENT = 'Mozilla/5.0 AShareQuant/V13-historical-replay';
