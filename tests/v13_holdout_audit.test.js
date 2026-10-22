@@ -49,7 +49,8 @@ test('holdout audit ranks all variants before reading target outcomes and exclud
   assert.equal(report.variants.earlyTurn.trueLimitUpTargetCount, 1);
   assert.equal(report.variants.momentumBaseline.trueLimitUpTargetCount, 1);
   assert.ok(Number.isFinite(report.variants.earlyTurn.targets[0].score));
-  assert.ok(Number.isFinite(report.variants.momentumBaseline.targets[0].score));
+  assert.equal(report.variants.momentumBaseline.targets[0].rankMetric, 'r5Pct');
+  assert.ok(Number.isFinite(report.variants.momentumBaseline.targets[0].rankValue));
 });
 
 test('holdout rank and score do not change when only post-cutoff bars change', () => {
