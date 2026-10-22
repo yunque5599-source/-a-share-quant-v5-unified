@@ -104,3 +104,20 @@ test('score output exposes a 1–5 day horizon and a component audit trail', () 
     assert.ok(result.components[key] >= 0 && result.components[key] <= 100);
   }
 });
+
+
+test('a sharp flush after a recent limit-up is surfaced through the separate emotion-repair lane', () => {
+  const candidate = makeCandidate({ code: '300006', name: '莱美药业', strong: true, pct: -15.49 });
+  const priorLimitBar = candidate.bars[31];
+  const priorBar = candidate.bars[30];
+  priorLimitBar.close = priorBar.close * 1.20;
+  priorLimitBar.open = priorBar.close * 1.01;
+  priorLimitBar.high = priorLimitBar.close * 1.01;
+  priorLimitBar.low = priorBar.close * 0.99;
+  const result = scoreCandidate(candidate);
+  assert.ok(result);
+  assert.ok(result.features.recentLimitUp10Count >= 1);
+  assert.equal(result.scorePath, 'emotion-repair');
+  assert.equal(result.setup, '情绪反核观察');
+  assert.ok(result.components.emotionRepair >= 75);
+});
