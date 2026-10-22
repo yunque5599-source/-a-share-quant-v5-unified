@@ -6,6 +6,7 @@ on:
     paths:
       - 'research/v13-limitup-precursor/precursor_score.js'
       - 'research/v13-limitup-precursor/walk_forward_eval.js'
+      - 'research/v13-limitup-precursor/holdout_audit.js'
       - '.github/workflows/v13-walk-forward-evaluation.yml'
   workflow_dispatch:
 
@@ -58,11 +59,20 @@ jobs:
             --quality-report output/v13-history-replay/replay_report.json \
             --signal-days 15 \
             --output output/v13-history-replay/walk_forward_report.json
-      - name: Upload walk-forward report
+      - name: Audit screenshot holdout after ranking
+        run: |
+          node research/v13-limitup-precursor/holdout_audit.js \
+            --input output/v13-history-replay/replay_candidates.ndjson \
+            --quality-report output/v13-history-replay/replay_report.json \
+            --targets research/v13-limitup-precursor/target_symbols.json \
+            --output output/v13-history-replay/holdout_audit.json
+      - name: Upload walk-forward and holdout reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: v13-walk-forward-report
-          path: output/v13-history-replay/walk_forward_report.json
+          path: |
+            output/v13-history-replay/walk_forward_report.json
+            output/v13-history-replay/holdout_audit.json
           if-no-files-found: warn
           retention-days: 30
