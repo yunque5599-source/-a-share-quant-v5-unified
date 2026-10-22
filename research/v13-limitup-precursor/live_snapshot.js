@@ -163,16 +163,16 @@ export function interleaveCatalystCodes(primary, catalyst, limit, catalystSlots 
   const selectedSet = new Set();
   let mainIndex = 0;
   let eventIndex = 0;
+  let insertedEventCount = 0;
   const targetLength = Math.min(Math.max(0, Number(limit) || 0), new Set([...main, ...event]).size);
   const eventSpacing = Math.max(2, Math.floor(targetLength / Math.max(1, maxSlots)));
   for (let slot = 0; slot < targetLength; slot++) {
-    const usedEventCount = selected.filter(code => eventSet.has(code)).length;
     const shouldUseEvent = maxSlots > 0 && eventIndex < event.length &&
-      usedEventCount < maxSlots && (slot + 1) % eventSpacing === 0;
+      insertedEventCount < maxSlots && (slot + 1) % eventSpacing === 0;
     let code = null;
     if (shouldUseEvent) {
       while (eventIndex < event.length && selectedSet.has(event[eventIndex])) eventIndex++;
-      if (eventIndex < event.length) code = event[eventIndex++];
+      if (eventIndex < event.length) { code = event[eventIndex++]; insertedEventCount++; }
     }
     if (code === null) {
       while (mainIndex < main.length && selectedSet.has(main[mainIndex])) mainIndex++;
