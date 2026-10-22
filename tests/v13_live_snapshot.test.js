@@ -11,7 +11,8 @@ test('parsers exclude future-dated rows and sort history',()=>{
 test('funnel diversifies consensus, momentum and capital-flow candidates and excludes ST',()=>{
  const rows=Array.from({length:200},(_,i)=>({f12:String(600000+i),f14:'样本'+i,rankScore:100-i/2,rankHits:i%4,f3:i,f62:i*1000}));
  rows.push({f12:'600999',f14:'*ST risk',rankScore:1000,f3:10,f62:10000});
- const result=selectCandidateFunnel(rows,120);assert.equal(result.length,120);assert.ok(!result.some(x=>x.f12==='600999'));
+ rows.push({f12:'000556',f14:'PT南洋',rankScore:999,f3:20,f62:20000});
+ const result=selectCandidateFunnel(rows,120);assert.equal(result.length,120);assert.ok(!result.some(x=>x.f12==='600999'));assert.ok(!result.some(x=>x.f12==='000556'));
  assert.ok(result.some(x=>x.funnelLanes.includes('price-momentum')));assert.ok(result.some(x=>x.funnelLanes.includes('capital-inflow')));
 });
 test('untimed or future news is not used as a point-in-time catalyst',()=>{
