@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRows, selectCandidateFunnel, normalizeDatedNews, buildPsychologySector, validateLiveSnapshot, interleaveCodes } from '../research/v13-limitup-precursor/live_snapshot.js';
+import { parseRows, selectCandidateFunnel, normalizeDatedNews, buildPsychologySector, validateLiveSnapshot, interleaveCodes, flattenNewsPayload, buildStockNewsFallback } from '../research/v13-limitup-precursor/live_snapshot.js';
 
 test('parsers exclude future-dated rows and sort history',()=>{
  const bars=parseRows(['2026-10-21,10,10.5,10.6,9.9,200,2100000,0,0,0,4.2','2026-10-19,9,9.2,9.3,8.9,100,920000,0,0,0,2.1','2026-10-22,10.5,11,11.1,10.4,300,3300000,0,0,0,5.1'],'bar','2026-10-21T05:00:00Z');
@@ -32,4 +32,16 @@ test('balanced shortlist interleaves momentum and early-opportunity ranks withou
  const result=interleaveCodes(['A','B','C','D'],['X','B','Y','Z'],6);
  assert.deepEqual(result,['A','X','B','Y','C','Z']);
  assert.equal(new Set(result).size,result.length);
+});
+
+test('stock-news fallback only scores timestamp-verified headlines and flags its limited semantics',()=>{
+ const rows=flattenNewsPayload({result:{cmsArticleWebOld:{list:[
+  {title:'Timed headline',date:'2026-10-22 10:00:00',mediaName:'Wire',url:'https://example.com/a'},
+  {title:'Untimed headline',url:'https://example.com/b'}
+ ]}}});
+ assert.equal(rows.length,2);
+ const out=buildStockNewsFallback('600001','样本股',rows,'2026-10-22T06:00:00Z');
+ assert.equal(out.overlay.datedNewsCount,1);
+ assert.ok(Number.isFinite(out.sector.catalystScore));
+ assert.ok(out.overlay.warnings.some(x=>x.includes('no validated sentiment')));
 });
