@@ -32,11 +32,14 @@ jobs:
           echo "REPLAY_RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
           echo "Using replay run $RUN_ID"
       - name: Download replay dataset artifact
-        env:
-          GH_TOKEN: ${{ github.token }}
+        uses: actions/download-artifact@v4
+        with:
+          run-id: ${{ env.REPLAY_RUN_ID }}
+          repository: ${{ github.repository }}
+          github-token: ${{ github.token }}
+          path: output/v13-history-replay
+      - name: Verify downloaded replay files
         run: |
-          mkdir -p output/v13-history-replay
-          gh run download "$REPLAY_RUN_ID" --repo "$GITHUB_REPOSITORY" --dir output/v13-history-replay
           test -s output/v13-history-replay/replay_candidates.ndjson
           test -s output/v13-history-replay/replay_report.json
       - name: Evaluate point-in-time walk-forward performance
