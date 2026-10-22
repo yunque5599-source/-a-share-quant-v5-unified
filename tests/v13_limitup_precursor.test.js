@@ -200,3 +200,16 @@ test('momentum-hybrid variant exposes its score without mixing observation-only 
   assert.ok(Number.isFinite(hybrid.components.momentumHybrid));
   assert.ok(!['emotion-repair', 'oversold-reversal'].includes(hybrid.scorePath));
 });
+
+
+test('cross-sectional rank ensemble preserves relative momentum while using setup confirmation', () => {
+  const strong = makeCandidate({ code: '301159', name: '强势样本', strong: true, pct: 4.2 });
+  const weak = makeCandidate({ code: '600002', name: '弱势样本', strong: false, pct: -1.0 });
+  const ranked = rankCandidates([weak, strong], { modelVariant: 'v13-rank-ensemble' });
+  assert.equal(ranked[0].code, '301159');
+  assert.equal(ranked[0].modelVariant, 'v13-rank-ensemble');
+  assert.equal(ranked[0].scorePath, 'momentum-confirmed-rank');
+  assert.equal(ranked[0].components.crossSectionalMomentum, 100);
+  assert.ok(ranked[0].score > ranked[1].score);
+  assert.ok(ranked[0].score <= 100 && ranked[0].score >= 0);
+});
