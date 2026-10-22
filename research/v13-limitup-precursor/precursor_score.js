@@ -1,0 +1,322 @@
+'use strict';
+
+// V13 research-only score for finding 1–5 trading-day limit-up precursors.
+// Discovery coverage is deliberately separate from execution eligibility.
+
+const DEFAULT_ALLOWED_BOARDS = ['SH_MAIN', 'SZ_MAIN'];
+
+function clamp(value, min = 0, max = 100) {
+  if (!Number.isFinite(value)) return min;
+  return Math.max(min, Math.min(max, value));
+}
+function finite(value) {
+  return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
+}
+function num(value, fallback = NaN) {
+  return finite(value) ? Number(value) : fallback;
+}
+function mean(values) {
+  const xs = values.filter(Number.isFinite);
+  return xs.length ? xs.reduce((sum, value) => sum + value, 0) / xs.length : NaN;
+}
+function stddev(values) {
+  const xs = values.filter(Number.isFinite);
+  if (xs.length < 2) return NaN;
+  const avg = mean(xs);
+  return Math.sqrt(mean(xs.map(value => (value - avg) ** 2)));
+}
+function ramp(value, low, high) {
+  if (!Number.isFinite(value) || high <= low) return 50;
+  return clamp(((value - low) / (high - low)) * 100);
+}
+function bandScore(value, idealLow, idealHigh, outerLow, outerHigh) {
+  if (!Number.isFinite(value)) return 50;
+  if (value >= idealLow && value <= idealHigh) return 100;
+  if (value < idealLow) return ramp(value, outerLow, idealLow);
+  return 100 - ramp(value, idealHigh, outerHigh);
+}
+function boardForCode(code) {
+  const c = String(code || '').trim();
+  if (/^688|^689/.test(c)) return 'STAR';
+  if (/^300|^301/.test(c)) return 'CHINEXT';
+  if (/^[468]/.test(c) && !/^60/.test(c)) return 'BSE';
+  if (/^60/.test(c)) return 'SH_MAIN';
+  if (/^00|^001|^002|^003/.test(c)) return 'SZ_MAIN';
+  return 'UNKNOWN';
+}
+function cleanDatedRows(rows, asOf, kind) {
+  const cutoff = asOf ? String(asOf).slice(0, 10) : '';
+  const seen = new Map();
+  for (const raw of Array.isArray(rows) ? rows : []) {
+    const date = String(raw?.date || '').slice(0, 10);
+    if (cutoff && (!date || date > cutoff)) continue;
+    const row = { ...raw, date };
+    if (kind === 'bar') {
+      row.open = num(raw.open, num(raw.close));
+      row.high = num(raw.high, Math.max(row.open, num(raw.close)));
+      row.low = num(raw.low, Math.min(row.open, num(raw.close)));
+      row.close = num(raw.close);
+      row.volume = num(raw.volume, num(raw.vol));
+      row.amount = num(raw.amount);
+      row.turnoverRate = num(raw.turnoverRate, num(raw.turn));
+      if (!(row.close > 0) || !(row.high > 0) || !(row.low > 0) || row.high < row.low) continue;
+    } else {
+      row.mainNet = num(raw.mainNet, num(raw.main, 0));
+      row.amount = num(raw.amount);
+      row.mainPct = num(raw.mainPct, num(raw.pct));
+    }
+    seen.set(date || ('undated-' + seen.size), row);
+  }
+  return [...seen.values()].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+}
+function returns(bars, n) {
+  if (bars.length <= n) return NaN;
+  const previous = bars[bars.length - 1 - n]?.close;
+  const latest = bars[bars.length - 1]?.close;
+  return previous > 0 ? (latest / previous - 1) * 100 : NaN;
+}
+function averageClose(bars) {
+  return mean(bars.map(bar => bar.close));
+}
+function sum(values) {
+  return values.filter(Number.isFinite).reduce((total, value) => total + value, 0);
+}
+
+function deriveFeatures(candidate, options = {}) {
+  const asOf = options.asOf || candidate.asOf || '';
+  const bars = cleanDatedRows(candidate.bars, asOf, 'bar');
+  const flows = cleanDatedRows(candidate.flows, asOf, 'flow');
+  if (bars.length < 25) return null;
+
+  const latest = bars[bars.length - 1];
+  const previous = bars[bars.length - 2];
+  const close = latest.close;
+  const ma5 = averageClose(bars.slice(-5));
+  const ma10 = averageClose(bars.slice(-10));
+  const ma20 = averageClose(bars.slice(-20));
+  const prevMa5 = averageClose(bars.slice(-6, -1));
+  const prevMa10 = averageClose(bars.slice(-11, -1));
+  const previous20 = bars.slice(-21, -1);
+  const previousHigh20 = Math.max(...previous20.map(bar => bar.high));
+  const previousLow20 = Math.min(...previous20.map(bar => bar.low));
+  const priorVol5 = mean(bars.slice(-6, -1).map(bar => bar.volume));
+  const priorVol20 = mean(bars.slice(-21, -1).map(bar => bar.volume));
+  const volumeExpansion = latest.volume > 0 && priorVol20 > 0 ? latest.volume / priorVol20 : NaN;
+  const priorVolumeCompression = priorVol20 > 0 && Number.isFinite(priorVol5) ? priorVol5 / priorVol20 : NaN;
+  const closeLocation = latest.high > latest.low ? (close - latest.low) / (latest.high - latest.low) : 0.5;
+  const gapPct = previous?.close > 0 ? (latest.open / previous.close - 1) * 100 : NaN;
+  const trailing21 = bars.slice(-21);
+  const dailyReturns = trailing21.slice(1).map((bar, i) => {
+    const prior = trailing21[i]?.close;
+    return prior > 0 ? (bar.close / prior - 1) * 100 : NaN;
+  });
+  const atrProxyPct = stddev(dailyReturns.slice(-14));
+  const flowLast5 = flows.slice(-5);
+  const flowLast3 = flows.slice(-3);
+  const flowPrev3 = flows.slice(-6, -3);
+  const barAmounts5 = bars.slice(-5).map(bar => bar.amount).filter(value => value > 0);
+  const flowAmounts5 = flowLast5.map(flow => flow.amount).filter(value => value > 0);
+  const amountDenominator = flowAmounts5.length ? sum(flowAmounts5) : sum(barAmounts5);
+  const mainNet5 = sum(flowLast5.map(flow => flow.mainNet));
+  const mainNet3 = sum(flowLast3.map(flow => flow.mainNet));
+  const previousMainNet3 = sum(flowPrev3.map(flow => flow.mainNet));
+  const flowPositiveShare = flowLast5.length ? flowLast5.filter(flow => flow.mainNet > 0).length / flowLast5.length : NaN;
+  const mainFlowRatioPct = amountDenominator > 0 ? mainNet5 / amountDenominator * 100 : NaN;
+  const mainPctLatest = flowLast5.length ? flowLast5[flowLast5.length - 1].mainPct : NaN;
+  const sector = candidate.sector || {};
+  const sectorFieldsPresent = ['return3Pct', 'return5Pct', 'upRatio', 'limitUpCount', 'leaderScore', 'catalystScore', 'themeHeat']
+    .filter(key => finite(sector[key])).length;
+  const amount = num(latest.amount, num(candidate.amount));
+  const turnoverRate = num(latest.turnoverRate, num(candidate.turnoverRate));
+  const currentPct = previous?.close > 0 ? (close / previous.close - 1) * 100 : NaN;
+
+  return {
+    bars, flows, asOf: latest.date || asOf || null, price: close, currentPct,
+    r1Pct: returns(bars, 1), r3Pct: returns(bars, 3), r5Pct: returns(bars, 5),
+    r10Pct: returns(bars, 10), r20Pct: returns(bars, 20),
+    ma5, ma10, ma20, prevMa5, prevMa10,
+    ma5SlopePct: prevMa5 > 0 ? (ma5 / prevMa5 - 1) * 100 : NaN,
+    ma10SlopePct: prevMa10 > 0 ? (ma10 / prevMa10 - 1) * 100 : NaN,
+    distHigh20Pct: previousHigh20 > 0 ? (close / previousHigh20 - 1) * 100 : NaN,
+    distLow20Pct: previousLow20 > 0 ? (close / previousLow20 - 1) * 100 : NaN,
+    volumeExpansion, priorVolumeCompression, closeLocation: clamp(closeLocation, 0, 1),
+    gapPct, atrProxyPct, amount, turnoverRate, mainNet5, mainNet3, previousMainNet3,
+    flowPositiveShare, mainFlowRatioPct, mainPctLatest, flowCount: flows.length,
+    sectorFieldsPresent, sector
+  };
+}
+
+function trendScore(f) {
+  let score = 15;
+  if (f.price > f.ma5) score += 12;
+  if (f.ma5 > f.ma10) score += 17;
+  if (f.ma10 > f.ma20) score += 13;
+  if (f.price > f.ma20) score += 10;
+  if (f.ma5SlopePct > 0.15) score += 12;
+  else if (f.ma5SlopePct > 0) score += 6;
+  if (f.ma10SlopePct > 0.05) score += 8;
+  else if (f.ma10SlopePct > 0) score += 4;
+  if (f.r3Pct > 0) score += 7;
+  if (f.r5Pct > 0) score += 6;
+  return clamp(score);
+}
+function volumePriceScore(f) {
+  const expansion = bandScore(f.volumeExpansion, 1.25, 3.0, 0.45, 5.5);
+  const compression = bandScore(f.priorVolumeCompression, 0.45, 0.90, 0.15, 1.65);
+  const breakout = ramp(f.distHigh20Pct, -15, 1.5);
+  return clamp(0.34 * expansion + 0.22 * f.closeLocation * 100 + 0.26 * breakout + 0.18 * compression);
+}
+function flowScore(f) {
+  if (f.flowCount === 0) return 45;
+  const positive = Number.isFinite(f.flowPositiveShare) ? f.flowPositiveShare * 100 : 50;
+  const ratio = ramp(f.mainFlowRatioPct, -1.5, 4.5);
+  const acceleration = f.mainNet3 > f.previousMainNet3 ? 82 : f.mainNet3 > 0 ? 62 : 25;
+  const persistence = f.mainNet5 > 0 ? 78 : 24;
+  const latest = f.mainPctLatest > 0 ? 65 : f.mainPctLatest < 0 ? 35 : 50;
+  return clamp(0.28 * positive + 0.22 * ratio + 0.20 * acceleration + 0.18 * persistence + 0.12 * latest);
+}
+function sectorScore(f) {
+  const s = f.sector || {};
+  const parts = [];
+  if (finite(s.return3Pct)) parts.push([ramp(Number(s.return3Pct), -3, 5), 0.22]);
+  if (finite(s.return5Pct)) parts.push([ramp(Number(s.return5Pct), -5, 8), 0.22]);
+  if (finite(s.upRatio)) parts.push([ramp(Number(s.upRatio), 0.2, 0.8), 0.18]);
+  if (finite(s.limitUpCount)) parts.push([ramp(Math.log1p(Math.max(0, Number(s.limitUpCount))), 0, Math.log1p(12)), 0.12]);
+  if (finite(s.leaderScore)) parts.push([clamp(Number(s.leaderScore)), 0.14]);
+  if (finite(s.catalystScore)) parts.push([clamp(Number(s.catalystScore)), 0.08]);
+  if (finite(s.themeHeat)) parts.push([clamp(Number(s.themeHeat)), 0.04]);
+  if (!parts.length) return 45;
+  const weight = sum(parts.map(part => part[1]));
+  return clamp(parts.reduce((total, part) => total + part[0] * part[1], 0) / weight);
+}
+function momentumScore(f) {
+  return clamp(0.45 * ramp(f.r3Pct, -5, 8) + 0.35 * ramp(f.r5Pct, -8, 18) + 0.20 * ramp(f.r10Pct, -12, 32));
+}
+function baseScore(f) {
+  const lowProximity = bandScore(f.distLow20Pct, 5, 24, -2, 55);
+  const nearBreakout = bandScore(f.distHigh20Pct, -9, 2, -28, 16);
+  return clamp(0.55 * lowProximity + 0.45 * nearBreakout);
+}
+function computeRisk(f, candidate) {
+  const flags = [];
+  let penalty = 0;
+  if (f.currentPct > 7.5) {
+    penalty += Math.min(12, (f.currentPct - 7.5) * 2);
+    flags.push('当日涨幅偏高，追涨风险上升');
+  }
+  if (f.currentPct > 9.2) {
+    penalty += 5;
+    flags.push('接近当日涨停区，次日接力不确定性较高');
+  }
+  if (f.r5Pct > 18) {
+    penalty += Math.min(8, (f.r5Pct - 18) * 0.30);
+    flags.push('近5日涨幅过快');
+  }
+  if (f.r10Pct > 35) {
+    penalty += Math.min(7, (f.r10Pct - 35) * 0.18);
+    flags.push('近10日涨幅过热');
+  }
+  if (f.gapPct > 6) {
+    penalty += 4;
+    flags.push('高开幅度较大');
+  }
+  if (f.volumeExpansion > 5) {
+    penalty += 4;
+    flags.push('成交量异常放大，需警惕分歧');
+  }
+  if (f.atrProxyPct > 8) {
+    penalty += 4;
+    flags.push('近期波动率较高');
+  }
+  if (Number.isFinite(f.amount) && f.amount < 30000000) {
+    penalty += 10;
+    flags.push('成交额偏低，流动性风险较高');
+  } else if (Number.isFinite(f.amount) && f.amount < 80000000) {
+    penalty += 5;
+    flags.push('成交额一般');
+  }
+  if (Number.isFinite(f.turnoverRate) && f.turnoverRate > 25) {
+    penalty += 5;
+    flags.push('换手率过高');
+  } else if (Number.isFinite(f.turnoverRate) && f.turnoverRate < 0.5) {
+    penalty += 4;
+    flags.push('换手率偏低，资金参与度需确认');
+  }
+  if (candidate?.isST || /^(\*?ST|退)/i.test(String(candidate?.name || ''))) {
+    flags.push('ST或退市风险标的');
+    return { penalty: 100, flags, excluded: true, reason: 'ST_OR_DELISTING' };
+  }
+  return { penalty: clamp(penalty, 0, 30), flags, excluded: false, reason: null };
+}
+function classifySetup(f) {
+  if (f.distHigh20Pct >= 0 && f.volumeExpansion >= 1.2) return '放量突破';
+  if (f.price > f.ma5 && f.ma5 > f.prevMa5 && f.r3Pct > 0 && f.distLow20Pct <= 28 && f.currentPct <= 7.5) return '底部转强';
+  if (f.priorVolumeCompression < 0.8 && f.distHigh20Pct >= -10) return '平台蓄势';
+  if (f.r3Pct > 0 && f.r5Pct > 0) return '短线动量';
+  return '观察';
+}
+
+function scoreCandidate(candidate, options = {}) {
+  const f = deriveFeatures(candidate, options);
+  if (!f) return null;
+  const board = boardForCode(candidate.code);
+  const allowedBoards = Array.isArray(options.allowedBoards) ? options.allowedBoards : DEFAULT_ALLOWED_BOARDS;
+  const trend = trendScore(f);
+  const volumePrice = volumePriceScore(f);
+  const flow = flowScore(f);
+  const sector = sectorScore(f);
+  const momentum = momentumScore(f);
+  const base = baseScore(f);
+  const risk = computeRisk(f, candidate);
+  const grossScore = 0.22 * trend + 0.20 * volumePrice + 0.20 * flow + 0.18 * sector + 0.12 * momentum + 0.08 * base;
+  const score = clamp(grossScore - risk.penalty);
+  const confidence = clamp(30
+    + (f.bars.length >= 60 ? 20 : f.bars.length >= 40 ? 12 : 5)
+    + (f.flowCount >= 5 ? 20 : f.flowCount >= 3 ? 12 : 0)
+    + Math.min(18, f.sectorFieldsPresent * 3)
+    + (Number.isFinite(f.amount) ? 6 : 0)
+    + (Number.isFinite(f.turnoverRate) ? 6 : 0));
+  const discoveryEligible = !risk.excluded;
+  const executionEligible = discoveryEligible && allowedBoards.includes(board) && candidate.executionEligible !== false;
+  const tradeabilityReason = !discoveryEligible ? risk.reason : executionEligible ? null : 'BOARD_OR_ACCOUNT_PERMISSION:' + board;
+  const riskFlags = [...risk.flags];
+  if (f.flowCount < 3) riskFlags.push('资金流历史不足，资金评分置信度较低');
+  if (f.sectorFieldsPresent < 2) riskFlags.push('题材/行业数据不足，板块评分为弱证据');
+  if (f.bars.length < 40) riskFlags.push('K线样本少于40根');
+  return {
+    code: String(candidate.code || ''), name: String(candidate.name || candidate.code || ''),
+    board, asOf: f.asOf, price: Number(f.price.toFixed(4)), currentPct: Number(f.currentPct.toFixed(2)),
+    score: Number(score.toFixed(1)), grossScore: Number(grossScore.toFixed(1)),
+    riskPenalty: Number(risk.penalty.toFixed(1)), confidence: Number(confidence.toFixed(1)),
+    setup: classifySetup(f), horizonTradingDays: [1, 5], discoveryEligible, executionEligible,
+    tradeabilityReason,
+    components: {
+      trend: Number(trend.toFixed(1)), volumePrice: Number(volumePrice.toFixed(1)),
+      flow: Number(flow.toFixed(1)), sector: Number(sector.toFixed(1)),
+      momentum: Number(momentum.toFixed(1)), base: Number(base.toFixed(1))
+    },
+    riskFlags,
+    features: {
+      r3Pct: Number(f.r3Pct.toFixed(2)), r5Pct: Number(f.r5Pct.toFixed(2)),
+      r10Pct: Number(f.r10Pct.toFixed(2)), distHigh20Pct: Number(f.distHigh20Pct.toFixed(2)),
+      distLow20Pct: Number(f.distLow20Pct.toFixed(2)),
+      volumeExpansion: Number.isFinite(f.volumeExpansion) ? Number(f.volumeExpansion.toFixed(2)) : null,
+      priorVolumeCompression: Number.isFinite(f.priorVolumeCompression) ? Number(f.priorVolumeCompression.toFixed(2)) : null,
+      mainNet5: Number(f.mainNet5.toFixed(0)),
+      mainFlowRatioPct: Number.isFinite(f.mainFlowRatioPct) ? Number(f.mainFlowRatioPct.toFixed(2)) : null,
+      turnoverRate: Number.isFinite(f.turnoverRate) ? Number(f.turnoverRate.toFixed(2)) : null,
+      amount: Number.isFinite(f.amount) ? f.amount : null
+    }
+  };
+}
+function rankCandidates(candidates, options = {}) {
+  return (Array.isArray(candidates) ? candidates : [])
+    .map(candidate => scoreCandidate(candidate, options))
+    .filter(result => result && result.discoveryEligible)
+    .sort((a, b) => b.score - a.score || b.confidence - a.confidence);
+}
+
+module.exports = {
+  boardForCode, deriveFeatures, scoreCandidate, rankCandidates,
+  trendScore, volumePriceScore, flowScore, sectorScore, momentumScore, baseScore
+};
