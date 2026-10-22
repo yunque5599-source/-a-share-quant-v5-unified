@@ -55,10 +55,16 @@ function limitThresholdPct(code) {
   if (board === 'BSE') return 28.5;
   return 9.3;
 }
+const DATED_BARS_CACHE = new WeakMap();
 function datedBars(stock) {
-  return (Array.isArray(stock?.bars) ? stock.bars : [])
+  const source = Array.isArray(stock?.bars) ? stock.bars : [];
+  const cached = stock && typeof stock === 'object' ? DATED_BARS_CACHE.get(stock) : null;
+  if (cached && cached.source === source) return cached.rows;
+  const rows = source
     .filter(bar => /^\d{4}-\d{2}-\d{2}$/.test(String(bar?.date ?? '')) && Number(bar?.close) > 0)
     .sort((a, b) => a.date.localeCompare(b.date));
+  if (stock && typeof stock === 'object') DATED_BARS_CACHE.set(stock, { source, rows });
+  return rows;
 }
 
 export function evaluateCandidateOutcome(stock, signalDate) {
