@@ -11,6 +11,7 @@ This module is isolated from the production page, market API, current execution 
 - **Discovery coverage is separate from execution permission.** ChiNext names (300/301), STAR names (688/689), and Beijing listings can be scored for research coverage. By default, only Shanghai/Shenzhen main-board codes are marked execution-eligible; this does not suppress a research candidate from the ranked list.
 - **No narrow same-day gain gate.** A candidate is not hard-rejected because it is up 4%, 8%, or close to its limit. Overheating is a soft risk penalty, not a discovery filter.
 - **The model seeks a transition, not just a strong snapshot.** It scores MA turning/stacking, price position versus the prior 20-day range, volume compression followed by expansion, closing strength, flow persistence/acceleration, and sector/theme breadth.
+- **A separate emotion-repair lane catches high-volatility dislocations.** It checks recent limit-up history, a sharp selloff, volume expansion, sector context, and early recovery. It is explicitly an observation/ranking lane, not an automatic buy signal; a limit-up history followed by a crash can also be a trap.
 - **Each score is auditable.** Output includes six component scores, risk penalties, risk flags, confidence/data completeness, setup classification, board, and execution eligibility.
 - **Point-in-time cutoff.** When asOf is supplied, bars and fund-flow rows dated after that day are discarded. Undated rows are discarded under a cutoff to reduce look-ahead risk.
 
@@ -25,7 +26,7 @@ This module is isolated from the production page, market API, current execution 
 | Short momentum | 12% | 3/5/10-day returns, with diminishing benefit for extreme moves |
 | Base/room | 8% | Distance from prior 20-day low and high |
 
-A soft risk penalty (capped at 30 points) covers excessive one-day/short-window gains, large gaps, extreme volume/volatility, weak liquidity, and extreme turnover. ST/delisting-risk names are excluded. Missing flow/sector inputs lower confidence and are flagged rather than silently treated as strong evidence.
+The trend-transition path uses the six weighted components below. A separate emotion-repair score can outrank the core score when recent limit-up history is followed by a sharp, high-volume selloff or early recovery. The final score is the higher path score minus a soft risk penalty (capped at 30 points) for excessive gains, large gaps, extreme volume/volatility, weak liquidity, and extreme turnover. ST/delisting-risk names are excluded. Missing flow/sector inputs lower confidence and are flagged rather than silently treated as strong evidence.
 
 ## Input schema
 
@@ -56,11 +57,11 @@ Dates must be YYYY-MM-DD. Returns and mainPct are expressed in percentage points
 
 ## Screenshot target set
 
-target_symbols.json records 三维天地 (301159), 莱美药业 (300006), 兆讯传媒 (301102), and 致尚科技 (301486) as holdout replay targets. Their actual limit-up dates and pre-limit-up bars still need to be recovered and verified. Do not train or tune weights on these four outcomes and then report them as successful validation.
+target_symbols.json records the four screenshot names as holdout replay targets for the 2026-10-21 session, using 2026-10-20 as the signal cutoff. Public history shows 三维天地 +20.00%, 莱美药业 +20.00%, and 兆讯传媒 +19.98%; 致尚科技 rose +17.12% but did not close at its limit. References: [三维天地](https://stock.stockstar.com/RB2026102100028252.shtml), [莱美药业](https://www.dabanke.com/gupiao-300006.html), [兆讯传媒](https://finance.sina.com.cn/stock/aiassist/ydfx/2026-10-21/doc-inivxvuy4796816.shtml), [致尚科技历史行情](https://cn.investing.com/equities/shenzhen-zesum-technology-historical-data). The full pre-limit-up bars, fund flow, and same-day full-universe ranks still need to be replayed before we can say whether the new model would have selected them. Do not tune weights to force these four names to rank highly and then report them as successful validation.
 
 ## Validation gate before integration
 
-1. Recover the actual limit-up date for each target and reconstruct the complete eligible universe as it existed at each prior close.
+1. Reconstruct the complete eligible universe at the 2026-10-20 close and retrieve point-in-time bars, flows, and sector/theme information for all candidates.
 2. Score candidates using only data available before the target session; store the target rank, top-10/top-30 recall, and reasons for any miss.
 3. Run walk-forward evaluation across many dates, reporting top-k limit-up recall within 1/3/5 sessions, forward returns, maximum adverse excursion, turnover/cost assumptions, and board-separated results.
 4. Compare against the existing model and simple baselines. Keep this model research-only unless the out-of-sample uplift is repeatable and risk-adjusted.
