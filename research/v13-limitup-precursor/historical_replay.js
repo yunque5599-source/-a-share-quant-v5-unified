@@ -563,8 +563,8 @@ export async function runHistoricalReplay({ asOf, outDir = 'output/v13-history-r
       trueLimitUpTargetsTop30: quality.measurable ? trueLimitUpTargets.filter(target => target.inTop30).length : null,
       targets: targetReports
     },
-    top10: rankedWithPosition.slice(0, 10).map(compactResult),
-    top30: rankedWithPosition.slice(0, 30).map(compactResult)
+    top10: rankedWithPosition.slice(0, 10).map((row, index) => compactResult(row, index + 1)),
+    top30: rankedWithPosition.slice(0, 30).map((row, index) => compactResult(row, index + 1))
   };
   const outPath = resolve(outDir);
   await mkdir(outPath, { recursive: true });
