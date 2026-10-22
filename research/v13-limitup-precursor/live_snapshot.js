@@ -139,7 +139,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       trendTransition:rankedScores.filter(r=>r.scorePath==='trend-transition').slice(0,20),
       emotionRepair:rankedScores.filter(r=>r.scorePath==='emotion-repair').slice(0,20),
       oversold:rankedScores.filter(r=>r.scorePath==='oversold-reversal').slice(0,20)}};
-  snapshot.quality={...quality,...validateLiveSnapshot(snapshot)};
+  snapshot.quality=quality;const validation=validateLiveSnapshot(snapshot);snapshot.quality={...quality,...validation};
   const output=resolve(out||'output/v13-live-snapshots/'+snapshot.snapshotId+'.json');await mkdir(dirname(output),{recursive:true});await writeFile(output,JSON.stringify(snapshot,null,2));
   console.log(JSON.stringify({snapshotId:snapshot.snapshotId,capturedAt,asOf:requestedAsOf,quality:snapshot.quality,
     top10:snapshot.rankings.overall.slice(0,10).map(r=>({rank:r.rank,code:r.code,name:r.name,score:r.score,setup:r.setup,primaryTheme:r.psychology?.primaryTheme??null}))},null,2));
