@@ -44,7 +44,7 @@ test('industry breadth and leader scores are derived only from supplied pre-even
     stock('000002', 'B', 'IndustryX', [10, 9.9, 9.8, 9.7, 9.6], 9.5)
   ];
   const output = addHistoricalIndustryContext(input);
-  assert.ok(output[0].sector.return3Pct > output[1].sector.return3Pct);
+  assert.equal(output[0].sector.return3Pct, output[1].sector.return3Pct);
   assert.ok(output[0].sector.leaderScore > output[1].sector.leaderScore);
   assert.equal(output[0].sector.limitUpCount, 0);
 });
