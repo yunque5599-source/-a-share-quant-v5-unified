@@ -3,7 +3,7 @@ import { createReadStream } from 'node:fs';
 import { createInterface } from 'node:readline';
 import { resolve, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { boardForCode, rankCandidates } from './precursor_score.js';
+import { boardForCode, scoreCandidate, rankScoredCandidates } from './precursor_score.js';
 import { addHistoricalIndustryContext } from './historical_replay.js';
 import { computeEarlyOpportunity } from '../v11-short-alpha/early_opportunity.js';
 
@@ -186,11 +186,14 @@ export function evaluateWalkForward(candidates, {
         turnoverRate: latest?.turnoverRate
       };
     });
-    const ranked = rankCandidates(candidatesAtDate, { asOf: signalDate, modelVariant: 'v13-current' });
-    const coreRanked = rankCandidates(candidatesAtDate, { asOf: signalDate, modelVariant: 'v13-core-only' });
-    const earlyTurnRanked = rankCandidates(candidatesAtDate, { asOf: signalDate, modelVariant: 'v13-early-turn' });
-    const momentumHybridRanked = rankCandidates(candidatesAtDate, { asOf: signalDate, modelVariant: 'v13-momentum-hybrid' });
-    const rankEnsembleRanked = rankCandidates(candidatesAtDate, { asOf: signalDate, modelVariant: 'v13-rank-ensemble' });
+    const baseScored = candidatesAtDate
+      .map(stock => scoreCandidate(stock, { asOf: signalDate, modelVariant: 'v13-current' }))
+      .filter(Boolean);
+    const ranked = rankScoredCandidates(baseScored, 'v13-current');
+    const coreRanked = rankScoredCandidates(baseScored, 'v13-core-only');
+    const earlyTurnRanked = rankScoredCandidates(baseScored, 'v13-early-turn');
+    const momentumHybridRanked = rankScoredCandidates(baseScored, 'v13-momentum-hybrid');
+    const rankEnsembleRanked = rankScoredCandidates(baseScored, 'v13-rank-ensemble');
     const currentByCode = new Map(ranked.map(row => [String(row.code), row]));
     const v12EarlyOpportunityRanked = candidatesAtDate.map(stock => {
       const base = currentByCode.get(String(stock.code));
