@@ -1,0 +1,60 @@
+name: V13 wide catalyst audit
+
+on:
+  push:
+    branches: [research/v13-limitup-precursor]
+    paths:
+      - '.github/workflows/v13-wide-catalyst-audit.yml'
+  workflow_dispatch:
+    inputs:
+      candidate_limit:
+        description: 'Technical funnel size (50-180)'
+        required: true
+        default: '120'
+
+permissions:
+  contents: read
+
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run full-universe timestamped catalyst scan
+        run: |
+          node research/v13-limitup-precursor/live_snapshot.js \
+            --limit "\${{ github.event.inputs.candidate_limit || '120' }}" \
+            --wide-news-scan \
+            --out output/v13-wide-catalyst-audit/snapshot.json
+      - name: Print source quality and catalyst funnel
+        if: always()
+        run: |
+          if [ -s output/v13-wide-catalyst-audit/snapshot.json ]; then
+            node --input-type=module <<'NODE'
+            import fs from 'node:fs';
+            const x=JSON.parse(fs.readFileSync('output/v13-wide-catalyst-audit/snapshot.json','utf8'));
+            console.log(JSON.stringify({
+              snapshotId:x.snapshotId,
+              capturedAt:x.capturedAt,
+              recommendationStatus:x.recommendationStatus,
+              recommendationsAvailable:x.recommendationsAvailable,
+              quality:x.quality,
+              wideNewsScan:x.coverage?.wideNewsScan,
+              top10:x.rankings?.overall?.slice(0,10).map(r=>({rank:r.rank,code:r.code,name:r.name,score:r.score,setup:r.setup}))
+            },null,2));
+            NODE
+          else
+            echo 'No snapshot was produced. Inspect the preceding collector error logs.'
+          fi
+      - name: Upload immutable audit snapshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v13-wide-catalyst-audit-\${{ github.run_id }}
+          path: output/v13-wide-catalyst-audit/
+          if-no-files-found: warn
+          retention-days: 30
