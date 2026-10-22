@@ -147,7 +147,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const scoreByCode=new Map(rankedScores.map(r=>[r.code,r]));
   const earlyRows=modelInputs.map(candidate=>{
     const base=scoreByCode.get(candidate.code);
-    const opportunity=computeEarlyOpportunity({bars:candidate.bars,asOf:requestedAsOf,features:{sector:{score:base?.components?.sector},capital:{score:base?.components?.flow}}});
+    const opportunity=computeEarlyOpportunity({bars:candidate.bars,asOf:requestedAsOf,barComplete:true,features:{sector:{score:base?.components?.sector},capital:{score:base?.components?.flow}}});
     if(!Number.isFinite(Number(opportunity.score)))return null;
     return {code:candidate.code,score:Number(opportunity.score),confidence:Number((opportunity.confidence*100).toFixed(1)),stage:opportunity.stage,
       components:opportunity.components,metrics:opportunity.metrics,reasons:opportunity.reasons};
