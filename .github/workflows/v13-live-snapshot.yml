@@ -39,12 +39,12 @@ jobs:
           NODE
       - name: Capture timestamped snapshot
         if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch'
-        run: node research/v13-limitup-precursor/live_snapshot.js --limit "\${{ github.event.inputs.candidate_limit || '120' }}" --out output/v13-live-snapshots/snapshot.json
+        run: node research/v13-limitup-precursor/live_snapshot.js --limit "${{ github.event.inputs.candidate_limit || '120' }}" --out output/v13-live-snapshots/snapshot.json
       - name: Upload immutable snapshot
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: v13-live-snapshot-\${{ github.run_id }}
+          name: v13-live-snapshot-${{ github.run_id }}
           path: output/v13-live-snapshots/
           if-no-files-found: warn
           retention-days: 30
