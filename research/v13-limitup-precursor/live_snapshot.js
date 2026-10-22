@@ -193,6 +193,34 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       for(const [code,themes] of Object.entries(batch.psych.data?.themeBySymbol??{})) psychByCode.set(code,Array.isArray(themes)?themes:[]);
     } else sourceErrors.push('psychology_universe: '+batch.psychError);
   }
+  let retryAttemptCount=0,retryRecoveredKlineCount=0,retryRecoveredFlowCount=0;
+  const retryTargets=funnel.filter(row=>{
+    const item=deepByCode.get(String(row.f12)),q=item?.dataQuality??{};
+    return item&&((q.klineSource&&q.klineSource!=='eastmoney')||(q.flowSource&&q.flowSource!=='eastmoney'));
+  });
+  await mapLimit(retryTargets,4,async row=>{
+    const code=String(row.f12),item=deepByCode.get(code);
+    if(!item||item.error)return;
+    item.dataQuality=item.dataQuality??{};
+    if(item.dataQuality.klineSource!=='eastmoney'){
+      retryAttemptCount++;
+      try{
+        const payload=parseResult('kline retry',await invoke(marketHandler,'/api/market?action=kline&code='+encodeURIComponent(code)));
+        if(Array.isArray(payload?.data?.klines)&&payload.data.klines.length>=25&&payload.source!=='tencent-kline-fallback'){
+          item.kline=payload;item.dataQuality.klineSource='eastmoney';retryRecoveredKlineCount++;
+        }
+      }catch{}
+    }
+    if(item.dataQuality.flowSource!=='eastmoney'){
+      retryAttemptCount++;
+      try{
+        const payload=parseResult('flow retry',await invoke(marketHandler,'/api/market?action=flow&code='+encodeURIComponent(code)));
+        if(Array.isArray(payload?.data?.klines)&&payload.data.klines.length>=3&&payload.source!=='neutral-flow-fallback'&&payload.degraded!==true){
+          item.flow=payload;item.dataQuality.flowSource='eastmoney';retryRecoveredFlowCount++;
+        }
+      }catch{}
+    }
+  });
   const newsByCode=new Map(),newsSuccessCodes=new Set();
   const newsBatches=await mapLimit(chunks(funnel,8),2,async group=>{
     const codes=group.map(r=>String(r.f12)),query=encodeURIComponent(codes.join(','));
@@ -258,6 +286,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const barsGood=records.filter(r=>r.source.barCount>=25).length,psychGood=records.filter(r=>r.psychology.available&&r.psychology.source!=='timestamped-stock-news-fallback').length;
   const quality={rankedSourceDegraded:ranked?.data?.degraded===true,rankedSourceStale:ranked?.data?.serverStale===true,rankedSourceMethod:ranked?.data?.method??null,
     rankedCandidateCount:raw.length,funnelCandidateCount:funnel.length,deepSuccessCount:deepGood,deepSuccessPct:+(deepGood/Math.max(1,funnel.length)*100).toFixed(2),
+    retryAttemptCount,retryRecoveredKlineCount,retryRecoveredFlowCount,
     barHistoryCount:barsGood,barHistoryCoveragePct:+(barsGood/Math.max(1,funnel.length)*100).toFixed(2),
     psychologyResponseCount:psychSuccessCodes.size,psychologyCoveragePct:+(psychSuccessCodes.size/Math.max(1,funnel.length)*100).toFixed(2),
     psychologyThemeCount:psychGood,psychologyThemeCoveragePct:+(psychGood/Math.max(1,funnel.length)*100).toFixed(2),
