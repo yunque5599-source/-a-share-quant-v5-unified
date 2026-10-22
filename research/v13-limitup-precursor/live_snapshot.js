@@ -3,7 +3,7 @@ import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import marketHandler from '../../api/market.js';
 import psychologyHandler from '../../api/psychology_universe.js';
-import { boardForCode, scoreCandidate, rankCandidates } from './precursor_score.js';
+import { boardForCode, isRestrictedListingName, scoreCandidate, rankCandidates } from './precursor_score.js';
 import { computeEarlyOpportunity } from '../../research/v11-short-alpha/early_opportunity.js';
 
 const MODEL_VERSION = 'V13-live-psychology-catalyst-overlay-research-v1';
@@ -32,7 +32,7 @@ export function parseRows(rows, kind, asOf) {
   return [...out.values()].sort((a,b)=>a.date.localeCompare(b.date));
 }
 export function selectCandidateFunnel(rows, limit=120) {
-  const valid=(Array.isArray(rows)?rows:[]).filter(r=>/^(00|30|60|68)\d{4}$/.test(String(r?.f12??''))&&!/(^|\*)ST(?=[\u4e00-\u9fff\d\s]|$)|^退/i.test(String(r?.f14??'')));
+  const valid=(Array.isArray(rows)?rows:[]).filter(r=>/^(00|30|60|68)\d{4}$/.test(String(r?.f12??''))&&!isRestrictedListingName(r?.f14));
   const chosen=new Map();
   const add=(arr,count,lane)=>{let added=0;for(const r of arr){const code=String(r.f12);if(chosen.has(code)){chosen.get(code).funnelLanes.push(lane);continue;}chosen.set(code,{...r,funnelLanes:[lane]});if(++added>=count)break;}};
   const val=(r,k)=>n(r?.[k])??-Infinity;
