@@ -71,6 +71,19 @@ The replay writes:
 
 A replay is `MEASURABLE` only when at least 90% of the collected current universe has sufficient pre-cutoff bars and every date-specific audit target was scored. Otherwise it is `NOT_MEASURABLE`; top-k ranks are diagnostic only and recall fields remain unknown rather than being reported as zero. Audit targets are fetched first solely to improve diagnostic data availability; target identities never enter the score formula.
 
+### Walk-forward evaluation
+
+After a replay run has produced `replay_candidates.ndjson` and `replay_report.json`, run the offline evaluator:
+
+    node research/v13-limitup-precursor/walk_forward_eval.js \
+      --input output/v13-history-replay/replay_candidates.ndjson \
+      --quality-report output/v13-history-replay/replay_report.json \
+      --signal-days 15
+
+For each historical signal date, the evaluator reconstructs the model's inputs using only bars and flows dated on or before that date, rebuilds industry breadth/leader context from pre-signal bars, and compares the model's top 10/top 30 with a five-session-momentum baseline. Outcomes use strictly later bars to calculate T+1/T+3/T+5 close returns, limit-up hit precision/recall, maximum favorable excursion, and maximum adverse excursion. The screenshot target labels are not loaded into this evaluator.
+
+The walk-forward report remains `NOT_MEASURABLE` if the source replay has less than 90% historical-bar coverage or fewer than three complete signal dates. Even a measurable report is evidence about the tested window only, not proof of a persistent trading edge.
+
 ## Validation gate before integration
 
 1. Reconstruct the complete eligible universe at the 2026-10-20 close and retrieve point-in-time bars, flows, and sector/theme information for all candidates.
