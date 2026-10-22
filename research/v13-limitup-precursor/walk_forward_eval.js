@@ -185,15 +185,26 @@ export function evaluateWalkForward(candidates, {
         turnoverRate: latest?.turnoverRate
       };
     });
-    const ranked = rankCandidates(candidatesAtDate, { asOf: signalDate });
+    const ranked = rankCandidates(candidatesAtDate, { asOf: signalDate, modelVariant: 'v13-current' });
+    const coreRanked = rankCandidates(candidatesAtDate, { asOf: signalDate, modelVariant: 'v13-core-only' });
+    const earlyTurnRanked = rankCandidates(candidatesAtDate, { asOf: signalDate, modelVariant: 'v13-early-turn' });
     const modelCodes = ranked.map(row => row.code);
-    const modelCodeSet = new Set(modelCodes);
+    const coreOnlyCodes = coreRanked.map(row => row.code);
+    const earlyTurnCodes = earlyTurnRanked.map(row => row.code);
     const momentumRanked = [...ranked].sort((a, b) => {
       const ar = Number.isFinite(a.features?.r5Pct) ? a.features.r5Pct : -Infinity;
       const br = Number.isFinite(b.features?.r5Pct) ? b.features.r5Pct : -Infinity;
       return br - ar || b.confidence - a.confidence;
     });
     const momentumCodes = momentumRanked.map(row => row.code);
+    const emotionRepairCodes = [...ranked]
+      .filter(row => Number(row.components?.emotionRepair) >= 65)
+      .sort((a, b) => Number(b.components?.emotionRepair) - Number(a.components?.emotionRepair) || b.confidence - a.confidence)
+      .map(row => row.code);
+    const oversoldCodes = [...ranked]
+      .filter(row => Number(row.components?.oversoldReversal) >= 65)
+      .sort((a, b) => Number(b.components?.oversoldReversal) - Number(a.components?.oversoldReversal) || b.confidence - a.confidence)
+      .map(row => row.code);
     const rawByCode = new Map(validHistories.map(stock => [String(stock.code), stock]));
     const outcomeByCode = new Map();
     for (const code of modelCodes) {
@@ -212,14 +223,28 @@ export function evaluateWalkForward(candidates, {
       outcomeCoverageCount: t5OutcomeCount,
       t5OutcomeCoveragePct,
       modelTop10Codes: modelCodes.slice(0, 10),
+      coreOnlyTop10Codes: coreOnlyCodes.slice(0, 10),
+      earlyTurnTop10Codes: earlyTurnCodes.slice(0, 10),
+      emotionRepairTop10Codes: emotionRepairCodes.slice(0, 10),
+      oversoldTop10Codes: oversoldCodes.slice(0, 10),
       momentumTop10Codes: momentumCodes.slice(0, 10),
       modelTop30Codes: modelCodes.slice(0, 30),
+      coreOnlyTop30Codes: coreOnlyCodes.slice(0, 30),
+      earlyTurnTop30Codes: earlyTurnCodes.slice(0, 30),
       momentumTop30Codes: momentumCodes.slice(0, 30),
       model: {},
+      coreOnly: {},
+      earlyTurn: {},
+      emotionRepairWatch: {},
+      oversoldWatch: {},
       momentum: {}
     };
     for (const k of DEFAULT_TOP_KS) {
       day.model['top' + k] = metricsForTopK(modelCodes, k, universeCodes, outcomeByCode);
+      day.coreOnly['top' + k] = metricsForTopK(coreOnlyCodes, k, universeCodes, outcomeByCode);
+      day.earlyTurn['top' + k] = metricsForTopK(earlyTurnCodes, k, universeCodes, outcomeByCode);
+      day.emotionRepairWatch['top' + k] = metricsForTopK(emotionRepairCodes, k, universeCodes, outcomeByCode);
+      day.oversoldWatch['top' + k] = metricsForTopK(oversoldCodes, k, universeCodes, outcomeByCode);
       day.momentum['top' + k] = metricsForTopK(momentumCodes, k, universeCodes, outcomeByCode);
     }
     perDate.push(day);
@@ -238,6 +263,10 @@ export function evaluateWalkForward(candidates, {
   for (const k of DEFAULT_TOP_KS) {
     summary['top' + k] = {
       model: aggregateMetrics(perDate, 'model', k),
+      coreOnly: aggregateMetrics(perDate, 'coreOnly', k),
+      earlyTurn: aggregateMetrics(perDate, 'earlyTurn', k),
+      emotionRepairWatch: aggregateMetrics(perDate, 'emotionRepairWatch', k),
+      oversoldWatch: aggregateMetrics(perDate, 'oversoldWatch', k),
       momentumBaseline: aggregateMetrics(perDate, 'momentum', k)
     };
   }
@@ -250,6 +279,7 @@ export function evaluateWalkForward(candidates, {
       features: 'For each signalDate, K-line and fund-flow rows are sliced to dates <= signalDate before scoring; sector context is rebuilt from those pre-signal bars only',
       outcomes: 'Only rows strictly after signalDate are used to calculate T+1/T+3/T+5 close returns, limit-up hits, maximum favorable excursion, and maximum adverse excursion',
       baseline: 'Five-trading-session momentum ranking on the same scored candidate universe',
+      variants: 'Compare the legacy blended score, core-only alpha score, and experimental early-turn score; emotion-repair and oversold scores are separately evaluated as observation lanes',
       noTargetTuning: 'The screenshot target labels are not loaded or used by this evaluator'
     },
     sourceCoveragePct: coveragePct,
