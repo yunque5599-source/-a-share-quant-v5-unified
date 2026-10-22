@@ -137,6 +137,35 @@ export function validateLiveSnapshot(s={}){
   const status=!valid?'SOURCE_UNAVAILABLE':q.psychologyCoveragePct>=70?'CAPTURED':'CAPTURED_WITH_NEWS_FALLBACK';
   return {valid,status,reasons, ...(status==='CAPTURED_WITH_NEWS_FALLBACK'?{warnings:['theme psychology unavailable; only timestamp-verified stock-news recency proxy was available']}:{})};
 }
+export function isPreLimitUpCandidate(row={},early=null){
+  const code=String(row.code??'');
+  const board=boardForCode(code);
+  const dailyPct=Number(row.quote?.pct??row.currentPct);
+  const r5=Number(row.features?.r5Pct);
+  const distHigh20=Number(row.features?.distHigh20Pct);
+  const limitPct=board==='CHINEXT'||board==='STAR'?20:board==='BSE'?30:10;
+  if(Number.isFinite(dailyPct)&&dailyPct>=limitPct*0.75)return false;
+  if(early?.stage==='extended')return false;
+  if(Number.isFinite(r5)&&r5>25)return false;
+  if(Number.isFinite(distHigh20)&&distHigh20>18)return false;
+  return true;
+}
+export function applySnapshotQualityGate(snapshot={}){
+  const validation=validateLiveSnapshot(snapshot);
+  const rankings=snapshot.rankings&&typeof snapshot.rankings==='object'?snapshot.rankings:{};
+  const output={...snapshot,quality:{...(snapshot.quality??{}),...validation}};
+  if(!validation.valid){
+    output.diagnosticRankings=output.diagnosticRankings??rankings;
+    output.rankings=Object.fromEntries(Object.keys(rankings).map(key=>[key,[]]));
+    output.recommendationsAvailable=false;
+    output.recommendationStatus='SOURCE_UNAVAILABLE';
+  }else{
+    output.recommendationsAvailable=true;
+    output.recommendationStatus=validation.status;
+  }
+  return output;
+}
+
 export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=null}={}){
   const capturedAt=new Date().toISOString(),requestedAsOf=asOf||capturedAt;
   const ranked=parseResult('ranked_candidates',await invoke(marketHandler,'/api/market?action=ranked_candidates'));
@@ -212,8 +241,10 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       components:opportunity.components,metrics:opportunity.metrics,reasons:opportunity.reasons};
   }).filter(Boolean).sort((a,b)=>b.score-a.score||b.confidence-a.confidence);
   const earlyByCode=new Map(earlyRows.map(r=>[r.code,r]));
-  const momentumCodes=[...rankedScores].sort((a,b)=>(Number.isFinite(b.features?.r5Pct)?b.features.r5Pct:-Infinity)-(Number.isFinite(a.features?.r5Pct)?a.features.r5Pct:-Infinity)||b.score-a.score).map(r=>r.code);
-  const earlyCodes=earlyRows.map(r=>r.code);
+  const preLimitUpScores=rankedScores.filter(row=>isPreLimitUpCandidate(row,earlyByCode.get(row.code)));
+  const eligibleCodes=new Set(preLimitUpScores.map(row=>row.code));
+  const momentumCodes=[...preLimitUpScores].sort((a,b)=>(Number.isFinite(b.features?.r5Pct)?b.features.r5Pct:-Infinity)-(Number.isFinite(a.features?.r5Pct)?a.features.r5Pct:-Infinity)||b.score-a.score).map(r=>r.code);
+  const earlyCodes=earlyRows.filter(row=>eligibleCodes.has(row.code)).map(r=>r.code);
   const balancedCodes=interleaveCodes(momentumCodes,earlyCodes,Math.min(30,new Set([...momentumCodes,...earlyCodes]).size));
   const balancedBlend=balancedCodes.map((code,i)=>{
     const base=scoreByCode.get(code),early=earlyByCode.get(code);if(!base)return null;
@@ -233,20 +264,32 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     newsResponseCount:newsSuccessCodes.size,newsResponseCoveragePct:+(newsSuccessCodes.size/Math.max(1,funnel.length)*100).toFixed(2),
     datedNewsCandidateCount:records.filter(r=>Math.max(r.psychology.datedNewsCount??0,r.psychology.stockNewsFallback?.datedNewsCount??0)>0).length,
     datedNewsCoveragePct:+(records.filter(r=>Math.max(r.psychology.datedNewsCount??0,r.psychology.stockNewsFallback?.datedNewsCount??0)>0).length/Math.max(1,funnel.length)*100).toFixed(2),sourceErrors};
+  const diagnosticRankings={overall:balancedBlend,trendTransition:rankedScores.slice(0,20),
+    emotionRepair:rankedScores.filter(r=>Number(r.components?.emotionRepair)>=65).sort((a,b)=>Number(b.components.emotionRepair)-Number(a.components.emotionRepair)).slice(0,20),
+    oversold:rankedScores.filter(r=>Number(r.components?.oversoldReversal)>=65).sort((a,b)=>Number(b.components.oversoldReversal)-Number(a.components.oversoldReversal)).slice(0,20),
+    coreRanking:rankedScores.slice(0,30),earlyOpportunity:earlyRows.slice(0,30)};
   const snapshot={schema:'v13-live-psychology-catalyst-snapshot-v1',modelVersion:MODEL_VERSION,
     snapshotId:'v13-'+capturedAt.replace(/[-:.TZ]/g,''),capturedAt,asOf:requestedAsOf,
     sourcePolicy:{provider:'Eastmoney public quote/history and psychology/theme/news endpoint',pointInTime:'captured-at-source',
       futureDatedBarsExcluded:true,catalystOnlyUsedWhenNewsTimestampVerified:true,brokerConnected:false,automaticOrderPlacement:false},
-    quality:{},coverage:{rawRankedCandidates:raw.length,funnelCandidates:funnel.length,scoredCandidates:rankedScores.length,earlyOpportunityCandidates:earlyRows.length,balancedBlendCount:balancedBlend.length},
-    candidates:auditRecords,rankings:{overall:balancedBlend,
-      trendTransition:rankedScores.slice(0,20),
-      emotionRepair:rankedScores.filter(r=>Number(r.components?.emotionRepair)>=65).sort((a,b)=>Number(b.components.emotionRepair)-Number(a.components.emotionRepair)).slice(0,20),
-      oversold:rankedScores.filter(r=>Number(r.components?.oversoldReversal)>=65).sort((a,b)=>Number(b.components.oversoldReversal)-Number(a.components.oversoldReversal)).slice(0,20),coreRanking:rankedScores.slice(0,30),earlyOpportunity:earlyRows.slice(0,30)}};
-  snapshot.quality=quality;const validation=validateLiveSnapshot(snapshot);snapshot.quality={...quality,...validation};
-  const output=resolve(out||'output/v13-live-snapshots/'+snapshot.snapshotId+'.json');await mkdir(dirname(output),{recursive:true});await writeFile(output,JSON.stringify(snapshot,null,2));
-  console.log(JSON.stringify({snapshotId:snapshot.snapshotId,capturedAt,asOf:requestedAsOf,quality:snapshot.quality,
-    top10:snapshot.rankings.overall.slice(0,10).map(r=>({rank:r.rank,code:r.code,name:r.name,score:r.score,setup:r.setup,primaryTheme:r.psychology?.primaryTheme??null}))},null,2));
-  return snapshot;
+    quality:{},coverage:{rawRankedCandidates:raw.length,funnelCandidates:funnel.length,scoredCandidates:rankedScores.length,
+      preLimitUpEligibleCount:preLimitUpScores.length,earlyOpportunityCandidates:earlyRows.length,balancedBlendCount:balancedBlend.length},
+    candidates:auditRecords,rankings:{
+      overall:balancedBlend,
+      trendTransition:preLimitUpScores.slice(0,20),
+      emotionRepair:diagnosticRankings.emotionRepair,
+      oversold:diagnosticRankings.oversold,
+      coreRanking:preLimitUpScores.slice(0,30),
+      earlyOpportunity:earlyRows.filter(row=>eligibleCodes.has(row.code)).slice(0,30)
+    },diagnosticRankings};
+  snapshot.quality=quality;
+  const finalSnapshot=applySnapshotQualityGate(snapshot);
+  const output=resolve(out||'output/v13-live-snapshots/'+snapshot.snapshotId+'.json');await mkdir(dirname(output),{recursive:true});await writeFile(output,JSON.stringify(finalSnapshot,null,2));
+  console.log(JSON.stringify({snapshotId:finalSnapshot.snapshotId,capturedAt,asOf:requestedAsOf,
+    recommendationStatus:finalSnapshot.recommendationStatus,recommendationsAvailable:finalSnapshot.recommendationsAvailable,
+    quality:finalSnapshot.quality,
+    top10:finalSnapshot.rankings.overall.slice(0,10).map(r=>({rank:r.rank,code:r.code,name:r.name,score:r.score,setup:r.setup,primaryTheme:r.psychology?.primaryTheme??null}))},null,2));
+  return finalSnapshot;
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
   const a=process.argv.slice(2);let out=null,candidateLimit=120,asOf=null;
