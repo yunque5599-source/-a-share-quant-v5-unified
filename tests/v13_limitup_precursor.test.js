@@ -1,8 +1,8 @@
 'use strict';
 
-const test = require('node:test');
-const assert = require('node:assert/strict');
-const { boardForCode, scoreCandidate, rankCandidates } = require('../research/v13-limitup-precursor/precursor_score');
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { boardForCode, scoreCandidate, rankCandidates } from '../research/v13-limitup-precursor/precursor_score.js';
 
 function makeCandidate({ code = '600001', name = '样本股', strong = true, pct = 4.2, future = false } = {}) {
   const bars = [];
