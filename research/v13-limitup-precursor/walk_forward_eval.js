@@ -225,7 +225,8 @@ export function auditTargetRanks(candidates, targets, signalDate) {
   }
   return {
     signalDate,
-    status: Object.values(ranks).every(rows => rows.every(row => row.scored)) ? 'MEASURABLE' : 'NOT_MEASURABLE',
+    status: ['currentComposite', 'coreOnly', 'earlyTurn'].every(variant => (ranks[variant] ?? []).every(row => row.scored))
+      ? 'MEASURABLE' : 'NOT_MEASURABLE',
     universeCount: pointInTime.length,
     variants: ranks,
     policy: 'Target outcomes are attached only after point-in-time ranks are computed; target labels never enter feature construction or score calculation.'
