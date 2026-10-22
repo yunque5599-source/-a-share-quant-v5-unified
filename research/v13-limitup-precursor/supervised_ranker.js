@@ -194,7 +194,9 @@ function trainingSamplesForDate(rawCandidates, signalDate, rawByCode) {
     samples.push({
       code: String(row.code), name: row.name, signalDate,
       x: extractFeatureVector(row),
-      y: outcome.limitUpWithin5 ? 1 : 0
+      yLimitUp: outcome.limitUpWithin5 ? 1 : 0,
+      yPositiveReturn5: outcome.t5CloseReturnPct >= 3 ? 1 : 0,
+      t5CloseReturnPct: outcome.t5CloseReturnPct
     });
   }
   return { rows, samples };
@@ -220,6 +222,7 @@ function rankMetrics(rankedCodes, k, universeCodes, outcomeByCode) {
       universeLimitUpCount: universeHits,
       limitUpHitCount: hitCount,
       limitUpPrecisionPct: validTop.length ? Number((hitCount / validTop.length * 100).toFixed(2)) : null,
+      positiveReturnPrecisionPct: validTop.length ? Number((validTop.filter(row => row[returnKey] >= 3).length / validTop.length * 100).toFixed(2)) : null,
       limitUpRecallPct: universeHits ? Number((hitCount / universeHits * 100).toFixed(2)) : null,
       meanCloseReturnPct: mean(returns) === null ? null : Number(mean(returns).toFixed(2)),
       winRatePct: validTop.length ? Number((validTop.filter(row => row[returnKey] > 0).length / validTop.length * 100).toFixed(2)) : null,
@@ -237,6 +240,7 @@ function aggregateTestMetrics(perDate, rankingKey, topK) {
     result['t' + horizon] = {
       signalDates: rows.filter(row => Number.isFinite(row.meanCloseReturnPct)).length,
       meanLimitUpPrecisionPct: avg('limitUpPrecisionPct'),
+      meanPositiveReturnPrecisionPct: avg('positiveReturnPrecisionPct'),
       meanLimitUpRecallPct: avg('limitUpRecallPct'),
       meanCloseReturnPct: avg('meanCloseReturnPct'),
       meanWinRatePct: avg('winRatePct'),
@@ -320,35 +324,45 @@ export function evaluateSupervisedRanker(rawCandidates, {
     featureRowsByDate.set(date, built.rows);
     dataDiagnostics.push({
       date, scoredRows: built.rows.length, labeledSamples: built.samples.length,
-      positiveLabels: built.samples.filter(sample => sample.y === 1).length
+      positiveLabels: built.samples.filter(sample => sample.yLimitUp === 1).length,
+      positiveReturnLabels: built.samples.filter(sample => sample.yPositiveReturn5 === 1).length
     });
   }
   const trainSamples = trainDates.flatMap(date => samplesByDate.get(date) ?? []);
-  const model = trainLogisticRegression(trainSamples);
+  const model = trainLogisticRegression(
+    trainSamples.map(sample => ({ x: sample.x, y: sample.yLimitUp })), { epochs: 35 }
+  );
+  const positiveReturnModel = trainLogisticRegression(
+    trainSamples.map(sample => ({ x: sample.x, y: sample.yPositiveReturn5 })), { epochs: 35 }
+  );
   const perDate = [];
   for (const date of testDates) {
     const rowsAtDate = featureRowsByDate.get(date) ?? [];
     const supervised = scoreDateRows(rowsAtDate, model).sort((a, b) => b.probability - a.probability || b.coreScore - a.coreScore);
+    const positiveReturn = scoreDateRows(rowsAtDate, positiveReturnModel).sort((a, b) => b.probability - a.probability || b.coreScore - a.coreScore);
     const momentum = [...rowsAtDate].sort((a, b) =>
       (Number.isFinite(b.features?.r5Pct) ? b.features.r5Pct : -Infinity) -
       (Number.isFinite(a.features?.r5Pct) ? a.features.r5Pct : -Infinity) || b.score - a.score);
     const core = [...rowsAtDate].sort((a, b) => b.score - a.score);
     const supervisedCodes = supervised.map(row => row.code);
+    const positiveReturnCodes = positiveReturn.map(row => row.code);
     const momentumCodes = momentum.map(row => row.code);
     const coreCodes = core.map(row => row.code);
-    const outcomeByCode = outcomesForCodes(rawByCode, [...new Set([...supervisedCodes, ...momentumCodes, ...coreCodes])], date);
+    const outcomeByCode = outcomesForCodes(rawByCode, [...new Set([...supervisedCodes, ...positiveReturnCodes, ...momentumCodes, ...coreCodes])], date);
     const universeCodes = supervisedCodes.filter(code => outcomeByCode.has(String(code)));
     const day = {
       signalDate: date,
       scoredUniverseCount: supervisedCodes.length,
       trainingSamples: trainSamples.length,
       supervisedTop10Codes: supervisedCodes.slice(0, 10),
+      positiveReturnTop10Codes: positiveReturnCodes.slice(0, 10),
       momentumTop10Codes: momentumCodes.slice(0, 10),
       coreTop10Codes: coreCodes.slice(0, 10),
-      supervised: {}, momentumBaseline: {}, coreOnly: {}
+      supervised: {}, positiveReturn: {}, momentumBaseline: {}, coreOnly: {}
     };
     for (const k of TOP_KS) {
       day.supervised['top' + k] = rankMetrics(supervisedCodes, k, universeCodes, outcomeByCode);
+      day.positiveReturn['top' + k] = rankMetrics(positiveReturnCodes, k, universeCodes, outcomeByCode);
       day.momentumBaseline['top' + k] = rankMetrics(momentumCodes, k, universeCodes, outcomeByCode);
       day.coreOnly['top' + k] = rankMetrics(coreCodes, k, universeCodes, outcomeByCode);
     }
@@ -358,21 +372,31 @@ export function evaluateSupervisedRanker(rawCandidates, {
   for (const k of TOP_KS) {
     summary['top' + k] = {
       supervised: aggregateTestMetrics(perDate, 'supervised', k),
+      positiveReturn: aggregateTestMetrics(perDate, 'positiveReturn', k),
       momentumBaseline: aggregateTestMetrics(perDate, 'momentumBaseline', k),
       coreOnly: aggregateTestMetrics(perDate, 'coreOnly', k)
     };
   }
 
   const fitSamples = eligibleDates.flatMap(date => samplesByDate.get(date) ?? []);
-  const finalModel = trainLogisticRegression(fitSamples);
+  const finalModel = trainLogisticRegression(
+    fitSamples.map(sample => ({ x: sample.x, y: sample.yLimitUp })), { epochs: 35 }
+  );
+  const finalPositiveReturnModel = trainLogisticRegression(
+    fitSamples.map(sample => ({ x: sample.x, y: sample.yPositiveReturn5 })), { epochs: 35 }
+  );
   const holdoutDate = asOf || allDates.at(-1);
   const holdoutRows = buildPointInTimeRows(rows, holdoutDate);
   const holdoutRanked = scoreDateRows(holdoutRows, finalModel)
     .sort((a, b) => b.probability - a.probability || b.coreScore - a.coreScore);
+  const positiveReturnHoldoutRanked = scoreDateRows(holdoutRows, finalPositiveReturnModel)
+    .sort((a, b) => b.probability - a.probability || b.coreScore - a.coreScore);
   const holdoutByCode = new Map(holdoutRanked.map((row, index) => [row.code, { ...row, rank: index + 1 }]));
+  const positiveReturnHoldoutByCode = new Map(positiveReturnHoldoutRanked.map((row, index) => [row.code, { ...row, rank: index + 1 }]));
   const holdoutTargets = targets.filter(target => !target.signalDate || target.signalDate === holdoutDate)
     .map(target => {
       const hit = holdoutByCode.get(String(target.code));
+      const positiveHit = positiveReturnHoldoutByCode.get(String(target.code));
       return {
         code: String(target.code), name: target.name, knownOutcome: target.outcome ?? null,
         isTrueLimitUp: isTrueLimitUpOutcome(target.outcome),
@@ -380,25 +404,30 @@ export function evaluateSupervisedRanker(rawCandidates, {
         inTop10: hit ? hit.rank <= 10 : null,
         inTop30: hit ? hit.rank <= 30 : null,
         probability: hit ? Number(hit.probability.toFixed(6)) : null,
+        positiveReturnRank: positiveHit?.rank ?? null,
+        positiveReturnInTop10: positiveHit ? positiveHit.rank <= 10 : null,
+        positiveReturnInTop30: positiveHit ? positiveHit.rank <= 30 : null,
+        positiveReturnProbability: positiveHit ? Number(positiveHit.probability.toFixed(6)) : null,
         featureSnapshot: hit ? Object.fromEntries(FEATURE_NAMES.map((name, i) => [name, extractFeatureVector(hit.row)[i]])) : null
       };
     });
-  const missingTargets = holdoutTargets.filter(target => target.rank === null).map(target => target.code);
+  const missingTargets = holdoutTargets.filter(target => target.rank === null || target.positiveReturnRank === null).map(target => target.code);
   const coverage = Number.isFinite(Number(sourceCoveragePct)) ? Number(sourceCoveragePct) : null;
   const reasons = [];
   if (coverage === null) reasons.push('source-bar-coverage-missing');
   else if (coverage < 90) reasons.push('historical-bar-coverage-below-90pct');
   if (testDates.length < 3) reasons.push('fewer-than-three-test-dates');
-  if (model.positiveSamples < 100) reasons.push('too-few-positive-training-labels');
-  if (missingTargets.length) reasons.push('one-or-more-holdout-targets-not-scored');
+  if (model.positiveSamples < 100) reasons.push('too-few-positive-limit-up-training-labels');
+  if (finalPositiveReturnModel.positiveSamples < 100) reasons.push('too-few-positive-return-training-labels');
+  if (missingTargets.length) reasons.push('one-or-more-holdout-targets-not-scored-by-both-models');
   const measurable = reasons.length === 0;
   return {
-    model: 'V13-supervised-limitup-ranker',
+    model: 'V13-supervised-dual-objective-ranker',
     status: measurable ? 'MEASURABLE' : 'NOT_MEASURABLE',
     measurable,
     reasons,
-    objective: 'Predict a limit-up event within the next five trading sessions using point-in-time features',
-    label: 'limitUpWithin5; labels are generated only from bars strictly after each signal date',
+    objective: 'Compare a five-session limit-up classifier with a separate positive-forward-return classifier',
+    label: 'Limit-up task: limitUpWithin5. Positive-return task: T+5 close return >= 3%. All labels use bars strictly after each signal date.',
     split: {
       eligibleDates, trainDates, purgeDates, testDates, purgeWindow, testWindow,
       leakageGuard: 'Each training label horizon ends within the purge block or earlier; all test dates begin after the purge block and after every training label horizon'
@@ -409,8 +438,12 @@ export function evaluateSupervisedRanker(rawCandidates, {
     positiveTrainingLabels: model.positiveSamples,
     negativeTrainingLabels: model.negativeSamples,
     positiveLabelRatePct: Number((model.positiveSamples / Math.max(1, model.trainingSamples) * 100).toFixed(3)),
+    positiveReturnTrainingLabels: finalPositiveReturnModel.positiveSamples,
+    negativeReturnTrainingLabels: finalPositiveReturnModel.negativeSamples,
+    positiveReturnLabelRatePct: Number((finalPositiveReturnModel.positiveSamples / Math.max(1, finalPositiveReturnModel.trainingSamples) * 100).toFixed(3)),
     featureCount: FEATURE_NAMES.length,
     featureImportance: summarizeImportance(finalModel),
+    positiveReturnFeatureImportance: summarizeImportance(finalPositiveReturnModel),
     testSummary: summary,
     testPerDate: perDate,
     collectionDiagnostics: dataDiagnostics,
@@ -423,9 +456,13 @@ export function evaluateSupervisedRanker(rawCandidates, {
       trueLimitUpTargetCount: holdoutTargets.filter(target => target.isTrueLimitUp).length,
       trueLimitUpTargetsTop10: measurable ? holdoutTargets.filter(target => target.isTrueLimitUp && target.inTop10).length : null,
       trueLimitUpTargetsTop30: measurable ? holdoutTargets.filter(target => target.isTrueLimitUp && target.inTop30).length : null,
+      positiveReturnModelTrueLimitUpTargetsTop10: measurable ? holdoutTargets.filter(target => target.isTrueLimitUp && target.positiveReturnInTop10).length : null,
+      positiveReturnModelTrueLimitUpTargetsTop30: measurable ? holdoutTargets.filter(target => target.isTrueLimitUp && target.positiveReturnInTop30).length : null,
       targets: holdoutTargets,
       top10: holdoutRanked.slice(0, 10).map((row, index) => ({ rank: index + 1, code: row.code, name: row.name, probability: Number(row.probability.toFixed(6)), coreScore: row.coreScore })),
-      top30: holdoutRanked.slice(0, 30).map((row, index) => ({ rank: index + 1, code: row.code, name: row.name, probability: Number(row.probability.toFixed(6)), coreScore: row.coreScore }))
+      top30: holdoutRanked.slice(0, 30).map((row, index) => ({ rank: index + 1, code: row.code, name: row.name, probability: Number(row.probability.toFixed(6)), coreScore: row.coreScore })),
+      positiveReturnTop10: positiveReturnHoldoutRanked.slice(0, 10).map((row, index) => ({ rank: index + 1, code: row.code, name: row.name, probability: Number(row.probability.toFixed(6)), coreScore: row.coreScore })),
+      positiveReturnTop30: positiveReturnHoldoutRanked.slice(0, 30).map((row, index) => ({ rank: index + 1, code: row.code, name: row.name, probability: Number(row.probability.toFixed(6)), coreScore: row.coreScore }))
     }
   };
 }
@@ -446,14 +483,21 @@ async function main(argv) {
   console.log(JSON.stringify({
     model: report.model, status: report.status, reasons: report.reasons,
     sourceCoveragePct: report.sourceCoveragePct, trainingSamples: report.trainingSamples,
-    positiveTrainingLabels: report.positiveTrainingLabels, testSummary: report.testSummary,
+    positiveTrainingLabels: report.positiveTrainingLabels,
+    positiveReturnTrainingLabels: report.positiveReturnTrainingLabels,
+    testSummary: report.testSummary,
     holdout: report.holdout && {
       asOf: report.holdout.asOf, targetCount: report.holdout.targetCount,
       targetScoredCount: report.holdout.targetScoredCount,
       trueLimitUpTargetCount: report.holdout.trueLimitUpTargetCount,
       trueLimitUpTargetsTop10: report.holdout.trueLimitUpTargetsTop10,
       trueLimitUpTargetsTop30: report.holdout.trueLimitUpTargetsTop30,
-      targets: report.holdout.targets.map(row => ({ code: row.code, rank: row.rank, probability: row.probability, knownOutcome: row.knownOutcome }))
+      positiveReturnModelTrueLimitUpTargetsTop10: report.holdout.positiveReturnModelTrueLimitUpTargetsTop10,
+      positiveReturnModelTrueLimitUpTargetsTop30: report.holdout.positiveReturnModelTrueLimitUpTargetsTop30,
+      targets: report.holdout.targets.map(row => ({
+        code: row.code, limitUpRank: row.rank, positiveReturnRank: row.positiveReturnRank,
+        probability: row.probability, positiveReturnProbability: row.positiveReturnProbability, knownOutcome: row.knownOutcome
+      }))
     }
   }, null, 2));
   return report;
