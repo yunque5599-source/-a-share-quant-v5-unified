@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseKlineRows, parseFlowRows, addHistoricalIndustryContext } from '../research/v13-limitup-precursor/historical_replay.js';
+import { parseKlineRows, parseFlowRows, addHistoricalIndustryContext, assessReplayQuality, isTrueLimitUpOutcome } from '../research/v13-limitup-precursor/historical_replay.js';
 
 test('historical K-line parser excludes bars after the signal cutoff and sorts by date', () => {
   const rows = [
@@ -47,4 +47,37 @@ test('industry breadth and leader scores are derived only from supplied pre-even
   assert.equal(output[0].sector.return3Pct, output[1].sector.return3Pct);
   assert.ok(output[0].sector.leaderScore > output[1].sector.leaderScore);
   assert.equal(output[0].sector.limitUpCount, 0);
+});
+
+
+test('historical replay refuses recall claims when bar coverage is incomplete', () => {
+  const complete = assessReplayQuality({
+    universeCount: 100, barSuccessCount: 95,
+    targetCodes: ['301159', '300006'], scoredCodes: ['301159', '300006']
+  });
+  assert.equal(complete.status, 'MEASURABLE');
+  assert.equal(complete.barCoveragePct, 95);
+
+  const partial = assessReplayQuality({
+    universeCount: 5922, barSuccessCount: 1425,
+    targetCodes: ['301159', '300006'], scoredCodes: ['301159', '300006']
+  });
+  assert.equal(partial.status, 'NOT_MEASURABLE');
+  assert.equal(partial.measurable, false);
+  assert.ok(partial.reasons.includes('historical-bar-coverage-below-90pct'));
+});
+
+test('historical replay refuses recall claims when any audit target was not scored', () => {
+  const quality = assessReplayQuality({
+    universeCount: 100, barSuccessCount: 96,
+    targetCodes: ['301159', '300006'], scoredCodes: ['301159']
+  });
+  assert.equal(quality.status, 'NOT_MEASURABLE');
+  assert.deepEqual(quality.missingTargetCodes, ['300006']);
+});
+
+test('non-limit-up large-gain target is not counted as a true limit-up outcome', () => {
+  assert.equal(isTrueLimitUpOutcome('limit_up_20.00_percent'), true);
+  assert.equal(isTrueLimitUpOutcome('limit_up_19.98_percent'), true);
+  assert.equal(isTrueLimitUpOutcome('large_gain_17.12_percent_not_closed_limit_up'), false);
 });
