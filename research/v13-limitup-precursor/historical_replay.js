@@ -14,7 +14,13 @@ const HISTORY_HOSTS = [
   'https://7.push2his.eastmoney.com',
   'https://43.push2his.eastmoney.com'
 ];
-const MARKET_FS = 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048';
+const MARKET_SEGMENTS = [
+  { key: 'SZ_MAIN', fs: 'm:0+t:6' },
+  { key: 'CHINEXT', fs: 'm:0+t:80' },
+  { key: 'SH_MAIN', fs: 'm:1+t:2' },
+  { key: 'STAR', fs: 'm:1+t:23' },
+  { key: 'BSE', fs: 'm:0+t:81+s:2048' }
+];
 const MARKET_FIELDS = 'f12,f14,f100';
 const USER_AGENT = 'Mozilla/5.0 AShareQuant/V13-historical-replay';
 const TARGETS_PATH = resolve('research/v13-limitup-precursor/target_symbols.json');
@@ -108,7 +114,7 @@ export async function mapLimit(items, limit, worker, onProgress = null) {
       const index = nextIndex++;
       if (index >= items.length) return;
       try { output[index] = await worker(items[index], index); }
-      catch (error) { output[index] = { error: String(error?.message ?? error) }; }
+      catch (error) { output[index] = { error: String(error?.message ?? error), inputKey: typeof items[index] === 'object' ? (items[index]?.code ?? items[index]?.page ?? null) : items[index] }; }
       finished++;
       if (onProgress) onProgress(finished, items.length, output[index]);
     }
@@ -117,11 +123,11 @@ export async function mapLimit(items, limit, worker, onProgress = null) {
   return output;
 }
 
-async function fetchUniversePage(page, pageSize) {
+async function fetchUniversePage(page, pageSize, segmentFs) {
   const buildUrl = host => {
     const p = new URLSearchParams({
       pn: String(page), pz: String(pageSize), po: '1', np: '1',
-      fltt: '2', invt: '2', fid: 'f12', fs: MARKET_FS, fields: MARKET_FIELDS
+      fltt: '2', invt: '2', fid: 'f12', fs: segmentFs, fields: MARKET_FIELDS
     });
     return host + '/api/qt/clist/get?' + p;
   };
@@ -141,17 +147,40 @@ async function fetchUniversePage(page, pageSize) {
 }
 
 export async function fetchUniverse({ concurrency = 4, pageSize = 100 } = {}) {
-  const first = await fetchUniversePage(1, pageSize);
-  const total = first.total;
-  if (total < 3000) throw new Error('market universe returned fewer than 3000 rows; refusing a misleading partial-universe replay (' + total + ')');
-  const pageCount = Math.ceil(total / pageSize);
-  const restPages = Array.from({ length: Math.max(0, pageCount - 1) }, (_, i) => i + 2);
-  const pageResults = await mapLimit(restPages, concurrency, page => fetchUniversePage(page, pageSize),
+  const firstPages = await Promise.all(MARKET_SEGMENTS.map(async segment => ({
+    segment, first: await fetchUniversePage(1, pageSize, segment.fs)
+  })));
+  const tasks = [];
+  const segmentRows = new Map();
+  let providerTotal = 0;
+  let pageCount = 0;
+  for (const { segment, first } of firstPages) {
+    providerTotal += first.total;
+    segmentRows.set(segment.key, { total: first.total, rows: [...first.rows] });
+    const pages = Math.ceil(first.total / pageSize);
+    pageCount += pages;
+    for (let page = 2; page <= pages; page++) tasks.push({ segment, page });
+  }
+  const pageResults = await mapLimit(tasks, concurrency,
+    async task => ({ segmentKey: task.segment.key, page: task.page, ...(await fetchUniversePage(task.page, pageSize, task.segment.fs)) }),
     (done, all) => { if (done % 20 === 0 || done === all) console.log('[universe] pages ' + done + '/' + all); });
   const failedPages = pageResults.filter(result => result?.error);
-  if (failedPages.length) throw new Error('universe page collection incomplete: ' + failedPages.length + '/' + restPages.length + ' pages failed');
-  const allRows = [...first.rows, ...pageResults.flatMap(result => result?.rows ?? [])];
-  if (allRows.length < total * 0.9) throw new Error('provider page-size/coverage mismatch: received ' + allRows.length + ' rows for reported total ' + total);
+  if (failedPages.length) {
+    throw new Error('universe page collection incomplete: ' + failedPages.length + '/' + tasks.length +
+      ' pages failed; sample=' + JSON.stringify(failedPages.slice(0, 5)));
+  }
+  for (const result of pageResults) {
+    const target = segmentRows.get(result.segmentKey);
+    if (target) target.rows.push(...(result.rows ?? []));
+  }
+  for (const segment of MARKET_SEGMENTS) {
+    const collected = segmentRows.get(segment.key);
+    if (!collected || collected.rows.length < collected.total * 0.9) {
+      throw new Error('segment coverage mismatch for ' + segment.key + ': collected ' +
+        (collected?.rows.length ?? 0) + ' of ' + (collected?.total ?? 0));
+    }
+  }
+  const allRows = [...segmentRows.values()].flatMap(segment => segment.rows);
   const seen = new Map();
   for (const row of allRows) {
     const code = String(row?.f12 ?? '');
@@ -165,7 +194,11 @@ export async function fetchUniverse({ concurrency = 4, pageSize = 100 } = {}) {
     }
   }
   if (seen.size < 3000) throw new Error('filtered universe unexpectedly small: ' + seen.size);
-  return { rows: [...seen.values()].sort((a, b) => a.code.localeCompare(b.code)), providerTotal: total, pageCount };
+  return {
+    rows: [...seen.values()].sort((a, b) => a.code.localeCompare(b.code)),
+    providerTotal, pageCount,
+    segmentTotals: Object.fromEntries([...segmentRows.entries()].map(([key, value]) => [key, { total: value.total, collected: value.rows.length }]))
+  };
 }
 
 export function parseKlineRows(rawRows, asOf) {
@@ -376,7 +409,7 @@ export async function runHistoricalReplay({ asOf, outDir = 'output/v13-history-r
   const startedAt = new Date().toISOString();
   console.log('[replay] collecting current symbol list; historical bars will be cutoff at ' + asOf);
   const universe = await fetchUniverse({ concurrency: Math.min(4, concurrency), pageSize: 100 });
-  console.log('[replay] universe rows=' + universe.rows.length + ', providerTotal=' + universe.providerTotal);
+  console.log('[replay] universe rows=' + universe.rows.length + ', providerTotal=' + universe.providerTotal + ', segments=' + JSON.stringify(universe.segmentTotals));
 
   const barFailures = [];
   const barResults = await mapLimit(universe.rows, concurrency, async stock => {
