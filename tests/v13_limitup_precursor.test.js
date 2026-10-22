@@ -160,3 +160,32 @@ test('oversold stabilization is surfaced as a separate research lane without a r
   assert.ok(result.components.oversoldReversal >= 65);
   assert.ok(result.features.closeLocation >= 0 && result.features.closeLocation <= 1);
 });
+
+
+test('core-only ranking keeps emotion-repair and oversold scores as diagnostics, not alpha score boosts', () => {
+  const candidate = makeCandidate({ code: '300006', name: '莱美药业', strong: true, pct: -15.49 });
+  const priorLimitBar = candidate.bars[31];
+  const priorBar = candidate.bars[30];
+  priorLimitBar.close = priorBar.close * 1.20;
+  priorLimitBar.open = priorBar.close * 1.01;
+  priorLimitBar.high = priorLimitBar.close * 1.01;
+  priorLimitBar.low = priorBar.close * 0.99;
+
+  const blended = scoreCandidate(candidate);
+  const coreOnly = scoreCandidate(candidate, { modelVariant: 'v13-core-only' });
+  assert.ok(blended.score > coreOnly.score);
+  assert.equal(coreOnly.modelVariant, 'v13-core-only');
+  assert.equal(coreOnly.scorePath, 'trend-transition');
+  assert.notEqual(coreOnly.setup, '情绪反核观察');
+  assert.ok(coreOnly.components.emotionRepair >= 65);
+});
+
+test('early-turn variant has an auditable score and never uses observation lanes as its rank score', () => {
+  const candidate = makeCandidate({ code: '301159', name: '样本低位转强股', strong: true, pct: 4.2 });
+  const earlyTurn = scoreCandidate(candidate, { modelVariant: 'v13-early-turn' });
+  assert.ok(earlyTurn);
+  assert.equal(earlyTurn.modelVariant, 'v13-early-turn');
+  assert.ok(Number.isFinite(earlyTurn.components.earlyTurn));
+  assert.ok(['early-turn', 'trend-transition'].includes(earlyTurn.scorePath));
+  assert.ok(!['emotion-repair', 'oversold-reversal'].includes(earlyTurn.scorePath));
+});
