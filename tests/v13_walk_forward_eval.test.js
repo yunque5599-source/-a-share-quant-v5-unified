@@ -77,3 +77,18 @@ test('walk-forward report is not measurable when source universe coverage is bel
   assert.equal(report.status, 'NOT_MEASURABLE');
   assert.ok(report.reasons.includes('historical-bar-coverage-below-90pct'));
 });
+
+
+test('walk-forward evaluation becomes measurable with sufficient dates and complete outcomes', () => {
+  const candidates = [
+    makeHistory('300006', '样本A', 0.02, '行业A'),
+    makeHistory('600001', '样本B', -0.01, '行业A'),
+    makeHistory('000001', '样本C', 0.01, '行业B')
+  ];
+  const report = evaluateWalkForward(candidates, { signalDays: 5, sourceCoveragePct: 100 });
+  assert.equal(report.status, 'MEASURABLE');
+  assert.equal(report.signalDateCount, 5);
+  assert.equal(report.minimumT5OutcomeCoveragePct, 100);
+  assert.ok(report.summary.top10.model.t5.meanCloseReturnPct !== null);
+  assert.ok(report.summary.top10.momentumBaseline.t5.meanCloseReturnPct !== null);
+});
