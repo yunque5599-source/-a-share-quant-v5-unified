@@ -174,13 +174,13 @@ export function evaluateHoldoutAudit(candidates, {
       top10: ranked.slice(0, 10).map((row, index) => ({
         rank: index + 1, code: row.code, name: row.name,
         score: rankMetric === 'modelScore' ? row.score : null,
-        rankValue: rankMetric === 'r5Pct' ? row.features?.r5Pct ?? null : row.score,
+        rankValue: rankMetric === 'r5Pct' ? row.features?.r5Pct ?? null : rankMetric === 'laneBlendRank' ? null : row.score,
         scorePath: row.scorePath, setup: row.setup
       })),
       top30: ranked.slice(0, 30).map((row, index) => ({
         rank: index + 1, code: row.code, name: row.name,
         score: rankMetric === 'modelScore' ? row.score : null,
-        rankValue: rankMetric === 'r5Pct' ? row.features?.r5Pct ?? null : row.score,
+        rankValue: rankMetric === 'r5Pct' ? row.features?.r5Pct ?? null : rankMetric === 'laneBlendRank' ? null : row.score,
         scorePath: row.scorePath, setup: row.setup
       })),
       trueLimitUpTargetCount: trueLimitUps.length,
