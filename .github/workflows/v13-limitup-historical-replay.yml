@@ -10,7 +10,7 @@ on:
       concurrency:
         description: 'Concurrent public data requests (1-32)'
         required: true
-        default: '14'
+        default: '6'
 
 permissions:
   contents: read
