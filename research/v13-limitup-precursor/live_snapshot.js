@@ -336,6 +336,22 @@ export function applySnapshotQualityGate(snapshot={}){
   return output;
 }
 
+export function buildWideNewsCandidate(stock, rawNews, capturedAt) {
+  if(!stock||isRestrictedListingName(stock.name))return null;
+  const newsItems=flattenNewsPayload(rawNews);
+  const overlay=buildStockNewsFallback(String(stock.code),String(stock.name??stock.code),newsItems,capturedAt).overlay;
+  if(overlay.headlineCatalystDirection!=='positive'||
+      !Number.isFinite(Number(overlay.headlineCatalystScore))||!overlay.datedNewsCount)return null;
+  return {
+    code:String(stock.code),name:String(stock.name??stock.code),board:stock.board??boardForCode(stock.code),
+    headlineCatalystScore:Number(overlay.headlineCatalystScore),
+    positiveHeadlineCount:Number(overlay.positiveHeadlineCount)||0,
+    datedNewsCount:Number(overlay.datedNewsCount)||0,
+    newsRecencyScore:Number(overlay.newsRecencyScore)||0,
+    catalystEvidence:overlay.catalystEvidence??[],newsItems
+  };
+}
+
 export async function scanUniverseCatalystNews(universeRows, capturedAt, {limit=60, concurrency=2, batchSize=8}={}) {
   const stocks=Array.isArray(universeRows)?universeRows:[];
   const stockByCode=new Map(stocks.map(row=>[String(row.code),row]));
@@ -356,16 +372,8 @@ export async function scanUniverseCatalystNews(universeRows, capturedAt, {limit=
       const code=String(item?.code??''),stock=stockByCode.get(code);
       if(!stock||item?.error||!item?.news)continue;
       successfulSymbolCount++;
-      const newsItems=flattenNewsPayload(item.news);
-      const overlay=buildStockNewsFallback(code,stock.name,newsItems,capturedAt).overlay;
-      if(overlay.headlineCatalystDirection!=='positive'||!Number.isFinite(Number(overlay.headlineCatalystScore))||!overlay.datedNewsCount)continue;
-      if(isRestrictedListingName(stock.name))continue;
-      candidates.push({code,name:stock.name,board:stock.board??boardForCode(code),
-        headlineCatalystScore:Number(overlay.headlineCatalystScore),
-        positiveHeadlineCount:Number(overlay.positiveHeadlineCount)||0,
-        datedNewsCount:Number(overlay.datedNewsCount)||0,
-        newsRecencyScore:Number(overlay.newsRecencyScore)||0,
-        catalystEvidence:overlay.catalystEvidence??[],newsItems});
+      const candidate=buildWideNewsCandidate(stock,item.news,capturedAt);
+      if(candidate)candidates.push(candidate);
     }
   }
   candidates.sort((a,b)=>{
