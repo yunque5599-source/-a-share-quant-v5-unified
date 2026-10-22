@@ -51,6 +51,35 @@ function newsTime(item){
   if(typeof v==='number'){const ms=v<1e12?v*1000:v;return Number.isFinite(ms)?new Date(ms).toISOString():null;}
   const ms=Date.parse(String(v??''));return Number.isFinite(ms)?new Date(ms).toISOString():null;
 }
+
+const POSITIVE_HEADLINE_RULES=[
+  {category:'contract_or_order',weight:28,pattern:/中标|中选|重大合同|新签合同|订单(?:金额|增长|落地|交付)?|供货协议|客户定点|进入供应链/},
+  {category:'earnings_improvement',weight:28,pattern:/业绩预增|净利润预增|扭亏为盈|业绩大增|利润(?:同比)?增长|营收(?:同比)?增长|亏损(?:幅度)?收窄/},
+  {category:'approval_or_registration',weight:26,pattern:/获批|批准上市|注册获批|取得.*批件|临床试验获批|纳入.*医保目录|通过.*认证/},
+  {category:'capital_return',weight:20,pattern:/股份回购|股票回购|股东增持|高管增持|股权激励/},
+  {category:'strategic_deal',weight:22,pattern:/战略合作|签署.*协议|合作协议|并购|收购.*股权|资产重组|控制权变更/},
+  {category:'product_or_capacity',weight:18,pattern:/新品发布|新产品发布|产品上线|正式上线|实现量产|投产|产能释放|技术突破|产品落地|AI赋能|业务落地/},
+  {category:'policy_or_industry',weight:17,pattern:/政策支持|专项资金|政府补贴|纳入试点|入选试点|行业标准|产业扶持|重大项目获批/}
+];
+const NEGATIVE_HEADLINE_RULES=[
+  {category:'regulatory_or_integrity_risk',weight:32,pattern:/立案调查|被立案|行政处罚|监管警示|财务造假|审计.*非标|退市风险|终止上市/},
+  {category:'earnings_deterioration',weight:28,pattern:/业绩预亏|净利润下滑|净利润下降|亏损扩大|大幅亏损|商誉减值|业绩下修/},
+  {category:'shareholder_or_debt_risk',weight:23,pattern:/股东减持|减持计划|债务逾期|债务违约|高比例质押|被执行人|重大诉讼|重大仲裁/},
+  {category:'operation_or_contract_risk',weight:24,pattern:/停产|重大事故|产品召回|项目终止|取消订单|终止合作|生产经营中断/}
+];
+export function classifyHeadlineCatalyst(title){
+  const text=String(title??'').slice(0,500);
+  const positive=POSITIVE_HEADLINE_RULES.filter(rule=>rule.pattern.test(text));
+  const negative=NEGATIVE_HEADLINE_RULES.filter(rule=>rule.pattern.test(text));
+  if(!positive.length&&!negative.length)return {direction:'unclassified',score:null,positiveCategories:[],negativeCategories:[],matchedTerms:[]};
+  const pos=positive.reduce((best,rule)=>Math.max(best,rule.weight),0);
+  const neg=negative.reduce((best,rule)=>Math.max(best,rule.weight),0);
+  const score=clamp(50+pos-neg,0,100);
+  const direction=score>=60?'positive':score<=40?'negative':'mixed';
+  return {direction,score,positiveCategories:positive.map(x=>x.category),negativeCategories:negative.map(x=>x.category),
+    matchedTerms:[...positive.map(x=>x.category),...negative.map(x=>x.category)]};
+}
+
 export function normalizeDatedNews(themes,capturedAt){
   const cutoff=Date.parse(capturedAt),out=[];
   for(const t of Array.isArray(themes)?themes:[])for(const x of Array.isArray(t?.news)?t.news:[]){
@@ -81,14 +110,24 @@ export function flattenNewsPayload(payload){
 export function buildStockNewsFallback(code,name,items,capturedAt){
   const datedNews=normalizeDatedNews([{code,name,news:Array.isArray(items)?items:[]}],capturedAt);
   const usable=datedNews.filter(item=>item.usableAsPointInTimeCatalyst);
+  const classified=usable.map(item=>({...item,catalyst:classifyHeadlineCatalyst(item.title)}));
+  const positive=classified.filter(item=>item.catalyst.direction==='positive');
+  const negative=classified.filter(item=>item.catalyst.direction==='negative');
+  const mixed=classified.filter(item=>item.catalyst.direction==='mixed');
+  const scores=classified.map(item=>item.catalyst.score).filter(Number.isFinite);
+  const headlineCatalystScore=scores.length?Number(avg(scores).toFixed(1)):null;
   const days=usable.map(item=>(Date.parse(capturedAt)-Date.parse(item.publishedAt))/86400000).filter(x=>x>=0);
-  const recency=avg(days.map(d=>d<=1?85:d<=3?72:d<=7?58:42));
-  const countBoost=Math.min(12,Math.max(0,usable.length-1)*3);
-  const newsCatalystProxy=recency===null?null:clamp(recency+countBoost);
-  return {sector:newsCatalystProxy===null?{}:{catalystScore:newsCatalystProxy},
+  const recencyScore=avg(days.map(d=>d<=1?85:d<=3?72:d<=7?58:42));
+  const catalystEvidence=classified.filter(item=>item.catalyst.score!==null).slice(0,8).map(item=>({
+    title:item.title,publishedAt:item.publishedAt,direction:item.catalyst.direction,
+    score:item.catalyst.score,matchedTerms:item.catalyst.matchedTerms,url:item.url,source:item.source
+  }));
+  return {sector:{},
     overlay:{available:usable.length>0,source:'timestamped-stock-news-fallback',primaryTheme:null,
-      catalystScore:newsCatalystProxy,datedNewsCount:usable.length,datedNews:usable,
-      warnings:usable.length?['news recency/count proxy only; no validated sentiment or theme-imagination score']:['no-time-verified-stock-news']}};
+      catalystScore:null,headlineCatalystScore,headlineCatalystDirection:headlineCatalystScore===null?'unclassified':headlineCatalystScore>=60?'positive':headlineCatalystScore<=40?'negative':'mixed',
+      classifiedHeadlineCount:scores.length,positiveHeadlineCount:positive.length,negativeHeadlineCount:negative.length,mixedHeadlineCount:mixed.length,
+      newsRecencyScore:recencyScore,datedNewsCount:usable.length,datedNews:classified,catalystEvidence,
+      warnings:usable.length?['rule-based headline classification is experimental; it is a separate observation lane and is not proof of sentiment or trade profitability']:['no-time-verified-stock-news']}};
 }
 export function buildPsychologySector(themes,capturedAt){
   const usable=(Array.isArray(themes)?themes:[]).filter(t=>!t?.asOf||!Number.isFinite(Date.parse(t.asOf))||Date.parse(t.asOf)<=Date.parse(capturedAt));
