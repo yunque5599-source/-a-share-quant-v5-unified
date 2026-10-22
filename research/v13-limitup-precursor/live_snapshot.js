@@ -60,6 +60,36 @@ export function normalizeDatedNews(themes,capturedAt){
   }
   return out.filter(x=>x.title||x.url);
 }
+export function flattenNewsPayload(payload){
+  const found=[],seen=new Set();
+  function walk(node,depth=0){
+    if(depth>8||node==null)return;
+    if(Array.isArray(node)){for(const item of node)walk(item,depth+1);return;}
+    if(typeof node!=='object')return;
+    const title=node.title??node.name??node.headline??node.artTitle;
+    if(title){
+      const item={title:String(title),publishedAt:node.publishedAt??node.publishTime??node.date??node.time??node.datetime??node.pubDate??node.showTime??node.artDate,
+        source:node.source??node.media??node.mediaName??node.sourceName??null,url:node.url??node.link??node.articleUrl??node.artUrl??null};
+      const key=[item.title,item.publishedAt,item.url].join('|');
+      if(!seen.has(key)){seen.add(key);found.push(item);}
+    }
+    for(const [key,value] of Object.entries(node))if(!['title','name','headline','artTitle'].includes(key))walk(value,depth+1);
+  }
+  walk(payload);
+  return found.slice(0,20);
+}
+export function buildStockNewsFallback(code,name,items,capturedAt){
+  const datedNews=normalizeDatedNews([{code,name,news:Array.isArray(items)?items:[]}],capturedAt);
+  const usable=datedNews.filter(item=>item.usableAsPointInTimeCatalyst);
+  const days=usable.map(item=>(Date.parse(capturedAt)-Date.parse(item.publishedAt))/86400000).filter(x=>x>=0);
+  const recency=avg(days.map(d=>d<=1?85:d<=3?72:d<=7?58:42));
+  const countBoost=Math.min(12,Math.max(0,usable.length-1)*3);
+  const newsCatalystProxy=recency===null?null:clamp(recency+countBoost);
+  return {sector:newsCatalystProxy===null?{}:{catalystScore:newsCatalystProxy},
+    overlay:{available:usable.length>0,source:'timestamped-stock-news-fallback',primaryTheme:null,
+      catalystScore:newsCatalystProxy,datedNewsCount:usable.length,datedNews:usable,
+      warnings:usable.length?['news recency/count proxy only; no validated sentiment or theme-imagination score']:['no-time-verified-stock-news']}};
+}
 export function buildPsychologySector(themes,capturedAt){
   const usable=(Array.isArray(themes)?themes:[]).filter(t=>!t?.asOf||!Number.isFinite(Date.parse(t.asOf))||Date.parse(t.asOf)<=Date.parse(capturedAt));
   if(!usable.length)return {sector:{},overlay:{available:false,reason:'psychology-theme-missing',datedNewsCount:0}};
@@ -131,12 +161,32 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       for(const [code,themes] of Object.entries(batch.psych.data?.themeBySymbol??{})) psychByCode.set(code,Array.isArray(themes)?themes:[]);
     } else sourceErrors.push('psychology_universe: '+batch.psychError);
   }
+  const newsByCode=new Map(),newsSuccessCodes=new Set();
+  const newsBatches=await mapLimit(chunks(funnel,8),2,async group=>{
+    const codes=group.map(r=>String(r.f12)),query=encodeURIComponent(codes.join(','));
+    try{
+      const payload=parseResult('news_batch',await invoke(marketHandler,'/api/market?action=news_batch&codes='+query));
+      return {codes,payload};
+    }catch(error){return {codes,error:String(error?.message??error)};}
+  });
+  for(const batch of newsBatches){
+    if(batch.error){sourceErrors.push('news_batch: '+batch.error);continue;}
+    for(const item of batch.payload?.items??[]){
+      const code=String(item?.code??'');
+      if(!code)continue;
+      newsSuccessCodes.add(code);
+      newsByCode.set(code,flattenNewsPayload(item.news));
+    }
+  }
   const records=[],modelInputsByCode=new Map();
   for(const row of funnel){
     const code=String(row.f12),deep=deepByCode.get(code),bars=parseRows(deep?.kline?.data?.klines??[],'bar',requestedAsOf);
     const flowUsable=deep?.dataQuality?.flowSource==='eastmoney';
     const flows=flowUsable?parseRows(deep?.flow?.data?.klines??[],'flow',requestedAsOf).map(f=>({...f,amount:bars.find(b=>b.date===f.date)?.amount??0})):[];
-    const psychology=buildPsychologySector(psychByCode.get(code)??[],capturedAt);
+    const themePsychology=buildPsychologySector(psychByCode.get(code)??[],capturedAt);
+    const newsFallback=buildStockNewsFallback(code,String(row.f14??code),newsByCode.get(code)??[],capturedAt);
+    const psychology={sector:{...themePsychology.sector,...(themePsychology.sector.catalystScore==null&&newsFallback.sector.catalystScore!=null?{catalystScore:newsFallback.sector.catalystScore}:{})},
+      overlay:themePsychology.overlay.available?{...themePsychology.overlay,stockNewsFallback:newsFallback.overlay}:newsFallback.overlay};
     const candidate={code,name:String(row.f14??code),asOf:requestedAsOf,isST:/(^|\*)ST(?=[\u4e00-\u9fff\d\s]|$)|^退/i.test(String(row.f14??'')),bars,flows,sector:psychology.sector,
       amount:bars.at(-1)?.amount??n(row.f6),turnoverRate:bars.at(-1)?.turnoverRate??n(row.f8)};
     modelInputsByCode.set(code,candidate);
@@ -176,7 +226,10 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     rankedCandidateCount:raw.length,funnelCandidateCount:funnel.length,deepSuccessCount:deepGood,deepSuccessPct:+(deepGood/Math.max(1,funnel.length)*100).toFixed(2),
     barHistoryCount:barsGood,barHistoryCoveragePct:+(barsGood/Math.max(1,funnel.length)*100).toFixed(2),
     psychologyResponseCount:psychSuccessCodes.size,psychologyCoveragePct:+(psychSuccessCodes.size/Math.max(1,funnel.length)*100).toFixed(2),
-    psychologyThemeCount:psychGood,psychologyThemeCoveragePct:+(psychGood/Math.max(1,funnel.length)*100).toFixed(2),sourceErrors};
+    psychologyThemeCount:psychGood,psychologyThemeCoveragePct:+(psychGood/Math.max(1,funnel.length)*100).toFixed(2),
+    newsResponseCount:newsSuccessCodes.size,newsResponseCoveragePct:+(newsSuccessCodes.size/Math.max(1,funnel.length)*100).toFixed(2),
+    datedNewsCandidateCount:records.filter(r=>r.psychology.datedNewsCount>0).length,
+    datedNewsCoveragePct:+(records.filter(r=>r.psychology.datedNewsCount>0).length/Math.max(1,funnel.length)*100).toFixed(2),sourceErrors};
   const snapshot={schema:'v13-live-psychology-catalyst-snapshot-v1',modelVersion:MODEL_VERSION,
     snapshotId:'v13-'+capturedAt.replace(/[-:.TZ]/g,''),capturedAt,asOf:requestedAsOf,
     sourcePolicy:{provider:'Eastmoney public quote/history and psychology/theme/news endpoint',pointInTime:'captured-at-source',
