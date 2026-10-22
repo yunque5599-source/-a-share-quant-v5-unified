@@ -131,6 +131,28 @@ function metricsForTopK(rankedCodes, k, universeCodes, outcomeByCode) {
   return metrics;
 }
 
+function interleaveCodes(primary, secondary, limit) {
+  const out = [];
+  const seen = new Set();
+  let p = 0, s = 0, takePrimary = true;
+  while (out.length < limit && (p < primary.length || s < secondary.length)) {
+    const list = takePrimary ? primary : secondary;
+    let index = takePrimary ? p : s;
+    if (index >= list.length) {
+      takePrimary = !takePrimary;
+      continue;
+    }
+    const code = String(list[index]);
+    if (takePrimary) p++; else s++;
+    takePrimary = !takePrimary;
+    if (!seen.has(code)) {
+      seen.add(code);
+      out.push(code);
+    }
+  }
+  return out;
+}
+
 function aggregateMetrics(perDate, rankingKey, topK) {
   const output = {};
   for (const horizon of HORIZONS) {
@@ -229,6 +251,8 @@ export function evaluateWalkForward(candidates, {
       return br - ar || b.confidence - a.confidence;
     });
     const momentumCodes = momentumRanked.map(row => row.code);
+    const balancedBlendTop10Codes = interleaveCodes(momentumCodes, v12EarlyOpportunityCodes, 10);
+    const balancedBlendTop30Codes = interleaveCodes(momentumCodes, v12EarlyOpportunityCodes, 30);
     const emotionRepairCodes = [...ranked]
       .filter(row => Number(row.components?.emotionRepair) >= 65)
       .sort((a, b) => Number(b.components?.emotionRepair) - Number(a.components?.emotionRepair) || b.confidence - a.confidence)
@@ -270,12 +294,15 @@ export function evaluateWalkForward(candidates, {
       rankEnsembleTop30Codes: rankEnsembleCodes.slice(0, 30),
       v12EarlyOpportunityTop30Codes: v12EarlyOpportunityCodes.slice(0, 30),
       momentumTop30Codes: momentumCodes.slice(0, 30),
+      balancedBlendTop10Codes,
+      balancedBlendTop30Codes,
       model: {},
       coreOnly: {},
       earlyTurn: {},
       momentumHybrid: {},
       rankEnsemble: {},
       v12EarlyOpportunity: {},
+      balancedBlend: {},
       emotionRepairWatch: {},
       oversoldWatch: {},
       momentum: {}
@@ -290,6 +317,8 @@ export function evaluateWalkForward(candidates, {
       day.emotionRepairWatch['top' + k] = metricsForTopK(emotionRepairCodes, k, universeCodes, outcomeByCode);
       day.oversoldWatch['top' + k] = metricsForTopK(oversoldCodes, k, universeCodes, outcomeByCode);
       day.momentum['top' + k] = metricsForTopK(momentumCodes, k, universeCodes, outcomeByCode);
+      const blendCodes = k === 10 ? balancedBlendTop10Codes : balancedBlendTop30Codes;
+      day.balancedBlend['top' + k] = metricsForTopK(blendCodes, k, universeCodes, outcomeByCode);
     }
     perDate.push(day);
   }
@@ -314,7 +343,8 @@ export function evaluateWalkForward(candidates, {
       v12EarlyOpportunity: aggregateMetrics(perDate, 'v12EarlyOpportunity', k),
       emotionRepairWatch: aggregateMetrics(perDate, 'emotionRepairWatch', k),
       oversoldWatch: aggregateMetrics(perDate, 'oversoldWatch', k),
-      momentumBaseline: aggregateMetrics(perDate, 'momentum', k)
+      momentumBaseline: aggregateMetrics(perDate, 'momentum', k),
+      balancedBlend: aggregateMetrics(perDate, 'balancedBlend', k)
     };
   }
   return {
@@ -326,7 +356,7 @@ export function evaluateWalkForward(candidates, {
       features: 'For each signalDate, K-line and fund-flow rows are sliced to dates <= signalDate before scoring; sector context is rebuilt from those pre-signal bars only',
       outcomes: 'Only rows strictly after signalDate are used to calculate T+1/T+3/T+5 close returns, limit-up hits, maximum favorable excursion, and maximum adverse excursion',
       baseline: 'Five-trading-session momentum ranking on the same scored candidate universe',
-      variants: 'Compare legacy blended, core-only, early-turn, momentum-led hybrid, cross-sectional momentum-confirmed ranking, and existing V12 Early Opportunity rankings; emotion-repair and oversold scores are separately evaluated as observation lanes',
+      variants: 'Compare legacy blended, core-only, early-turn, momentum-led hybrid, cross-sectional momentum-confirmed ranking, V12 Early Opportunity, and a 50/50 interleaved momentum/early-opportunity shortlist; emotion-repair and oversold scores are separately evaluated as observation lanes',
       noTargetTuning: 'The screenshot target labels are not loaded or used by this evaluator'
     },
     sourceCoveragePct: coveragePct,
