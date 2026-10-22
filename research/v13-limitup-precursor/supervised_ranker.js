@@ -150,10 +150,16 @@ export function predictProbability(model, vector) {
   return sigmoid(z);
 }
 
+const DATED_BARS_CACHE = new WeakMap();
 function datedBars(stock) {
-  return (Array.isArray(stock?.bars) ? stock.bars : [])
-    .filter(bar => /^\d{4}-\d{2}-\d{2}$/.test(String(bar?.date ?? '')) && Number(bar.close) > 0)
+  const source = Array.isArray(stock?.bars) ? stock.bars : [];
+  const cached = stock && typeof stock === 'object' ? DATED_BARS_CACHE.get(stock) : null;
+  if (cached && cached.source === source) return cached.rows;
+  const rows = source
+    .filter(bar => /^\d{4}-\d{2}-\d{2}$/.test(String(bar?.date ?? '')) && Number(bar?.close) > 0)
     .sort((a, b) => a.date.localeCompare(b.date));
+  if (stock && typeof stock === 'object') DATED_BARS_CACHE.set(stock, { source, rows });
+  return rows;
 }
 export function buildPointInTimeRows(rawCandidates, signalDate) {
   const preCutoff = rawCandidates.map(stock => ({
