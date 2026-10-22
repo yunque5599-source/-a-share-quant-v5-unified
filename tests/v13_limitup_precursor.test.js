@@ -122,3 +122,33 @@ test('a sharp flush after a recent limit-up is surfaced through the separate emo
   assert.equal(result.setup, '情绪反核观察');
   assert.ok(result.components.emotionRepair >= 75);
 });
+
+
+test('oversold stabilization is surfaced as a separate research lane without a recent limit-up', () => {
+  const candidate = makeCandidate({ code: '301102', name: '样本反转股', strong: false, pct: 1.2 });
+  const closes = [12.0, 11.8, 11.55, 11.2, 10.85, 10.55, 10.3, 10.05, 10.17];
+  for (let i = 0; i < closes.length; i++) {
+    const index = candidate.bars.length - closes.length + i;
+    const bar = candidate.bars[index];
+    const previous = index > 0 ? candidate.bars[index - 1].close : closes[i];
+    bar.close = closes[i];
+    bar.open = i === closes.length - 1 ? previous * 0.992 : previous;
+    bar.high = Math.max(bar.open, bar.close) * 1.012;
+    bar.low = Math.min(bar.open, bar.close) * 0.988;
+    bar.volume = i === closes.length - 1 ? 60 : 100;
+    bar.amount = 120000000;
+    bar.turnoverRate = 4.2;
+  }
+  candidate.flows = candidate.bars.slice(-7).map((bar, i) => ({
+    date: bar.date, mainNet: i < 4 ? -1800000 : -300000,
+    mainPct: i < 4 ? -1.5 : -0.2, amount: bar.amount
+  }));
+  candidate.sector = { return3Pct: -1, return5Pct: -2, upRatio: 0.4, limitUpCount: 0, leaderScore: 50 };
+  const result = scoreCandidate(candidate);
+  assert.ok(result);
+  assert.equal(result.features.recentLimitUp10Count, 0);
+  assert.equal(result.scorePath, 'oversold-reversal');
+  assert.equal(result.setup, '超跌修复观察');
+  assert.ok(result.components.oversoldReversal >= 65);
+  assert.ok(result.features.closeLocation >= 0 && result.features.closeLocation <= 1);
+});
