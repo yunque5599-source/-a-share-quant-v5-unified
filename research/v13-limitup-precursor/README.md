@@ -59,6 +59,18 @@ Dates must be YYYY-MM-DD. Returns and mainPct are expressed in percentage points
 
 target_symbols.json records the four screenshot names as holdout replay targets for the 2026-10-21 session, using 2026-10-20 as the signal cutoff. Public history shows 三维天地 +20.00%, 莱美药业 +20.00%, and 兆讯传媒 +19.98%; 致尚科技 rose +17.12% but did not close at its limit. References: [三维天地](https://stock.stockstar.com/RB2026102100028252.shtml), [莱美药业](https://www.dabanke.com/gupiao-300006.html), [兆讯传媒](https://finance.sina.com.cn/stock/aiassist/ydfx/2026-10-21/doc-inivxvuy4796816.shtml), [致尚科技历史行情](https://cn.investing.com/equities/shenzhen-zesum-technology-historical-data). The full pre-limit-up bars, fund flow, and same-day full-universe ranks still need to be replayed before we can say whether the new model would have selected them. Do not tune weights to force these four names to rank highly and then report them as successful validation.
 
+## Historical replay artifacts and quality gate
+
+Run the full-universe historical collector manually from GitHub Actions using **V13 historical limit-up replay**. It uses conservative request concurrency by default to reduce upstream throttling.
+
+The replay writes:
+- `replay_report.json`: ranks, target audit, coverage, and a `validation` status.
+- `replay_candidates.ndjson`: one candidate per line, streamed to avoid the Node.js maximum-string-length failure caused by serializing thousands of 180-bar histories as one JSON string.
+- `replay_ranked.json`: scored ranking.
+- `collector_diagnostics.json`: data-source and coverage diagnostics; `run_failure.json` records failures that occur after report generation.
+
+A replay is `MEASURABLE` only when at least 90% of the collected current universe has sufficient pre-cutoff bars and every date-specific audit target was scored. Otherwise it is `NOT_MEASURABLE`; top-k ranks are diagnostic only and recall fields remain unknown rather than being reported as zero. Audit targets are fetched first solely to improve diagnostic data availability; target identities never enter the score formula.
+
 ## Validation gate before integration
 
 1. Reconstruct the complete eligible universe at the 2026-10-20 close and retrieve point-in-time bars, flows, and sector/theme information for all candidates.
