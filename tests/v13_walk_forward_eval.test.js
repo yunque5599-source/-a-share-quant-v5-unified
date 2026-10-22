@@ -90,5 +90,6 @@ test('walk-forward evaluation becomes measurable with sufficient dates and compl
   assert.equal(report.signalDateCount, 5);
   assert.equal(report.minimumT5OutcomeCoveragePct, 100);
   assert.ok(report.summary.top10.model.t5.meanCloseReturnPct !== null);
+  assert.ok(report.summary.top10.v12EarlyOpportunity.t5.meanCloseReturnPct !== null);
   assert.ok(report.summary.top10.momentumBaseline.t5.meanCloseReturnPct !== null);
 });
