@@ -5,6 +5,7 @@ import { resolve, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { boardForCode, rankCandidates } from './precursor_score.js';
 import { addHistoricalIndustryContext } from './historical_replay.js';
+import { computeEarlyOpportunity } from '../v11-short-alpha/early_opportunity.js';
 
 const HORIZONS = [1, 3, 5];
 const DEFAULT_TOP_KS = [10, 30];
@@ -189,10 +190,34 @@ export function evaluateWalkForward(candidates, {
     const coreRanked = rankCandidates(candidatesAtDate, { asOf: signalDate, modelVariant: 'v13-core-only' });
     const earlyTurnRanked = rankCandidates(candidatesAtDate, { asOf: signalDate, modelVariant: 'v13-early-turn' });
     const momentumHybridRanked = rankCandidates(candidatesAtDate, { asOf: signalDate, modelVariant: 'v13-momentum-hybrid' });
+    const currentByCode = new Map(ranked.map(row => [String(row.code), row]));
+    const v12EarlyOpportunityRanked = candidatesAtDate.map(stock => {
+      const base = currentByCode.get(String(stock.code));
+      if (!base) return null;
+      const opportunity = computeEarlyOpportunity({
+        bars: stock.bars,
+        asOf: signalDate,
+        features: {
+          sector: { score: base.components?.sector },
+          capital: { score: base.components?.flow }
+        }
+      });
+      if (!Number.isFinite(Number(opportunity.score))) return null;
+      return {
+        ...base,
+        score: Number(opportunity.score),
+        scorePath: 'v12-early-opportunity',
+        setup: opportunity.stage,
+        components: { ...base.components, v12EarlyOpportunity: Number(opportunity.score) },
+        features: { ...base.features, earlyOpportunity: opportunity },
+        confidence: Number((opportunity.confidence * 100).toFixed(1))
+      };
+    }).filter(Boolean).sort((a, b) => b.score - a.score || b.confidence - a.confidence);
     const modelCodes = ranked.map(row => row.code);
     const coreOnlyCodes = coreRanked.map(row => row.code);
     const earlyTurnCodes = earlyTurnRanked.map(row => row.code);
     const momentumHybridCodes = momentumHybridRanked.map(row => row.code);
+    const v12EarlyOpportunityCodes = v12EarlyOpportunityRanked.map(row => row.code);
     const momentumRanked = [...ranked].sort((a, b) => {
       const ar = Number.isFinite(a.features?.r5Pct) ? a.features.r5Pct : -Infinity;
       const br = Number.isFinite(b.features?.r5Pct) ? b.features.r5Pct : -Infinity;
@@ -228,6 +253,7 @@ export function evaluateWalkForward(candidates, {
       coreOnlyTop10Codes: coreOnlyCodes.slice(0, 10),
       earlyTurnTop10Codes: earlyTurnCodes.slice(0, 10),
       momentumHybridTop10Codes: momentumHybridCodes.slice(0, 10),
+      v12EarlyOpportunityTop10Codes: v12EarlyOpportunityCodes.slice(0, 10),
       emotionRepairTop10Codes: emotionRepairCodes.slice(0, 10),
       oversoldTop10Codes: oversoldCodes.slice(0, 10),
       momentumTop10Codes: momentumCodes.slice(0, 10),
@@ -235,11 +261,13 @@ export function evaluateWalkForward(candidates, {
       coreOnlyTop30Codes: coreOnlyCodes.slice(0, 30),
       earlyTurnTop30Codes: earlyTurnCodes.slice(0, 30),
       momentumHybridTop30Codes: momentumHybridCodes.slice(0, 30),
+      v12EarlyOpportunityTop30Codes: v12EarlyOpportunityCodes.slice(0, 30),
       momentumTop30Codes: momentumCodes.slice(0, 30),
       model: {},
       coreOnly: {},
       earlyTurn: {},
       momentumHybrid: {},
+      v12EarlyOpportunity: {},
       emotionRepairWatch: {},
       oversoldWatch: {},
       momentum: {}
@@ -249,6 +277,7 @@ export function evaluateWalkForward(candidates, {
       day.coreOnly['top' + k] = metricsForTopK(coreOnlyCodes, k, universeCodes, outcomeByCode);
       day.earlyTurn['top' + k] = metricsForTopK(earlyTurnCodes, k, universeCodes, outcomeByCode);
       day.momentumHybrid['top' + k] = metricsForTopK(momentumHybridCodes, k, universeCodes, outcomeByCode);
+      day.v12EarlyOpportunity['top' + k] = metricsForTopK(v12EarlyOpportunityCodes, k, universeCodes, outcomeByCode);
       day.emotionRepairWatch['top' + k] = metricsForTopK(emotionRepairCodes, k, universeCodes, outcomeByCode);
       day.oversoldWatch['top' + k] = metricsForTopK(oversoldCodes, k, universeCodes, outcomeByCode);
       day.momentum['top' + k] = metricsForTopK(momentumCodes, k, universeCodes, outcomeByCode);
@@ -272,6 +301,7 @@ export function evaluateWalkForward(candidates, {
       coreOnly: aggregateMetrics(perDate, 'coreOnly', k),
       earlyTurn: aggregateMetrics(perDate, 'earlyTurn', k),
       momentumHybrid: aggregateMetrics(perDate, 'momentumHybrid', k),
+      v12EarlyOpportunity: aggregateMetrics(perDate, 'v12EarlyOpportunity', k),
       emotionRepairWatch: aggregateMetrics(perDate, 'emotionRepairWatch', k),
       oversoldWatch: aggregateMetrics(perDate, 'oversoldWatch', k),
       momentumBaseline: aggregateMetrics(perDate, 'momentum', k)
@@ -286,7 +316,7 @@ export function evaluateWalkForward(candidates, {
       features: 'For each signalDate, K-line and fund-flow rows are sliced to dates <= signalDate before scoring; sector context is rebuilt from those pre-signal bars only',
       outcomes: 'Only rows strictly after signalDate are used to calculate T+1/T+3/T+5 close returns, limit-up hits, maximum favorable excursion, and maximum adverse excursion',
       baseline: 'Five-trading-session momentum ranking on the same scored candidate universe',
-      variants: 'Compare legacy blended, core-only, early-turn and momentum-led hybrid scores; emotion-repair and oversold scores are separately evaluated as observation lanes',
+      variants: 'Compare legacy blended, core-only, early-turn, momentum-led hybrid, and existing V12 Early Opportunity rankings; emotion-repair and oversold scores are separately evaluated as observation lanes',
       noTargetTuning: 'The screenshot target labels are not loaded or used by this evaluator'
     },
     sourceCoveragePct: coveragePct,
