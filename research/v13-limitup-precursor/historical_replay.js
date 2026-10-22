@@ -146,7 +146,7 @@ async function fetchUniversePage(page, pageSize, segmentFs, segmentKey = 'unknow
   throw new Error('market segment ' + segmentKey + ' page ' + page + ' failed after retries: ' + String(lastError?.message ?? lastError));
 }
 
-export async function fetchUniverse({ concurrency = 4, pageSize = 100 } = {}) {
+export async function fetchUniverse({ concurrency = 4, pageSize = 100, priorityCodes = [] } = {}) {
   const firstPages = [];
   for (const segment of MARKET_SEGMENTS) {
     try {
@@ -199,8 +199,13 @@ export async function fetchUniverse({ concurrency = 4, pageSize = 100 } = {}) {
     }
   }
   if (seen.size < 3000) throw new Error('filtered universe unexpectedly small: ' + seen.size);
+  const priorityRank = new Map(priorityCodes.map((code, index) => [String(code), index]));
   return {
-    rows: [...seen.values()].sort((a, b) => a.code.localeCompare(b.code)),
+    rows: [...seen.values()].sort((a, b) => {
+      const rankA = priorityRank.has(a.code) ? priorityRank.get(a.code) : Number.MAX_SAFE_INTEGER;
+      const rankB = priorityRank.has(b.code) ? priorityRank.get(b.code) : Number.MAX_SAFE_INTEGER;
+      return rankA - rankB || a.code.localeCompare(b.code);
+    }),
     providerTotal, pageCount,
     segmentTotals: Object.fromEntries([...segmentRows.entries()].map(([key, value]) => [key, { total: value.total, collected: value.rows.length }]))
   };
@@ -389,9 +394,10 @@ function eventTargetsForDate(targets, asOf) {
   return (Array.isArray(targets?.targets) ? targets.targets : [])
     .filter(target => !target.signalDate || target.signalDate === asOf);
 }
-function makeTargetReport(target, ranked, scoredCodes) {
+function makeTargetReport(target, ranked, scoredCodes, candidateCodes) {
   const index = ranked.findIndex(row => row.code === target.code);
   const result = index >= 0 ? ranked[index] : null;
+  const wasInCandidateData = candidateCodes.has(target.code);
   return {
     code: target.code, name: target.name, board: target.board,
     signalDate: target.signalDate ?? null, outcomeDate: target.outcomeDate ?? null,
@@ -405,15 +411,43 @@ function makeTargetReport(target, ranked, scoredCodes) {
     components: result?.components ?? null, features: result?.features ?? null,
     riskFlags: result?.riskFlags ?? [],
     scored: scoredCodes.has(target.code),
-    missingReason: result ? null : 'not_scored_or_excluded_from_discovery'
+    missingReason: result ? null : wasInCandidateData ? 'excluded_by_scorer' : 'historical_bars_unavailable_or_insufficient'
+  };
+}
+
+export function isTrueLimitUpOutcome(outcome) {
+  return /^limit_up(?:_|$)/i.test(String(outcome ?? ''));
+}
+
+export function assessReplayQuality({ universeCount = 0, barSuccessCount = 0, targetCodes = [], scoredCodes = [] } = {}) {
+  const denominator = Math.max(1, Number(universeCount) || 0);
+  const barCoverageRatio = Math.max(0, Number(barSuccessCount) || 0) / denominator;
+  const scored = new Set([...scoredCodes].map(String));
+  const missingTargetCodes = targetCodes.map(String).filter(code => !scored.has(code));
+  const reasons = [];
+  if (barCoverageRatio < 0.90) reasons.push('historical-bar-coverage-below-90pct');
+  if (missingTargetCodes.length) reasons.push('one-or-more-audit-targets-not-scored');
+  return {
+    status: reasons.length ? 'NOT_MEASURABLE' : 'MEASURABLE',
+    measurable: reasons.length === 0,
+    minimumBarCoveragePct: 90,
+    barCoveragePct: Number((barCoverageRatio * 100).toFixed(2)),
+    missingTargetCodes,
+    reasons
   };
 }
 
 export async function runHistoricalReplay({ asOf, outDir = 'output/v13-history-replay', concurrency = 14 } = {}) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(String(asOf ?? ''))) throw new Error('runHistoricalReplay requires asOf YYYY-MM-DD');
   const startedAt = new Date().toISOString();
+  const targetsFile = JSON.parse(await readFile(TARGETS_PATH, 'utf8'));
+  const targets = eventTargetsForDate(targetsFile, asOf);
   console.log('[replay] collecting current symbol list; historical bars will be cutoff at ' + asOf);
-  const universe = await fetchUniverse({ concurrency: Math.min(4, concurrency), pageSize: 100 });
+  console.log('[replay] audit target symbols are prioritized for data collection only; they do not alter scoring or ranking');
+  const universe = await fetchUniverse({
+    concurrency: Math.min(4, concurrency), pageSize: 100,
+    priorityCodes: targets.map(target => target.code)
+  });
   console.log('[replay] universe rows=' + universe.rows.length + ', providerTotal=' + universe.providerTotal + ', segments=' + JSON.stringify(universe.segmentTotals));
 
   const barFailures = [];
@@ -424,9 +458,14 @@ export async function runHistoricalReplay({ asOf, outDir = 'output/v13-history-r
   }, (done, all) => {
     if (done % 100 === 0 || done === all) console.log('[bars] ' + done + '/' + all);
   });
+  for (const row of barResults) {
+    if (row?.error) barFailures.push({ code: row.inputKey ?? null, name: null, error: row.error });
+  }
   let stocks = barResults.filter(stock => Array.isArray(stock?.bars) && stock.bars.length >= 25);
   const barsSuccessCount = stocks.length;
-  console.log('[replay] stocks with >=25 pre-cutoff bars=' + barsSuccessCount + ', failed/short=' + barFailures.length);
+  const barCoveragePct = Number((barsSuccessCount / Math.max(1, universe.rows.length) * 100).toFixed(2));
+  console.log('[replay] stocks with >=25 pre-cutoff bars=' + barsSuccessCount + '/' + universe.rows.length +
+    ' (' + barCoveragePct + '%), failed/short=' + (universe.rows.length - barsSuccessCount));
 
   stocks = addHistoricalIndustryContext(stocks);
   const flowFailures = [];
@@ -440,10 +479,8 @@ export async function runHistoricalReplay({ asOf, outDir = 'output/v13-history-r
     if (done % 100 === 0 || done === all) console.log('[flows] ' + done + '/' + all);
   });
 
-  const targetsFile = JSON.parse(await readFile(TARGETS_PATH, 'utf8'));
-  const targets = eventTargetsForDate(targetsFile, asOf);
   const candidates = stocks.map(stock => ({
-    code: stock.code, name: stock.name, asOf,
+    code: stock.code, name: stock.name, industry: stock.industry, asOf,
     isST: /ST|退/i.test(stock.name),
     bars: stock.bars, flows: stock.flows, sector: stock.sector,
     amount: stock.bars.at(-1)?.amount,
@@ -452,11 +489,28 @@ export async function runHistoricalReplay({ asOf, outDir = 'output/v13-history-r
   const ranked = rankCandidates(candidates, { asOf });
   const rankedWithPosition = ranked.map((row, index) => ({ ...row, rank: index + 1 }));
   const scoredCodes = new Set(ranked.map(row => row.code));
-  const targetReports = targets.map(target => makeTargetReport(target, ranked, scoredCodes));
-  const trueLimitUpTargets = targetReports.filter(target => /limit_up/i.test(String(target.knownOutcome ?? '')));
+  const candidateCodes = new Set(candidates.map(row => row.code));
+  const quality = assessReplayQuality({
+    universeCount: universe.rows.length,
+    barSuccessCount: barsSuccessCount,
+    targetCodes: targets.map(target => target.code),
+    scoredCodes
+  });
+  const targetReports = targets.map(target => makeTargetReport(target, ranked, scoredCodes, candidateCodes));
+  const trueLimitUpTargets = targetReports.filter(target => isTrueLimitUpOutcome(target.knownOutcome));
+  const flowRowsAtLeast3Count = stocks.filter(stock => stock.flows.length >= 3).length;
+  const flowCoveragePct = Number((flowRowsAtLeast3Count / Math.max(1, stocks.length) * 100).toFixed(2));
   const report = {
     model: 'V13-limitup-precursor-research',
     asOf,
+    validation: {
+      ...quality,
+      targetCount: targets.length,
+      targetScoredCount: targetReports.filter(target => target.scored).length,
+      flowCoveragePct,
+      flowCoverageWarning: flowCoveragePct < 60 ? 'flow-history-coverage-below-60pct' : null,
+      rankingStatus: quality.measurable ? 'ELIGIBLE_FOR_RECALL_EVALUATION' : 'DIAGNOSTIC_ONLY'
+    },
     startedAt, completedAt: new Date().toISOString(),
     dataPolicy: {
       priceBars: 'Eastmoney unadjusted daily K-lines; rows after asOf excluded before scoring',
@@ -464,29 +518,32 @@ export async function runHistoricalReplay({ asOf, outDir = 'output/v13-history-r
       industryContext: 'Industry labels are from the current symbol-list response; all industry breadth/returns are rebuilt from bars cut off at asOf',
       universe: 'Current provider listing used as a proxy for the historical 2026-10-20 universe; not an exchange-certified point-in-time constituent snapshot',
       targetOutcomes: 'Used only for post-ranking audit; never passed into candidate features',
+      targetCollectionOrder: 'Audit target codes are fetched first to protect diagnostics from late-run provider throttling; scoring weights and rank logic are unchanged',
       futureLeakageGuard: 'K-line and flow rows dated after asOf are excluded by parsers and the scorer'
     },
     coverage: {
       providerUniverseTotal: universe.providerTotal,
       filteredCurrentUniverseCount: universe.rows.length,
       barSuccessCount: barsSuccessCount,
-      barFailureOrShortCount: barFailures.length,
+      barCoveragePct,
+      barFailureOrShortCount: Math.max(0, universe.rows.length - barsSuccessCount),
       scoredCandidateCount: ranked.length,
-      flowRowsAtLeast3Count: stocks.filter(stock => stock.flows.length >= 3).length,
+      flowRowsAtLeast3Count,
       flowUnavailableOrShortCount: flowFailures.length,
       eastmoneyKlineCount: stocks.filter(stock => stock.klineSource === 'eastmoney-unadjusted').length,
       tencentFallbackKlineCount: stocks.filter(stock => stock.klineSource === 'tencent-qfq-fallback').length,
       sectorContextCoverageCount: stocks.filter(stock => Object.keys(stock.sector ?? {}).length >= 3).length,
-      flowCoveragePct: Number((stocks.filter(stock => stock.flows.length >= 3).length / Math.max(1, stocks.length) * 100).toFixed(2)),
+      flowCoveragePct,
       barFailureSample: barFailures.slice(0, 30),
       flowFailureSample: flowFailures.slice(0, 30)
     },
     targetCapture: {
-      allFourTop10: targetReports.length === 4 && targetReports.every(target => target.inTop10),
-      allFourTop30: targetReports.length === 4 && targetReports.every(target => target.inTop30),
+      status: quality.status,
+      allFourTop10: quality.measurable ? targetReports.length === 4 && targetReports.every(target => target.inTop10) : null,
+      allFourTop30: quality.measurable ? targetReports.length === 4 && targetReports.every(target => target.inTop30) : null,
       trueLimitUpTargetCount: trueLimitUpTargets.length,
-      trueLimitUpTargetsTop10: trueLimitUpTargets.filter(target => target.inTop10).length,
-      trueLimitUpTargetsTop30: trueLimitUpTargets.filter(target => target.inTop30).length,
+      trueLimitUpTargetsTop10: quality.measurable ? trueLimitUpTargets.filter(target => target.inTop10).length : null,
+      trueLimitUpTargetsTop30: quality.measurable ? trueLimitUpTargets.filter(target => target.inTop30).length : null,
       targets: targetReports
     },
     top10: rankedWithPosition.slice(0, 10).map(compactResult),
@@ -524,5 +581,26 @@ export async function runHistoricalReplay({ asOf, outDir = 'output/v13-history-r
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
   const args = parseArgs(process.argv.slice(2));
-  await runHistoricalReplay(args);
+  try {
+    await runHistoricalReplay(args);
+  } catch (error) {
+    const outPath = resolve(args.outDir);
+    await mkdir(outPath, { recursive: true });
+    const diagnostic = {
+      model: 'V13-limitup-precursor-research',
+      asOf: args.asOf,
+      validation: {
+        status: 'NOT_MEASURABLE',
+        measurable: false,
+        rankingStatus: 'DIAGNOSTIC_ONLY',
+        reasons: ['collection-or-replay-failed'],
+        error: String(error?.message ?? error)
+      },
+      completedAt: new Date().toISOString()
+    };
+    await writeFile(resolve(outPath, 'replay_report.json'), JSON.stringify(diagnostic, null, 2));
+    await writeFile(resolve(outPath, 'collector_diagnostics.json'), JSON.stringify(diagnostic, null, 2));
+    console.error('[replay] NOT_MEASURABLE: ' + String(error?.stack ?? error));
+    process.exitCode = 1;
+  }
 }
