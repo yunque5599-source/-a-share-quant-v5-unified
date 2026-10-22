@@ -4,6 +4,7 @@ import { pathToFileURL } from 'node:url';
 import marketHandler from '../../api/market.js';
 import psychologyHandler from '../../api/psychology_universe.js';
 import { boardForCode, scoreCandidate, rankCandidates } from './precursor_score.js';
+import { computeEarlyOpportunity } from '../../research/v11-short-alpha/early_opportunity.js';
 
 const MODEL_VERSION = 'V13-live-psychology-catalyst-overlay-research-v1';
 const n = v => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
@@ -78,6 +79,16 @@ function invoke(handler,url){return new Promise((resolvePromise,reject)=>{let bo
 function parseResult(name,r){if(r.statusCode<200||r.statusCode>=300)throw Error(name+' HTTP '+r.statusCode+': '+r.body.slice(0,250));const x=JSON.parse(r.body);if(x?.error)throw Error(name+': '+x.error);return x;}
 function chunks(rows,size=30){const out=[];for(let i=0;i<rows.length;i+=size)out.push(rows.slice(i,i+size));return out;}
 async function mapLimit(items,limit,fn){const out=new Array(items.length);let next=0;async function worker(){while(true){const i=next++;if(i>=items.length)return;try{out[i]=await fn(items[i],i);}catch(e){out[i]={error:String(e?.message??e)};}}}await Promise.all(Array.from({length:Math.min(limit,items.length)},worker));return out;}
+export function interleaveCodes(primary,secondary,limit){
+  const out=[],seen=new Set();let p=0,s=0,takePrimary=true;
+  while(out.length<limit&&(p<primary.length||s<secondary.length)){
+    const list=takePrimary?primary:secondary,index=takePrimary?p:s;
+    if(index>=list.length){takePrimary=!takePrimary;continue;}
+    const code=String(list[index]);if(takePrimary)p++;else s++;takePrimary=!takePrimary;
+    if(!seen.has(code)){seen.add(code);out.push(code);}
+  }
+  return out;
+}
 export function validateLiveSnapshot(s={}){
   const reasons=[];if(s.schema!=='v13-live-psychology-catalyst-snapshot-v1')reasons.push('schema-invalid');
   if(!s.snapshotId)reasons.push('snapshot-id-missing');if(!s.capturedAt||!Number.isFinite(Date.parse(s.capturedAt)))reasons.push('captured-at-invalid');
@@ -114,25 +125,45 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       for(const [code,themes] of Object.entries(batch.psych.data?.themeBySymbol??{})) psychByCode.set(code,Array.isArray(themes)?themes:[]);
     } else sourceErrors.push('psychology_universe: '+batch.psychError);
   }
-  const records=[];
+  const records=[],modelInputsByCode=new Map();
   for(const row of funnel){
     const code=String(row.f12),deep=deepByCode.get(code),bars=parseRows(deep?.kline?.data?.klines??[],'bar',requestedAsOf);
-    const flows=parseRows(deep?.flow?.data?.klines??[],'flow',requestedAsOf).map(f=>({...f,amount:bars.find(b=>b.date===f.date)?.amount??0}));
+    const flowUsable=deep?.dataQuality?.flowSource==='eastmoney';
+    const flows=flowUsable?parseRows(deep?.flow?.data?.klines??[],'flow',requestedAsOf).map(f=>({...f,amount:bars.find(b=>b.date===f.date)?.amount??0})):[];
     const psychology=buildPsychologySector(psychByCode.get(code)??[],capturedAt);
     const candidate={code,name:String(row.f14??code),asOf:requestedAsOf,isST:/(^|\*)ST(?=[\u4e00-\u9fff\d\s]|$)|^退/i.test(String(row.f14??'')),bars,flows,sector:psychology.sector,
       amount:bars.at(-1)?.amount??n(row.f6),turnoverRate:bars.at(-1)?.turnoverRate??n(row.f8)};
+    modelInputsByCode.set(code,candidate);
     const score=scoreCandidate(candidate,{asOf:requestedAsOf}),dq=deep?.dataQuality??{};
     records.push({code,name:candidate.name,board:boardForCode(code),funnelLanes:row.funnelLanes??[],
-      quote:{pct:n(row.f3),mainNetCny:n(row.f62),mainNetPct:n(row.f184),turnoverRate:n(row.f8),amount:n(row.f6),volumeRatio:n(row.f10),rankScore:n(row.rankScore),rankHits:n(row.rankHits),ranks:row.ranks??{}},
+      quote:{price:n(row.f2),pct:n(row.f3),mainNetCny:n(row.f62),mainNetPct:n(row.f184),turnoverRate:n(row.f8),amount:n(row.f6),volumeRatio:n(row.f10),rankScore:n(row.rankScore),rankHits:n(row.rankHits),ranks:row.ranks??{}},
       score,psychology:psychology.overlay,source:{quoteTimestamp:n(row.f124),rankedGeneratedAt:ranked?.data?.generatedAt??null,
       klineSource:dq.klineSource??null,flowSource:dq.flowSource??null,deepError:deep?.error??null,barCount:bars.length,flowCount:flows.length}});
   }
-  const validRecords=records.filter(r=>r.score),recordByCode=new Map(validRecords.map(r=>[r.code,r])),rankedScores=rankCandidates(validRecords.map(r=>{
-    const bars=parseRows(deepByCode.get(r.code)?.kline?.data?.klines??[],'bar',requestedAsOf);
-    const flows=parseRows(deepByCode.get(r.code)?.flow?.data?.klines??[],'flow',requestedAsOf).map(f=>({...f,amount:bars.find(b=>b.date===f.date)?.amount??0}));
-    const row=funnel.find(x=>String(x.f12)===r.code);const psych=buildPsychologySector(psychByCode.get(r.code)??[],capturedAt);
-    return {code:r.code,name:r.name,isST:false,asOf:requestedAsOf,bars,flows,sector:psych.sector,amount:bars.at(-1)?.amount??n(row?.f6),turnoverRate:bars.at(-1)?.turnoverRate??n(row?.f8),_record:r};
-  }),{asOf:requestedAsOf}).map((s,i)=>{const record=recordByCode.get(s.code);return {...s,rank:i+1,quote:record?.quote??{},psychology:record?.psychology??{},source:record?.source??{}};});
+  const validRecords=records.filter(r=>r.score),recordByCode=new Map(validRecords.map(r=>[r.code,r]));
+  const modelInputs=validRecords.map(r=>modelInputsByCode.get(r.code)).filter(Boolean);
+  const rankedScores=rankCandidates(modelInputs,{asOf:requestedAsOf,modelVariant:'v13-core-only'})
+    .map((s,i)=>{const record=recordByCode.get(s.code);return {...s,rank:i+1,quote:record?.quote??{},psychology:record?.psychology??{},source:record?.source??{}};});
+  const scoreByCode=new Map(rankedScores.map(r=>[r.code,r]));
+  const earlyRows=modelInputs.map(candidate=>{
+    const base=scoreByCode.get(candidate.code);
+    const opportunity=computeEarlyOpportunity({bars:candidate.bars,asOf:requestedAsOf,features:{sector:{score:base?.components?.sector},capital:{score:base?.components?.flow}}});
+    if(!Number.isFinite(Number(opportunity.score)))return null;
+    return {code:candidate.code,score:Number(opportunity.score),confidence:Number((opportunity.confidence*100).toFixed(1)),stage:opportunity.stage,
+      components:opportunity.components,metrics:opportunity.metrics,reasons:opportunity.reasons};
+  }).filter(Boolean).sort((a,b)=>b.score-a.score||b.confidence-a.confidence);
+  const earlyByCode=new Map(earlyRows.map(r=>[r.code,r]));
+  const momentumCodes=[...rankedScores].sort((a,b)=>(Number.isFinite(b.features?.r5Pct)?b.features.r5Pct:-Infinity)-(Number.isFinite(a.features?.r5Pct)?a.features.r5Pct:-Infinity)||b.score-a.score).map(r=>r.code);
+  const earlyCodes=earlyRows.map(r=>r.code);
+  const balancedCodes=interleaveCodes(momentumCodes,earlyCodes,Math.min(30,new Set([...momentumCodes,...earlyCodes]).size));
+  const balancedBlend=balancedCodes.map((code,i)=>{
+    const base=scoreByCode.get(code),early=earlyByCode.get(code);if(!base)return null;
+    const sourceLane=momentumCodes.includes(code)&&earlyCodes.includes(code)?'both':momentumCodes.includes(code)?'momentum':'early-opportunity';
+    return {...base,rank:i+1,modelVariant:'v13-live-balanced-blend',scorePath:'balanced-blend',setup:early?.stage??base.setup,
+      balancedSource:sourceLane,components:{...base.components,earlyOpportunity:early?.score??null},earlyOpportunity:early??null};
+  }).filter(Boolean);
+  const auditRecords=records.map(r=>({...r,score:scoreByCode.get(r.code)??r.score,
+    observationScores:{emotionRepair:r.score?.components?.emotionRepair??null,oversoldReversal:r.score?.components?.oversoldReversal??null}}));
   const deepGood=records.filter(r=>r.source.klineSource==='eastmoney'&&r.source.flowSource==='eastmoney').length;
   const barsGood=records.filter(r=>r.source.barCount>=25).length,psychGood=records.filter(r=>r.psychology.available).length;
   const quality={rankedSourceDegraded:ranked?.data?.degraded===true,rankedSourceStale:ranked?.data?.serverStale===true,rankedSourceMethod:ranked?.data?.method??null,
@@ -144,11 +175,11 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     snapshotId:'v13-'+capturedAt.replace(/[-:.TZ]/g,''),capturedAt,asOf:requestedAsOf,
     sourcePolicy:{provider:'Eastmoney public quote/history and psychology/theme/news endpoint',pointInTime:'captured-at-source',
       futureDatedBarsExcluded:true,catalystOnlyUsedWhenNewsTimestampVerified:true,brokerConnected:false,automaticOrderPlacement:false},
-    quality:{},coverage:{rawRankedCandidates:raw.length,funnelCandidates:funnel.length,scoredCandidates:rankedScores.length},
-    candidates:records,rankings:{overall:rankedScores.slice(0,30),
-      trendTransition:rankedScores.filter(r=>r.scorePath==='trend-transition').slice(0,20),
-      emotionRepair:rankedScores.filter(r=>r.scorePath==='emotion-repair').slice(0,20),
-      oversold:rankedScores.filter(r=>r.scorePath==='oversold-reversal').slice(0,20)}};
+    quality:{},coverage:{rawRankedCandidates:raw.length,funnelCandidates:funnel.length,scoredCandidates:rankedScores.length,earlyOpportunityCandidates:earlyRows.length,balancedBlendCount:balancedBlend.length},
+    candidates:auditRecords,rankings:{overall:balancedBlend,
+      trendTransition:rankedScores.slice(0,20),
+      emotionRepair:rankedScores.filter(r=>Number(r.components?.emotionRepair)>=65).sort((a,b)=>Number(b.components.emotionRepair)-Number(a.components.emotionRepair)).slice(0,20),
+      oversold:rankedScores.filter(r=>Number(r.components?.oversoldReversal)>=65).sort((a,b)=>Number(b.components.oversoldReversal)-Number(a.components.oversoldReversal)).slice(0,20),coreRanking:rankedScores.slice(0,30),earlyOpportunity:earlyRows.slice(0,30)}};
   snapshot.quality=quality;const validation=validateLiveSnapshot(snapshot);snapshot.quality={...quality,...validation};
   const output=resolve(out||'output/v13-live-snapshots/'+snapshot.snapshotId+'.json');await mkdir(dirname(output),{recursive:true});await writeFile(output,JSON.stringify(snapshot,null,2));
   console.log(JSON.stringify({snapshotId:snapshot.snapshotId,capturedAt,asOf:requestedAsOf,quality:snapshot.quality,
