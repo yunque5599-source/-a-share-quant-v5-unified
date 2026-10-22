@@ -32,6 +32,14 @@ export function parseRows(rows, kind, asOf) {
   }
   return [...out.values()].sort((a,b)=>a.date.localeCompare(b.date));
 }
+export function isDailyBarCompleteAt(timestamp){
+  const value=Date.parse(String(timestamp??''));
+  if(!Number.isFinite(value))return false;
+  const parts=new Intl.DateTimeFormat('en-GB',{timeZone:'Asia/Shanghai',hour:'2-digit',minute:'2-digit',hourCycle:'h23'}).formatToParts(new Date(value));
+  const get=type=>Number(parts.find(part=>part.type===type)?.value);
+  const minuteOfDay=get('hour')*60+get('minute');
+  return minuteOfDay<570||minuteOfDay>=900;
+}
 export function selectCandidateFunnel(rows, limit=120) {
   const valid=(Array.isArray(rows)?rows:[]).filter(r=>/^(00|30|60|68)\d{4}$/.test(String(r?.f12??''))&&!isRestrictedListingName(r?.f14));
   const chosen=new Map();
@@ -405,6 +413,7 @@ async function fetchCurrentQuoteForNewsCandidate(stock) {
 
 export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=null,wideNewsScan=false}={}){
   const capturedAt=new Date().toISOString(),requestedAsOf=asOf||capturedAt;
+  const dailyBarComplete=isDailyBarCompleteAt(capturedAt);
   const ranked=parseResult('ranked_candidates',await invoke(marketHandler,'/api/market?action=ranked_candidates'));
   const raw=ranked?.data?.candidates??[];
   let funnel=selectCandidateFunnel(raw,candidateLimit);
@@ -527,7 +536,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const scoreByCode=new Map(rankedScores.map(r=>[r.code,r]));
   const earlyRows=modelInputs.map(candidate=>{
     const base=scoreByCode.get(candidate.code);
-    const opportunity=computeEarlyOpportunity({bars:candidate.bars,asOf:requestedAsOf,barComplete:true,features:{sector:{score:base?.components?.sector},capital:{score:base?.components?.flow}}});
+    const opportunity=computeEarlyOpportunity({bars:candidate.bars,asOf:requestedAsOf,barComplete:dailyBarComplete,features:{sector:{score:base?.components?.sector},capital:{score:base?.components?.flow}}});
     if(!Number.isFinite(Number(opportunity.score)))return null;
     return {code:candidate.code,score:Number(opportunity.score),confidence:Number((opportunity.confidence*100).toFixed(1)),stage:opportunity.stage,
       components:opportunity.components,metrics:opportunity.metrics,reasons:opportunity.reasons};
@@ -599,7 +608,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const snapshot={schema:'v13-live-psychology-catalyst-snapshot-v1',modelVersion:MODEL_VERSION,
     snapshotId:'v13-'+capturedAt.replace(/[-:.TZ]/g,''),capturedAt,asOf:requestedAsOf,
     sourcePolicy:{provider:'Eastmoney public quote/history and psychology/theme/news endpoint',pointInTime:'captured-at-source',
-      futureDatedBarsExcluded:true,catalystOnlyUsedWhenNewsTimestampVerified:true,brokerConnected:false,automaticOrderPlacement:false},
+      futureDatedBarsExcluded:true,catalystOnlyUsedWhenNewsTimestampVerified:true,dailyBarCompleteAtCapture:dailyBarComplete,brokerConnected:false,automaticOrderPlacement:false},
     quality:{},coverage:{rawRankedCandidates:raw.length,funnelCandidates:funnel.length,scoredCandidates:rankedScores.length,
       preLimitUpEligibleCount:preLimitUpScores.length,earlyOpportunityCandidates:earlyRows.length,balancedBlendCount:balancedBlend.length,
       wideNewsScan:wideNewsDiagnostics},
