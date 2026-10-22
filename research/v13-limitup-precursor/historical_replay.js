@@ -138,6 +138,8 @@ export async function fetchUniverse({ concurrency = 8, pageSize = 100 } = {}) {
   const restPages = Array.from({ length: Math.max(0, pageCount - 1) }, (_, i) => i + 2);
   const pageResults = await mapLimit(restPages, concurrency, page => fetchUniversePage(page, pageSize),
     (done, all) => { if (done % 20 === 0 || done === all) console.log('[universe] pages ' + done + '/' + all); });
+  const failedPages = pageResults.filter(result => result?.error);
+  if (failedPages.length) throw new Error('universe page collection incomplete: ' + failedPages.length + '/' + restPages.length + ' pages failed');
   const allRows = [...first.rows, ...pageResults.flatMap(result => result?.rows ?? [])];
   const seen = new Map();
   for (const row of allRows) {
@@ -230,15 +232,19 @@ async function fetchTencentKline(code, asOf) {
   return { bars, source: 'tencent-qfq-fallback' };
 }
 async function fetchBarsForStock(stock, asOf) {
-  const result = await fetchFromHosts(host => klineUrl(stock.code, host, asOf), HISTORY_HOSTS,
-    json => Array.isArray(json?.data?.klines), 4500);
-  const bars = parseKlineRows(result.json.data.klines, asOf);
-  if (bars.length >= 25) return { ...stock, bars, klineSource: 'eastmoney-unadjusted', klineHost: result.host };
+  let bars = [];
+  let eastmoneyError = null;
+  try {
+    const result = await fetchFromHosts(host => klineUrl(stock.code, host, asOf), HISTORY_HOSTS,
+      json => Array.isArray(json?.data?.klines), 4500);
+    bars = parseKlineRows(result.json.data.klines, asOf);
+    if (bars.length >= 25) return { ...stock, bars, klineSource: 'eastmoney-unadjusted', klineHost: result.host };
+  } catch (error) { eastmoneyError = String(error?.message ?? error); }
   try {
     const fallback = await fetchTencentKline(stock.code, asOf);
     return { ...stock, bars: fallback.bars, klineSource: fallback.source, klineHost: 'web.ifzq.gtimg.cn' };
   } catch (error) {
-    return { ...stock, bars, klineSource: 'insufficient', klineError: String(error?.message ?? error) };
+    return { ...stock, bars, klineSource: 'insufficient', klineError: String(error?.message ?? error), eastmoneyError };
   }
 }
 async function fetchFlowsForStock(stock, asOf) {
@@ -389,7 +395,7 @@ export async function runHistoricalReplay({ asOf, outDir = 'output/v13-history-r
   const targets = eventTargetsForDate(targetsFile, asOf);
   const candidates = stocks.map(stock => ({
     code: stock.code, name: stock.name, asOf,
-    isST: /(^|\\*)ST|退/i.test(stock.name),
+    isST: /ST|退/i.test(stock.name),
     bars: stock.bars, flows: stock.flows, sector: stock.sector,
     amount: stock.bars.at(-1)?.amount,
     turnoverRate: stock.bars.at(-1)?.turnoverRate
