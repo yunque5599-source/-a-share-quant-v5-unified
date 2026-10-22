@@ -36,7 +36,7 @@ test('balanced shortlist interleaves momentum and early-opportunity ranks withou
 
 test('stock-news fallback only scores timestamp-verified headlines and flags its limited semantics',()=>{
  const rows=flattenNewsPayload({result:{cmsArticleWebOld:{list:[
-  {title:'Timed headline',date:'2026-10-22 10:00:00',mediaName:'Wire',url:'https://example.com/a'},
+  {title:'Timed headline',date:'2026-10-22 05:00:00',mediaName:'Wire',url:'https://example.com/a'},
   {title:'Untimed headline',url:'https://example.com/b'}
  ]}}});
  assert.equal(rows.length,2);
