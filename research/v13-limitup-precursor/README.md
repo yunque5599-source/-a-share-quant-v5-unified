@@ -98,7 +98,7 @@ The held-out screenshot audit was run after ranking, with target labels excluded
 | 兆讯传媒 (301102) | 895 | 4,924 | 2,818 | Oversold watch rank 389 |
 | 致尚科技 (301486) | 485 | 4,090 | 4,008 | Oversold watch rank 1,163; this was not a closed limit-up |
 
-None of the three true limit-up targets reached the top 30 in the current composite, core-only, or early-turn global rankings. The emotion-repair lane surfaced 莱美药业 at rank 1, but its global rank was poor; the oversold lane still produced too many weak candidates. This is a model miss, not a successful prediction.
+None of the three true limit-up targets reached the top 30 in the current composite, core-only, early-turn, momentum-hybrid, or raw five-session-momentum global rankings. In the momentum-hybrid variant, the target ranks were 625 (三维天地), 286 (莱美药业), 5,049 (兆讯传媒), and 4,394 (致尚科技). The raw five-session-momentum ranks were 1,173, 44, 4,333, and 5,392 respectively; it at least surfaced 莱美药业 within the top 50, but missed the other three. The emotion-repair lane surfaced 莱美药业 at rank 1, but its global rank was poor; the oversold lane still produced too many weak candidates. This is a model miss, not a successful prediction.
 
 A 15-signal-date walk-forward comparison also found that the heuristic rankings underperformed the raw five-session-momentum baseline on the tested window:
 
@@ -118,7 +118,7 @@ The separate emotion-repair watchlist had higher limit-up hit precision (38.67% 
 ## Validation gate before integration
 
 1. Reconstruct the complete eligible universe at the 2026-10-20 close and retrieve point-in-time bars, flows, and sector/theme information for all candidates.
-2. Score candidates using only data available before the target session; store the target rank, top-10/top-30 recall, and reasons for any miss. The current replay found that the emotion-repair path surfaced 莱美药业 at rank 69, while 三维天地 ranked 535, 兆讯传媒 ranked 4,971, and 致尚科技 ranked 4,172. These misses motivate an oversold-stabilization hypothesis, but are not themselves evidence that the new path generalizes; the next step is to compare against the walk-forward baseline.
+2. Score candidates using only data available before the target session; store the target rank, top-10/top-30 recall, and reasons for any miss. The updated holdout audit ranked 三维天地 3,919, 莱美药业 4,033, 兆讯传媒 895, and 致尚科技 485 in the current composite; early-turn improved 三维天地 to 154 but still missed the top 30. The V12 Early Opportunity score is now being compared as another independent ranking rather than assuming the new V13 heuristic is better.
 3. Run walk-forward evaluation across many dates, reporting top-k limit-up recall within 1/3/5 sessions, forward returns, maximum adverse excursion, turnover/cost assumptions, and board-separated results.
 4. Compare against the existing model and simple baselines. Keep this model research-only unless the out-of-sample uplift is repeatable and risk-adjusted.
 
