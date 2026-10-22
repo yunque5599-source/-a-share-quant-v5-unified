@@ -31,7 +31,7 @@ export function parseRows(rows, kind, asOf) {
   return [...out.values()].sort((a,b)=>a.date.localeCompare(b.date));
 }
 export function selectCandidateFunnel(rows, limit=120) {
-  const valid=(Array.isArray(rows)?rows:[]).filter(r=>/^(00|30|60|68)\d{4}$/.test(String(r?.f12??''))&&!/(^|\*)ST|退/i.test(String(r?.f14??'')));
+  const valid=(Array.isArray(rows)?rows:[]).filter(r=>/^(00|30|60|68)\d{4}$/.test(String(r?.f12??''))&&!/(^|\*)ST(?=[\u4e00-\u9fff\d\s]|$)|^退/i.test(String(r?.f14??'')));
   const chosen=new Map();
   const add=(arr,count,lane)=>{let added=0;for(const r of arr){const code=String(r.f12);if(chosen.has(code)){chosen.get(code).funnelLanes.push(lane);continue;}chosen.set(code,{...r,funnelLanes:[lane]});if(++added>=count)break;}};
   const val=(r,k)=>n(r?.[k])??-Infinity;
@@ -110,7 +110,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     const code=String(row.f12),deep=deepByCode.get(code),bars=parseRows(deep?.kline?.data?.klines??[],'bar',requestedAsOf);
     const flows=parseRows(deep?.flow?.data?.klines??[],'flow',requestedAsOf).map(f=>({...f,amount:bars.find(b=>b.date===f.date)?.amount??0}));
     const psychology=buildPsychologySector(psychByCode.get(code)??[],capturedAt);
-    const candidate={code,name:String(row.f14??code),asOf:requestedAsOf,isST:/(^|\*)ST|退/i.test(String(row.f14??'')),bars,flows,sector:psychology.sector,
+    const candidate={code,name:String(row.f14??code),asOf:requestedAsOf,isST:/(^|\*)ST(?=[\u4e00-\u9fff\d\s]|$)|^退/i.test(String(row.f14??'')),bars,flows,sector:psychology.sector,
       amount:bars.at(-1)?.amount??n(row.f6),turnoverRate:bars.at(-1)?.turnoverRate??n(row.f8)};
     const score=scoreCandidate(candidate,{asOf:requestedAsOf}),dq=deep?.dataQuality??{};
     records.push({code,name:candidate.name,board:boardForCode(code),funnelLanes:row.funnelLanes??[],
