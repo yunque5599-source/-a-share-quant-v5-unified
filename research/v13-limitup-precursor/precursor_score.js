@@ -44,6 +44,10 @@ function boardForCode(code) {
   if (/^00|^001|^002|^003/.test(c)) return 'SZ_MAIN';
   return 'UNKNOWN';
 }
+export function isRestrictedListingName(name) {
+  const value=String(name??'').trim();
+  return /^(?:\*?ST|S\*ST|PT|退)/i.test(value) || /退市|终止上市|暂停上市/i.test(value);
+}
 function limitThresholdPct(code) {
   const board = boardForCode(code);
   if (board === 'CHINEXT' || board === 'STAR') return 19.0;
@@ -346,8 +350,8 @@ function computeRisk(f, candidate) {
     penalty += 4;
     flags.push('换手率偏低，资金参与度需确认');
   }
-  if (candidate?.isST || /^(\*?ST|退)/i.test(String(candidate?.name || ''))) {
-    flags.push('ST或退市风险标的');
+  if (candidate?.isST || isRestrictedListingName(candidate?.name)) {
+    flags.push('ST/PT或退市风险标的');
     return { penalty: 100, flags, excluded: true, reason: 'ST_OR_DELISTING' };
   }
   return { penalty: clamp(penalty, 0, 30), flags, excluded: false, reason: null };
