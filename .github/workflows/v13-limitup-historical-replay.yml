@@ -1,6 +1,11 @@
 name: V13 historical limit-up replay
 
 on:
+  push:
+    branches: [research/v13-limitup-precursor]
+    paths:
+      - 'research/v13-limitup-precursor/historical_replay.js'
+      - '.github/workflows/v13-limitup-historical-replay.yml'
   workflow_dispatch:
     inputs:
       as_of:
