@@ -321,6 +321,23 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   }).filter(Boolean);
   const auditRecords=records.map(r=>({...r,score:scoreByCode.get(r.code)??r.score,
     observationScores:{emotionRepair:r.score?.components?.emotionRepair??null,oversoldReversal:r.score?.components?.oversoldReversal??null}}));
+  const catalystRows=records.map(record=>{
+    const overlay=record.psychology?.stockNewsFallback??record.psychology??{};
+    const value=overlay.headlineCatalystScore;
+    if(value===null||value===undefined||!Number.isFinite(Number(value)))return null;
+    const base=scoreByCode.get(record.code);
+    const early=earlyByCode.get(record.code);
+    return {code:record.code,name:record.name,board:record.board,headlineCatalystScore:Number(value),
+      headlineCatalystDirection:overlay.headlineCatalystDirection??'unclassified',
+      classifiedHeadlineCount:overlay.classifiedHeadlineCount??0,
+      positiveHeadlineCount:overlay.positiveHeadlineCount??0,negativeHeadlineCount:overlay.negativeHeadlineCount??0,
+      catalystEvidence:overlay.catalystEvidence??[],baseScore:base?.score??null,
+      preLimitUpEligible:base?isPreLimitUpCandidate(base,early):false};
+  }).filter(Boolean);
+  const catalystWatch=catalystRows.filter(row=>row.preLimitUpEligible&&row.headlineCatalystDirection==='positive')
+    .sort((a,b)=>b.headlineCatalystScore-a.headlineCatalystScore||(Number(b.baseScore)||0)-(Number(a.baseScore)||0)).slice(0,20);
+  const negativeCatalystRisk=catalystRows.filter(row=>row.headlineCatalystDirection==='negative')
+    .sort((a,b)=>a.headlineCatalystScore-b.headlineCatalystScore).slice(0,20);
   const deepGood=records.filter(r=>r.source.klineSource==='eastmoney'&&r.source.flowSource==='eastmoney').length;
   const barsGood=records.filter(r=>r.source.barCount>=25).length,psychGood=records.filter(r=>r.psychology.available&&r.psychology.source!=='timestamped-stock-news-fallback').length;
   const quality={rankedSourceDegraded:ranked?.data?.degraded===true,rankedSourceStale:ranked?.data?.serverStale===true,rankedSourceMethod:ranked?.data?.method??null,
@@ -335,7 +352,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const diagnosticRankings={overall:balancedBlend,trendTransition:rankedScores.slice(0,20),
     emotionRepair:rankedScores.filter(r=>Number(r.components?.emotionRepair)>=65).sort((a,b)=>Number(b.components.emotionRepair)-Number(a.components.emotionRepair)).slice(0,20),
     oversold:rankedScores.filter(r=>Number(r.components?.oversoldReversal)>=65).sort((a,b)=>Number(b.components.oversoldReversal)-Number(a.components.oversoldReversal)).slice(0,20),
-    coreRanking:rankedScores.slice(0,30),earlyOpportunity:earlyRows.slice(0,30)};
+    coreRanking:rankedScores.slice(0,30),earlyOpportunity:earlyRows.slice(0,30),catalystWatch,negativeCatalystRisk};
   const snapshot={schema:'v13-live-psychology-catalyst-snapshot-v1',modelVersion:MODEL_VERSION,
     snapshotId:'v13-'+capturedAt.replace(/[-:.TZ]/g,''),capturedAt,asOf:requestedAsOf,
     sourcePolicy:{provider:'Eastmoney public quote/history and psychology/theme/news endpoint',pointInTime:'captured-at-source',
@@ -348,7 +365,9 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       emotionRepair:diagnosticRankings.emotionRepair,
       oversold:diagnosticRankings.oversold,
       coreRanking:preLimitUpScores.slice(0,30),
-      earlyOpportunity:earlyRows.filter(row=>eligibleCodes.has(row.code)).slice(0,30)
+      earlyOpportunity:earlyRows.filter(row=>eligibleCodes.has(row.code)).slice(0,30),
+      catalystWatch,
+      negativeCatalystRisk
     },diagnosticRankings};
   snapshot.quality=quality;
   const finalSnapshot=applySnapshotQualityGate(snapshot);
