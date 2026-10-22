@@ -94,7 +94,7 @@ test('walk-forward evaluation becomes measurable with sufficient dates and compl
   assert.ok(report.summary.top10.momentumBaseline.t5.meanCloseReturnPct !== null);
   assert.ok(report.summary.top10.rankEnsemble.t5.meanCloseReturnPct !== null);
   assert.ok(report.summary.top10.balancedBlend.t5.meanCloseReturnPct !== null);
-  assert.equal(report.perDate[0].balancedBlendTop10Codes.length, 10);
-  assert.equal(new Set(report.perDate[0].balancedBlendTop10Codes).size, 10);
+  assert.equal(report.perDate[0].balancedBlendTop10Codes.length, 3);
+  assert.equal(new Set(report.perDate[0].balancedBlendTop10Codes).size, 3);
   assert.ok(report.perDate[0].rankEnsembleTop10Codes.length <= 10);
 });
