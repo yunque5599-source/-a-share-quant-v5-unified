@@ -213,6 +213,25 @@ function baseScore(f) {
   const nearBreakout = bandScore(f.distHigh20Pct, -9, 2, -28, 16);
   return clamp(0.55 * lowProximity + 0.45 * nearBreakout);
 }
+function earlyTurnScore(f) {
+  // Experimental low-base transition lane: reward a rebound from a nearby base,
+  // controlled volume expansion and improving participation before a full MA stack turns.
+  const lowProximity = bandScore(f.distLow20Pct, 4, 22, -2, 55);
+  const nearBreakout = bandScore(f.distHigh20Pct, -12, -1, -35, 6);
+  const rebound = ramp(f.r3Pct, -2, 8);
+  const volume = bandScore(f.volumeExpansion, 1.2, 2.6, 0.5, 5.5);
+  const flow = flowScore(f);
+  const sector = sectorScore(f);
+  let score = 0.30 * lowProximity + 0.15 * nearBreakout
+    + 0.22 * rebound + 0.18 * volume + 0.08 * flow + 0.07 * sector;
+  if (f.distLow20Pct > 40) score -= 15;
+  if (f.r10Pct > 30) score -= 12;
+  else if (f.r10Pct > 20) score -= 6;
+  if (f.currentPct > 7.5) score -= 8;
+  if (f.currentPct < -3) score -= 8;
+  if (f.volumeExpansion < 1.1) score -= 8;
+  return clamp(score);
+}
 function emotionRepairScore(f) {
   // Separate high-risk observation lane: recent limit-up history followed by a
   // sharp, high-attention selloff or an early recovery. This is not a buy signal.
@@ -328,13 +347,23 @@ function scoreCandidate(candidate, options = {}) {
   const base = baseScore(f);
   const repair = emotionRepairScore(f);
   const oversold = oversoldReversalScore(f);
+  const earlyTurn = earlyTurnScore(f);
   const risk = computeRisk(f, candidate);
   const coreGrossScore = 0.22 * trend + 0.20 * volumePrice + 0.20 * flow + 0.18 * sector + 0.12 * momentum + 0.08 * base;
-  const grossScore = Math.max(coreGrossScore, repair, oversold);
+  const modelVariant = options.modelVariant || 'v13-current';
+  const grossScore = modelVariant === 'v13-core-only'
+    ? coreGrossScore
+    : modelVariant === 'v13-early-turn'
+      ? Math.max(coreGrossScore, earlyTurn)
+      : Math.max(coreGrossScore, repair, oversold);
   const score = clamp(grossScore - risk.penalty);
-  const scorePath = grossScore === oversold && oversold > coreGrossScore && oversold > repair
-    ? 'oversold-reversal'
-    : repair > coreGrossScore && repair >= oversold ? 'emotion-repair' : 'trend-transition';
+  const scorePath = modelVariant === 'v13-current'
+    ? grossScore === oversold && oversold > coreGrossScore && oversold > repair
+      ? 'oversold-reversal'
+      : repair > coreGrossScore && repair >= oversold ? 'emotion-repair' : 'trend-transition'
+    : modelVariant === 'v13-early-turn' && earlyTurn > coreGrossScore
+      ? 'early-turn'
+      : 'trend-transition';
   const confidence = clamp(30
     + (f.bars.length >= 60 ? 20 : f.bars.length >= 40 ? 12 : 5)
     + (f.flowCount >= 5 ? 20 : f.flowCount >= 3 ? 12 : 0)
@@ -344,24 +373,30 @@ function scoreCandidate(candidate, options = {}) {
   const discoveryEligible = !risk.excluded;
   const executionEligible = discoveryEligible && allowedBoards.includes(board) && candidate.executionEligible !== false;
   const tradeabilityReason = !discoveryEligible ? risk.reason : executionEligible ? null : 'BOARD_OR_ACCOUNT_PERMISSION:' + board;
+  const setup = scorePath === 'early-turn'
+    ? '底部转强候选'
+    : modelVariant === 'v13-core-only'
+      ? classifySetup(f, -Infinity, -Infinity, coreGrossScore)
+      : classifySetup(f, repair, oversold, coreGrossScore);
   const riskFlags = [...risk.flags];
   if (f.flowCount < 3) riskFlags.push('资金流历史不足，资金评分置信度较低');
   if (f.sectorFieldsPresent < 2) riskFlags.push('题材/行业数据不足，板块评分为弱证据');
   if (f.bars.length < 40) riskFlags.push('K线样本少于40根');
   return {
     code: String(candidate.code || ''), name: String(candidate.name || candidate.code || ''),
-    board, asOf: f.asOf, price: Number(f.price.toFixed(4)), currentPct: Number(f.currentPct.toFixed(2)),
+    board, asOf: f.asOf, modelVariant,
+    price: Number(f.price.toFixed(4)), currentPct: Number(f.currentPct.toFixed(2)),
     score: Number(score.toFixed(1)), grossScore: Number(grossScore.toFixed(1)),
     riskPenalty: Number(risk.penalty.toFixed(1)), confidence: Number(confidence.toFixed(1)),
-    setup: classifySetup(f, repair, oversold, coreGrossScore), scorePath,
+    setup, scorePath,
     horizonTradingDays: [1, 5], discoveryEligible, executionEligible,
     tradeabilityReason,
     components: {
       trend: Number(trend.toFixed(1)), volumePrice: Number(volumePrice.toFixed(1)),
       flow: Number(flow.toFixed(1)), sector: Number(sector.toFixed(1)),
       momentum: Number(momentum.toFixed(1)), base: Number(base.toFixed(1)),
-      coreComposite: Number(coreGrossScore.toFixed(1)), emotionRepair: Number(repair.toFixed(1)),
-      oversoldReversal: Number(oversold.toFixed(1))
+      coreComposite: Number(coreGrossScore.toFixed(1)), earlyTurn: Number(earlyTurn.toFixed(1)),
+      emotionRepair: Number(repair.toFixed(1)), oversoldReversal: Number(oversold.toFixed(1))
     },
     riskFlags,
     features: {
@@ -390,5 +425,6 @@ function rankCandidates(candidates, options = {}) {
 
 export {
   boardForCode, deriveFeatures, scoreCandidate, rankCandidates,
-  trendScore, volumePriceScore, flowScore, sectorScore, momentumScore, baseScore, emotionRepairScore, oversoldReversalScore
+  trendScore, volumePriceScore, flowScore, sectorScore, momentumScore, baseScore,
+  earlyTurnScore, emotionRepairScore, oversoldReversalScore
 };
