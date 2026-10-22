@@ -1,0 +1,56 @@
+name: V13 walk-forward evaluation
+
+on:
+  push:
+    branches: [research/v13-limitup-precursor]
+    paths:
+      - '.github/workflows/v13-walk-forward-evaluation.yml'
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  evaluate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Find latest successful historical replay
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          RUN_ID=$(gh run list --repo "$GITHUB_REPOSITORY" --workflow v13-limitup-historical-replay.yml --branch research/v13-limitup-precursor --limit 20 --json databaseId,conclusion,createdAt --jq '[.[] | select(.conclusion == "success")] | sort_by(.createdAt) | last | .databaseId')
+          if [ -z "$RUN_ID" ] || [ "$RUN_ID" = "null" ]; then
+            echo "No successful V13 historical replay run found." >&2
+            exit 1
+          fi
+          echo "REPLAY_RUN_ID=$RUN_ID" >> "$GITHUB_ENV"
+          echo "Using replay run $RUN_ID"
+      - name: Download replay dataset artifact
+        env:
+          GH_TOKEN: \${{ github.token }}
+        run: |
+          mkdir -p output/v13-history-replay
+          gh run download "$REPLAY_RUN_ID" --repo "$GITHUB_REPOSITORY" --dir output/v13-history-replay
+          test -s output/v13-history-replay/replay_candidates.ndjson
+          test -s output/v13-history-replay/replay_report.json
+      - name: Evaluate point-in-time walk-forward performance
+        run: |
+          node research/v13-limitup-precursor/walk_forward_eval.js \
+            --input output/v13-history-replay/replay_candidates.ndjson \
+            --quality-report output/v13-history-replay/replay_report.json \
+            --signal-days 15 \
+            --output output/v13-history-replay/walk_forward_report.json
+      - name: Upload walk-forward report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v13-walk-forward-report
+          path: output/v13-history-replay/walk_forward_report.json
+          if-no-files-found: warn
+          retention-days: 30
