@@ -123,12 +123,12 @@ The qualified replay covered 5,897 of 5,922 current symbols (99.58% historical-b
 | Top-K ranking | T+5 mean close return | T+5 win rate | Limit-up hit precision within 5 sessions | Mean maximum adverse excursion |
 |---|---:|---:|---:|---:|
 | Balanced blend, top 10 | +1.79% | 50.79% | 21.27% | -6.56% |
-| Five-session momentum, top 10 | +0.63% | 43.50% | 38.51% | -11.92% |
+| Five-session momentum, top 10 | +0.62% | 43.59% | 38.39% | -11.92% |
 | V12 Early Opportunity, top 10 | +0.09% | 44.63% | 1.62% | -2.41% |
 | Emotion-repair watch, top 10 | -1.15% | 42.17% | 35.00% | -10.04% |
 | Current composite, top 10 | -0.46% | 42.69% | 5.67% | -4.95% |
-| Balanced blend, top 30 | -0.22% | 43.45% | 17.46% | -7.13% |
-| Five-session momentum, top 30 | -1.45% | 39.07% | 27.31% | -11.32% |
+| Balanced blend, top 30 | -0.22% | 43.47% | 17.42% | -7.13% |
+| Five-session momentum, top 30 | -1.40% | 39.31% | 27.64% | -11.23% |
 | V12 Early Opportunity, top 30 | +0.12% | 46.35% | 1.47% | -2.49% |
 | Emotion-repair watch, top 30 | -1.85% | 41.03% | 30.64% | -9.92% |
 
