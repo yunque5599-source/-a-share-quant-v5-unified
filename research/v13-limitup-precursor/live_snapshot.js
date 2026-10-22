@@ -325,14 +325,21 @@ export function validateLiveSnapshot(s={}){
   if(!s.asOf||!Number.isFinite(Date.parse(s.asOf)))reasons.push('asof-invalid');if(!Array.isArray(s.candidates)||s.candidates.length<50)reasons.push('candidate-count-insufficient');
   const q=s.quality??{};
   const deepCoverage=Number(q.deepSuccessPct),barCoverage=Number(q.barHistoryCoveragePct);
+  const flowSignalCoverage=Number(q.flowSignalCoveragePct);
   const psychologyCoverage=Number(q.psychologyCoveragePct),newsCoverage=Number(q.datedNewsCoveragePct);
-  if(!Number.isFinite(deepCoverage)||deepCoverage<90)reasons.push('deep-source-coverage-below-90-percent');
+  if(!Number.isFinite(deepCoverage))reasons.push('deep-source-coverage-metric-missing');
   if(!Number.isFinite(barCoverage)||barCoverage<90)reasons.push('bar-history-coverage-below-90-percent');
+  if(!Number.isFinite(flowSignalCoverage)||flowSignalCoverage<90)reasons.push('flow-signal-coverage-below-90-percent');
   if((!Number.isFinite(psychologyCoverage)||psychologyCoverage<70)&&(!Number.isFinite(newsCoverage)||newsCoverage<70))reasons.push('theme-psychology-and-dated-news-coverage-below-70-percent');
   if(q.rankedSourceDegraded||q.rankedSourceStale)reasons.push('ranked-source-degraded-or-stale');
   const valid=!reasons.length;
-  const status=!valid?'SOURCE_UNAVAILABLE':q.psychologyCoveragePct>=70?'CAPTURED':'CAPTURED_WITH_NEWS_FALLBACK';
-  return {valid,status,reasons, ...(status==='CAPTURED_WITH_NEWS_FALLBACK'?{warnings:['theme psychology unavailable; only timestamp-verified stock-news recency proxy was available']}:{})};
+  const flowFallback=Number.isFinite(deepCoverage)&&deepCoverage<90;
+  const newsFallback=(!Number.isFinite(psychologyCoverage)||psychologyCoverage<70)&&Number.isFinite(newsCoverage)&&newsCoverage>=70;
+  const status=!valid?'SOURCE_UNAVAILABLE':flowFallback&&newsFallback?'CAPTURED_WITH_FLOW_AND_NEWS_FALLBACK':flowFallback?'CAPTURED_WITH_FLOW_FALLBACK':newsFallback?'CAPTURED_WITH_NEWS_FALLBACK':'CAPTURED';
+  const warnings=[];
+  if(flowFallback)warnings.push('historical Eastmoney K-line-plus-flow coverage is below 90%; missing flow history uses a weak quote-time snapshot signal and reduced flow-score reliability');
+  if(newsFallback)warnings.push('theme psychology coverage is below 70%; only timestamp-verified headline news is available as fallback');
+  return {valid,status,reasons,...(warnings.length?{warnings}:{})};
 }
 export function isPreLimitUpCandidate(row={},early=null){
   const code=String(row.code??'');
