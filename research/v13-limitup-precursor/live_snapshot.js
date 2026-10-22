@@ -7,7 +7,7 @@ import { boardForCode, isRestrictedListingName, scoreCandidate, rankCandidates }
 import { computeEarlyOpportunity } from '../../research/v11-short-alpha/early_opportunity.js';
 import { fetchUniverse } from './historical_replay.js';
 
-const MODEL_VERSION = 'V13-live-psychology-catalyst-overlay-research-v1';
+const MODEL_VERSION = 'V13-live-psychology-catalyst-overlay-research-v2-wide-news';
 const n = v => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
 const clamp = (v, lo=0, hi=100) => Math.max(lo, Math.min(hi, v));
 const avg = xs => { const a=xs.filter(Number.isFinite); return a.length ? a.reduce((x,y)=>x+y,0)/a.length : null; };
