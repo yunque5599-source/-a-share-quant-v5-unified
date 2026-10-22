@@ -30,7 +30,7 @@ function laneRanks(rows, field, minimum = 0) {
     .sort((a, b) => Number(b.components?.[field]) - Number(a.components?.[field]) || b.confidence - a.confidence)
     .map(row => row.code);
 }
-function targetRows(targets, ranked, laneRanksByCode, measurable) {
+function targetRows(targets, ranked, laneRanksByCode, measurable, rankMetric = 'modelScore') {
   const indexByCode = new Map(ranked.map((row, index) => [row.code, { row, rank: index + 1 }]));
   return targets.map(target => {
     const hit = indexByCode.get(String(target.code));
@@ -46,7 +46,9 @@ function targetRows(targets, ranked, laneRanksByCode, measurable) {
       inTop10: measurable ? Boolean(hit && hit.rank <= 10) : null,
       inTop30: measurable ? Boolean(hit && hit.rank <= 30) : null,
       inTop50: measurable ? Boolean(hit && hit.rank <= 50) : null,
-      score: hit?.row.score ?? null,
+      score: rankMetric === 'modelScore' ? hit?.row.score ?? null : null,
+      rankMetric,
+      rankValue: rankMetric === 'r5Pct' ? hit?.row.features?.r5Pct ?? null : hit?.row.score ?? null,
       scorePath: hit?.row.scorePath ?? null,
       setup: hit?.row.setup ?? null,
       confidence: hit?.row.confidence ?? null,
@@ -108,11 +110,23 @@ export function evaluateHoldoutAudit(candidates, {
   const variantsReport = {};
   for (const key of reportVariants) {
     const ranked = rankedByVariant[key];
-    const audited = targetRows(targets, ranked, laneRanksByCode, measurable);
+    const rankMetric = key === 'momentumBaseline' ? 'r5Pct' : 'modelScore';
+    const audited = targetRows(targets, ranked, laneRanksByCode, measurable, rankMetric);
     const trueLimitUps = audited.filter(row => row.isTrueLimitUp);
     variantsReport[key] = {
-      top10: ranked.slice(0, 10).map((row, index) => ({ rank: index + 1, code: row.code, name: row.name, score: row.score, scorePath: row.scorePath, setup: row.setup })),
-      top30: ranked.slice(0, 30).map((row, index) => ({ rank: index + 1, code: row.code, name: row.name, score: row.score, scorePath: row.scorePath, setup: row.setup })),
+      rankMetric,
+      top10: ranked.slice(0, 10).map((row, index) => ({
+        rank: index + 1, code: row.code, name: row.name,
+        score: rankMetric === 'modelScore' ? row.score : null,
+        rankValue: rankMetric === 'r5Pct' ? row.features?.r5Pct ?? null : row.score,
+        scorePath: row.scorePath, setup: row.setup
+      })),
+      top30: ranked.slice(0, 30).map((row, index) => ({
+        rank: index + 1, code: row.code, name: row.name,
+        score: rankMetric === 'modelScore' ? row.score : null,
+        rankValue: rankMetric === 'r5Pct' ? row.features?.r5Pct ?? null : row.score,
+        scorePath: row.scorePath, setup: row.setup
+      })),
       trueLimitUpTargetCount: trueLimitUps.length,
       trueLimitUpTargetsTop10: measurable ? trueLimitUps.filter(row => row.inTop10).length : null,
       trueLimitUpTargetsTop30: measurable ? trueLimitUps.filter(row => row.inTop30).length : null,
