@@ -38,7 +38,7 @@ test('forward outcome labels are computed from bars strictly after the signal da
   stock.bars[40].high = prior * 1.21;
   stock.bars[40].low = prior * 0.99;
   const outcome = evaluateCandidateOutcome(stock, signalDate);
-  assert.equal(outcome.t1CloseReturnPct, 20);
+  assert.ok(Math.abs(outcome.t1CloseReturnPct - 20) < 1e-9);
   assert.equal(outcome.limitUpWithin1, true);
   assert.equal(outcome.futureBarsAvailable, 5);
 });
