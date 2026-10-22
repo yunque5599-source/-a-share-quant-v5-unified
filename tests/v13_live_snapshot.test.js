@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRows, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, flattenNewsPayload, buildStockNewsFallback } from '../research/v13-limitup-precursor/live_snapshot.js';
+import { parseRows, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, buildWideNewsCandidate, flattenNewsPayload, buildStockNewsFallback } from '../research/v13-limitup-precursor/live_snapshot.js';
 
 test('parsers exclude future-dated rows and sort history',()=>{
  const bars=parseRows(['2026-10-21,10,10.5,10.6,9.9,200,2100000,0,0,0,4.2','2026-10-19,9,9.2,9.3,8.9,100,920000,0,0,0,2.1','2026-10-22,10.5,11,11.1,10.4,300,3300000,0,0,0,5.1'],'bar','2026-10-21T05:00:00Z');
@@ -182,4 +182,18 @@ test('live industry fallback ranks sector breadth, limit-up participation and wi
  assert.ok(context.get('300001').leaderScore>context.get('600001').leaderScore);
  assert.equal(context.get('300001').industryMemberCount,3);
  assert.equal(context.get('300001').contextSource,'ranked-universe-cross-sectional-proxy');
+});
+
+
+test('wide-universe catalyst scan admits only dated positive headlines known at capture time',()=>{
+ const stock={code:'301102',name:'兆讯传媒',board:'CHINEXT',industry:'广告营销'};
+ const positive={title:'公司AI产品发布并推动新业务落地',publishedAt:'2026-10-21T00:30:00Z',url:'https://example.com/a'};
+ const future={title:'公司中标重大合同',publishedAt:'2026-10-22T08:00:00Z',url:'https://example.com/b'};
+ const result=buildWideNewsCandidate(stock,[positive,future],'2026-10-21T01:00:00Z');
+ assert.ok(result);
+ assert.equal(result.code,'301102');
+ assert.equal(result.datedNewsCount,1);
+ assert.equal(result.catalystEvidence.length,1);
+ assert.equal(buildWideNewsCandidate(stock,[future],'2026-10-21T01:00:00Z'),null);
+ assert.equal(buildWideNewsCandidate({...stock,name:'*ST风险'},[positive],'2026-10-21T01:00:00Z'),null);
 });
