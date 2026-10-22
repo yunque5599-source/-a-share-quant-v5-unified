@@ -39,7 +39,7 @@ function boardForCode(code) {
   const c = String(code || '').trim();
   if (/^688|^689/.test(c)) return 'STAR';
   if (/^300|^301/.test(c)) return 'CHINEXT';
-  if (/^[468]/.test(c) && !/^60/.test(c)) return 'BSE';
+  if (/^[48]/.test(c) || /^92/.test(c)) return 'BSE';
   if (/^60/.test(c)) return 'SH_MAIN';
   if (/^00|^001|^002|^003/.test(c)) return 'SZ_MAIN';
   return 'UNKNOWN';
