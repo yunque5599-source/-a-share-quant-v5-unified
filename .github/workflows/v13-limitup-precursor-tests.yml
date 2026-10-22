@@ -7,12 +7,14 @@ on:
       - 'research/v13-limitup-precursor/**'
       - 'tests/v13_limitup_precursor.test.js'
       - 'tests/v13_historical_replay.test.js'
+      - 'tests/v13_walk_forward_eval.test.js'
       - '.github/workflows/v13-limitup-precursor-tests.yml'
   pull_request:
     paths:
       - 'research/v13-limitup-precursor/**'
       - 'tests/v13_limitup_precursor.test.js'
       - 'tests/v13_historical_replay.test.js'
+      - 'tests/v13_walk_forward_eval.test.js'
       - '.github/workflows/v13-limitup-precursor-tests.yml'
   workflow_dispatch:
 
@@ -25,4 +27,4 @@ jobs:
         with:
           node-version: 22
       - name: Run precursor scorer tests
-        run: node --test tests/v13_limitup_precursor.test.js tests/v13_historical_replay.test.js
+        run: node --test tests/v13_limitup_precursor.test.js tests/v13_historical_replay.test.js tests/v13_walk_forward_eval.test.js
