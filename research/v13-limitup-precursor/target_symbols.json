@@ -1,10 +1,10 @@
 {
   "purpose": "Historical replay targets from the user's prior screenshots; holdout audit set, not training labels.",
-  "policy": "Do not tune weights to force these names to rank highly. For each symbol, replay only bars and information available before its observed limit-up session. The observed limit-up date must be independently verified before evaluation.",
+  "policy": "Do not tune weights to force these names to rank highly. Reconstruct the full eligible universe at the 2026-10-20 close and use only data known by that point. Do not use the 2026-10-21 outcome as a feature.",
   "targets": [
-    { "code": "301159", "name": "三维天地", "board": "CHINEXT", "auditStatus": "date_and_pre_limitup_bars_required" },
-    { "code": "300006", "name": "莱美药业", "board": "CHINEXT", "auditStatus": "date_and_pre_limitup_bars_required" },
-    { "code": "301102", "name": "兆讯传媒", "board": "CHINEXT", "auditStatus": "date_and_pre_limitup_bars_required" },
-    { "code": "301486", "name": "致尚科技", "board": "CHINEXT", "auditStatus": "date_and_pre_limitup_bars_required" }
+    { "code": "301159", "name": "三维天地", "board": "CHINEXT", "signalDate": "2026-10-20", "outcomeDate": "2026-10-21", "outcome": "limit_up_20.00_percent", "auditStatus": "historical_universe_replay_required" },
+    { "code": "300006", "name": "莱美药业", "board": "CHINEXT", "signalDate": "2026-10-20", "outcomeDate": "2026-10-21", "outcome": "limit_up_20.00_percent_after_large_selloff", "auditStatus": "historical_universe_replay_required" },
+    { "code": "301102", "name": "兆讯传媒", "board": "CHINEXT", "signalDate": "2026-10-20", "outcomeDate": "2026-10-21", "outcome": "limit_up_19.98_percent", "auditStatus": "historical_universe_replay_required" },
+    { "code": "301486", "name": "致尚科技", "board": "CHINEXT", "signalDate": "2026-10-20", "outcomeDate": "2026-10-21", "outcome": "large_gain_17.12_percent_not_closed_limit_up", "auditStatus": "historical_universe_replay_required" }
   ]
 }
