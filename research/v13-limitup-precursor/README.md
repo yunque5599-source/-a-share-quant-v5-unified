@@ -70,7 +70,7 @@ The replay writes:
 - `replay_ranked.json`: scored ranking.
 - `collector_diagnostics.json`: data-source and coverage diagnostics; `run_failure.json` records failures that occur after report generation.
 
-A replay is `MEASURABLE` only when at least 90% of the collected current universe has sufficient pre-cutoff bars and every date-specific audit target was scored. Otherwise it is `NOT_MEASURABLE`; top-k ranks are diagnostic only and recall fields remain unknown rather than being reported as zero. Audit targets are fetched first solely to improve diagnostic data availability; target identities never enter the score formula.
+A replay is `MEASURABLE` only when at least 90% of the collected current universe has sufficient pre-cutoff bars and every date-specific audit target was scored. Otherwise it is `NOT_MEASURABLE`; top-k ranks are diagnostic only and recall fields remain unknown rather than being reported as zero. Audit targets are fetched first solely to improve diagnostic data availability; target identities never enter the score formula. The replay workflow fails its quality gate when coverage is below 90%, and the walk-forward workflow falls back to the last known quality-qualified replay rather than treating a partial universe as valid evidence. A small separate quality-report artifact is also uploaded for future replay selection.
 
 ### Walk-forward evaluation
 
