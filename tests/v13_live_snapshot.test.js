@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRows, selectCandidateFunnel, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isPreLimitUpCandidate, interleaveCodes, flattenNewsPayload, buildStockNewsFallback } from '../research/v13-limitup-precursor/live_snapshot.js';
+import { parseRows, selectCandidateFunnel, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, flattenNewsPayload, buildStockNewsFallback } from '../research/v13-limitup-precursor/live_snapshot.js';
 
 test('parsers exclude future-dated rows and sort history',()=>{
  const bars=parseRows(['2026-10-21,10,10.5,10.6,9.9,200,2100000,0,0,0,4.2','2026-10-19,9,9.2,9.3,8.9,100,920000,0,0,0,2.1','2026-10-22,10.5,11,11.1,10.4,300,3300000,0,0,0,5.1'],'bar','2026-10-21T05:00:00Z');
@@ -135,4 +135,33 @@ test('timezone-naive A-share news timestamps are interpreted as China Standard T
  assert.equal(rows[1].usableAsPointInTimeCatalyst,false);
  assert.equal(rows[2].usableAsPointInTimeCatalyst,true);
  assert.equal(rows[2].publishedAt,'2026-10-20T16:00:00.000Z');
+});
+
+
+test('catalyst-confirmed ranking requires verified positive news and a pre-limit-up eligible technical candidate',()=>{
+ const base={code:'301102',name:'兆讯传媒',board:'CHINEXT',score:72,currentPct:3.2,
+  components:{trend:70,volumePrice:82,flow:65,sector:75},
+  features:{r3Pct:4.5,r5Pct:8.2}};
+ const candidate={code:'301102',name:'兆讯传媒',board:'CHINEXT',headlineCatalystScore:78,
+  headlineCatalystDirection:'positive',timestampVerified:true,preLimitUpEligible:true,
+  quote:{pct:3.2},base,catalystEvidence:[{title:'AI产品发布',publishedAt:'2026-10-22T01:00:00Z'}]};
+ const ranked=scoreCatalystConfirmed(candidate);
+ assert.ok(ranked);
+ assert.equal(ranked.code,'301102');
+ assert.ok(ranked.score>70);
+ assert.equal(scoreCatalystConfirmed({...candidate,timestampVerified:false}),null);
+ assert.equal(scoreCatalystConfirmed({...candidate,headlineCatalystDirection:'mixed'}),null);
+ assert.equal(scoreCatalystConfirmed({...candidate,preLimitUpEligible:false}),null);
+});
+
+test('catalyst blend reserves a limited share for event-confirmed candidates without duplicates',()=>{
+ const result=interleaveCatalystCodes(
+  ['A','B','C','D','E','F','G','H','I','J','K','L'],
+  ['X','Y','B','Z'],10,2
+ );
+ assert.equal(result.length,10);
+ assert.equal(new Set(result).size,10);
+ assert.ok(result.includes('X'));
+ assert.ok(result.includes('Y'));
+ assert.ok(result.includes('A'));
 });
