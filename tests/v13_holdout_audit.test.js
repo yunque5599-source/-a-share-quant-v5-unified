@@ -48,6 +48,7 @@ test('holdout audit ranks all variants before reading target outcomes and exclud
   assert.equal(report.variants.coreOnly.trueLimitUpTargetCount, 1);
   assert.equal(report.variants.earlyTurn.trueLimitUpTargetCount, 1);
   assert.equal(report.variants.momentumHybrid.trueLimitUpTargetCount, 1);
+  assert.equal(report.variants.rankEnsemble.trueLimitUpTargetCount, 1);
   assert.equal(report.variants.momentumBaseline.trueLimitUpTargetCount, 1);
   assert.equal(report.variants.v12EarlyOpportunity.trueLimitUpTargetCount, 1);
   assert.ok(Number.isFinite(report.variants.earlyTurn.targets[0].score));
@@ -72,7 +73,7 @@ test('holdout rank and score do not change when only post-cutoff bars change', (
   target.bars[40].high = priorClose * 1.22;
   target.bars[40].low = priorClose * 0.98;
   const second = evaluateHoldoutAudit(altered, { asOf, targets, sourceCoveragePct: 100 });
-  for (const variant of ['current', 'coreOnly', 'earlyTurn', 'momentumHybrid']) {
+  for (const variant of ['current', 'coreOnly', 'earlyTurn', 'momentumHybrid', 'rankEnsemble']) {
     assert.equal(first.variants[variant].targets[0].rank, second.variants[variant].targets[0].rank);
     assert.equal(first.variants[variant].targets[0].score, second.variants[variant].targets[0].score);
   }
