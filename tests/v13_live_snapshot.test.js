@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRows, isDailyBarCompleteAt, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, buildWideNewsCandidate, flattenNewsPayload, buildStockNewsFallback } from '../research/v13-limitup-precursor/live_snapshot.js';
+import { parseRows, isDailyBarCompleteAt, mapUniverseRowsToRankCandidates, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, buildWideNewsCandidate, flattenNewsPayload, buildStockNewsFallback } from '../research/v13-limitup-precursor/live_snapshot.js';
 
 test('parsers exclude future-dated rows and sort history',()=>{
  const bars=parseRows(['2026-10-21,10,10.5,10.6,9.9,200,2100000,0,0,0,4.2','2026-10-19,9,9.2,9.3,8.9,100,920000,0,0,0,2.1','2026-10-22,10.5,11,11.1,10.4,300,3300000,0,0,0,5.1'],'bar','2026-10-21T05:00:00Z');
@@ -205,4 +205,21 @@ test('live early-opportunity scoring treats the current session candle as partia
  assert.equal(isDailyBarCompleteAt('2026-10-22T06:59:00Z'),false); // 14:59 China time
  assert.equal(isDailyBarCompleteAt('2026-10-22T07:00:00Z'),true);  // 15:00 China time
  assert.equal(isDailyBarCompleteAt('invalid'),false);
+});
+
+
+test('degraded ranked feed can be replaced by a full-universe live quote candidate set',()=>{
+ const mapped=mapUniverseRowsToRankCandidates([
+  {code:'600001',name:'正常A',industry:'传媒',board:'SH_MAIN',price:10,pct:2.5,amount:100000000,turnoverRate:4,mainNet:5000000,mainPct:5},
+  {code:'300001',name:'正常B',industry:'传媒',board:'CHINEXT',price:12,pct:19.8,amount:200000000,turnoverRate:15,mainNet:30000000,mainPct:15},
+  {code:'000556',name:'PT南洋',industry:'其他',price:1,pct:5,amount:10000000,turnoverRate:2,mainNet:0,mainPct:0},
+  {code:'600002',name:'*ST风险',industry:'其他',price:2,pct:4,amount:10000000,turnoverRate:2,mainNet:0,mainPct:0},
+  {code:'600003',name:'缺价格',industry:'其他',price:null,pct:4,amount:10000000,turnoverRate:2,mainNet:0,mainPct:0}
+ ]);
+ assert.equal(mapped.length,2);
+ assert.equal(mapped[0].f100,'传媒');
+ assert.equal(mapped[0].f3,2.5);
+ assert.equal(mapped[0].f62,5000000);
+ assert.ok(mapped.every(row=>Number.isFinite(row.rankScore)));
+ assert.ok(mapped[1].rankScore>mapped[0].rankScore);
 });
