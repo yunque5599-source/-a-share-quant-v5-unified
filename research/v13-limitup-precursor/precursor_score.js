@@ -316,7 +316,7 @@ function rankCandidates(candidates, options = {}) {
     .sort((a, b) => b.score - a.score || b.confidence - a.confidence);
 }
 
-module.exports = {
+export {
   boardForCode, deriveFeatures, scoreCandidate, rankCandidates,
   trendScore, volumePriceScore, flowScore, sectorScore, momentumScore, baseScore
 };
