@@ -49,7 +49,13 @@ function heat(t){const f=n(t?.mainNetPct),c=n(t?.changePct),b=breadth(t);return 
 function newsTime(item){
   const v=item?.publishedAt??item?.publishTime??item?.date??item?.time??item?.datetime??item?.pubDate;
   if(typeof v==='number'){const ms=v<1e12?v*1000:v;return Number.isFinite(ms)?new Date(ms).toISOString():null;}
-  const ms=Date.parse(String(v??''));return Number.isFinite(ms)?new Date(ms).toISOString():null;
+  const raw=String(v??'').trim();
+  // Public A-share news feeds often omit a timezone; interpret these as China Standard Time,
+  // not the GitHub runner's local timezone (usually UTC).
+  const dateOnly=raw.match(/^(\d{4}-\d{2}-\d{2})$/);
+  const naive=raw.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?)$/);
+  const normalized=dateOnly?dateOnly[1]+'T00:00:00+08:00':naive?naive[1]+'T'+naive[2]+'+08:00':raw;
+  const ms=Date.parse(normalized);return Number.isFinite(ms)?new Date(ms).toISOString():null;
 }
 
 const POSITIVE_HEADLINE_RULES=[
