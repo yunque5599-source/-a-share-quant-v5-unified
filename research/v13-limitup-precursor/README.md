@@ -110,11 +110,11 @@ The held-out screenshot audit was run after ranking, with target labels excluded
 | Target | Current composite rank | Core-only rank | Early-turn rank | Best separate observation lane |
 |---|---:|---:|---:|---|
 | 三维天地 (301159) | 3,919 | 460 | 154 | Early-turn component rank 199 |
-| 莱美药业 (300006) | 4,033 | 3,115 | 4,311 | Emotion-repair watch rank 1 |
-| 兆讯传媒 (301102) | 895 | 4,924 | 2,818 | Oversold watch rank 389 |
-| 致尚科技 (301486) | 485 | 4,090 | 4,008 | Oversold watch rank 1,163; this was not a closed limit-up |
+| 莱美药业 (300006) | 4,025 | 3,090 | 4,299 | Emotion-repair watch rank 1 |
+| 兆讯传媒 (301102) | 895 | 4,922 | 2,818 | Oversold watch rank 389 |
+| 致尚科技 (301486) | 485 | 4,088 | 4,007 | Oversold watch rank 1,163; this was not a closed limit-up |
 
-None of the three true limit-up targets reached the top 30 in the current composite, core-only, early-turn, momentum-hybrid, cross-sectional rank-ensemble, raw five-session-momentum, or V12 Early Opportunity global rankings. The momentum-hybrid ranks were 625 (三维天地), 286 (莱美药业), 5,049 (兆讯传媒), and 4,394 (致尚科技); the cross-sectional rank-ensemble ranks were 509, 1,443, 4,458, and 5,175. The raw five-session-momentum ranks were 1,173, 44, 4,333, and 5,392; it surfaced 莱美药业 within the top 50 but missed the other three. V12 Early Opportunity ranks were 2,570, 5,249, 2,969, and 4,076 respectively. The emotion-repair lane surfaced 莱美药业 at rank 1, but its global rank was poor; the oversold lane still produced too many weak candidates. This is a model miss, not a successful prediction.
+None of the three true limit-up targets reached the top 30 in the current composite, core-only, early-turn, momentum-hybrid, cross-sectional rank-ensemble, raw five-session-momentum, or V12 Early Opportunity global rankings. The momentum-hybrid ranks were 623 (三维天地), 285 (莱美药业), 5,047 (兆讯传媒), and 4,392 (致尚科技); the cross-sectional rank-ensemble ranks were 509, 1,441, 4,456, and 5,173. The raw five-session-momentum ranks were 1,171, 42, 4,331, and 5,389; it surfaced 莱美药业 within the top 50 but missed the other three. V12 Early Opportunity ranks were 2,570, 5,246, 2,969, and 4,076 respectively. The emotion-repair lane surfaced 莱美药业 at rank 1, but its global rank was poor; the oversold lane still produced too many weak candidates. This is a model miss, not a successful prediction.
 
 ## 60-date walk-forward evaluation
 
@@ -140,10 +140,10 @@ The point-in-time logistic classifier used 60 eligible signal dates, with 40 tra
 
 | Ranking | Test top 10 T+5 return | Win rate | Limit-up hit precision | Test top 30 T+5 return | Top-30 limit-up precision |
 |---|---:|---:|---:|---:|---:|
-| Supervised limit-up classifier | -3.82% | 34.52% | 37.02% | -3.44% | 36.90% |
-| Raw five-session momentum | +1.55% | 42.23% | 32.33% | -2.09% | 22.41% |
+| Supervised limit-up classifier | -2.91% | 37.74% | 40.98% | -3.62% | 36.32% |
+| Raw five-session momentum | +1.50% | 42.59% | 31.85% | -1.93% | 23.67% |
 
-The classifier identifies more limit-up events in the test window, but the negative forward returns mean it is not a profitable standalone ranking. It ranked 莱美药业 #23 on the 2026-10-20 held-out signal close, but ranked 三维天地 #3,720 and 兆讯传媒 #5,252. It captured only one of the three true limit-up targets in the top 30.
+The classifier identifies more limit-up events in the test window, but the negative forward returns mean it is not a profitable standalone ranking. After excluding restricted PT/ST/delisting names, it ranked 莱美药业 #21 on the 2026-10-20 held-out signal close, but ranked 三维天地 #3,620 and 兆讯传媒 #5,185. It captured only one of the three true limit-up targets in the top 30.
 
 ## Held-out screenshot audit
 
@@ -151,16 +151,16 @@ Target labels were read only after rankings were computed. They are not used as 
 
 | Target | Current composite | Core-only | Early-turn | Momentum-hybrid | Rank-ensemble | Raw momentum | V12 Early Opportunity | Balanced blend | Supervised limit-up |
 |---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| 三维天地 (301159) | 3,919 | 460 | 154 | 625 | 509 | 1,173 | 2,570 | 1,939 | 3,720 |
-| 莱美药业 (300006) | 4,025 | 3,091 | 4,300 | 286 | 1,443 | 44 | 5,249 | 87 | 23 |
-| 兆讯传媒 (301102) | 895 | 4,924 | 2,818 | 5,049 | 4,458 | 4,333 | 2,969 | 3,665 | 5,252 |
-| 致尚科技 (301486) | 485 | 4,090 | 4,008 | 4,394 | 5,175 | 5,392 | 4,076 | 4,561 | 3,868 |
+| 三维天地 (301159) | 3,919 | 460 | 154 | 623 | 509 | 1,171 | 2,570 | 1,936 | 3,620 |
+| 莱美药业 (300006) | 4,025 | 3,090 | 4,299 | 285 | 1,441 | 42 | 5,246 | 83 | 21 |
+| 兆讯传媒 (301102) | 895 | 4,922 | 2,818 | 5,047 | 4,456 | 4,331 | 2,969 | 3,663 | 5,185 |
+| 致尚科技 (301486) | 485 | 4,088 | 4,007 | 4,392 | 5,173 | 5,389 | 4,076 | 4,559 | 3,859 |
 
 致尚科技 rose 17.12% but did not close limit-up. The technical-only rankings still miss 三维天地 and 兆讯传媒. The early-turn lane surfaces 三维天地 at #154, but that is a watchlist signal rather than a top-30 pick. The main missing information is timestamped catalyst/theme/news evidence; simply increasing oversold weight would create falling-knife false positives.
 
 ## Current experiment
 
-A separate supervised classifier for **T+5 close return of at least +3%** was evaluated alongside the limit-up classifier. On the 15-date test window, the positive-return model's top 10 had -1.13% mean T+5 close return, 35.42% win rate, and 16.76% positive-return precision; top 30 had -0.77% return, 37.12% win rate, and 20.91% positive-return precision. Raw five-session momentum performed better on this test window (+1.55% top-10 T+5 return and 37.51% positive-return precision). Therefore neither supervised model is currently a standalone buy-list engine.
+A separate supervised classifier for **T+5 close return of at least +3%** was evaluated alongside the limit-up classifier. On the 15-date test window, the positive-return model's top 10 had -1.33% mean T+5 close return, 35.26% win rate, and 19.11% positive-return precision; top 30 had -0.79% return, 37.29% win rate, and 21.48% positive-return precision. Raw five-session momentum performed better on this test window (+1.50% top-10 T+5 return and 37.04% positive-return precision). Therefore neither supervised model is currently a standalone buy-list engine.
 
 The V13 live snapshot experiment captures a 120-symbol funnel formed from consensus rank, price momentum, capital inflow and cross-rank agreement, requests historical bars/flows plus psychology/theme/news evidence, and writes an immutable timestamped artifact. The main 30-name shortlist interleaves raw five-session momentum and V12 Early Opportunity, and can reserve at most six slots for a separate catalyst-confirmed lane. When theme psychology is missing, the live scorer now derives a fallback sector proxy from the ranked-universe rows' current industry labels and daily moves: industry breadth, limit-up participation, within-industry leadership percentile and theme heat. This is explicitly a partial cross-sectional proxy, not full exchange sector breadth, and its coverage is recorded. A catalyst-confirmed candidate must have a timestamp-verified positive event headline, a valid technical base, and pass the pre-limit-up eligibility gate; its score combines the headline event class with trend, volume-price, flow, sector, price reaction and short momentum. Emotion-repair, oversold and negative-news scores remain distinct observation/risk lanes. The pre-limit-up gate excludes names already at least 75% of their board limit, up more than 25% over five sessions, more than 18% above the prior 20-day high, or classified as `extended`; excluded names remain in `diagnosticRankings`. PT, ST and delisting-status names are excluded from candidate scoring. Intraday daily bars are partial observations. Timezone-naive news timestamps are interpreted as China Standard Time; future or untimestamped headlines are not used as point-in-time catalyst evidence. The event taxonomy covers generic contracts/orders, earnings improvement, approvals, strategic deals, product launches/digital transformation, policy support, and negative regulatory/earnings/shareholder/operating risks. Generic news recency or count alone no longer boosts the main score. The event classifier and limited catalyst blend remain experimental, not a calibrated sentiment or profitability model, and have not been validated on a broad historical point-in-time news dataset. The latest completed market-hour capture on 2026-10-22 covered 120 funnel symbols: 95.83% had sufficient bar history, 79.17% had non-degraded Eastmoney K-line plus flow sources, 50% had successful psychology endpoint responses, 40% had mapped themes, and 99.17% had timestamped stock-news evidence. Because full K-line/flow coverage was below 90%, the snapshot was `SOURCE_UNAVAILABLE`; its actionable rankings were suppressed. Per-symbol K-line/flow retries have since been added, and tests pass, but a fresh market-hour capture is still required to see whether the source-quality gate clears. The snapshot code fails closed: if any quality gate fails, recommendation ranking arrays are empty and unfiltered rankings are preserved only under `diagnosticRankings`; the workflow uploads the diagnostic artifact and then fails. This prevents degraded-source ranks from being mistaken for a valid shortlist. The scheduled workflow is research-only and its cron triggers become active only if this workflow is present on the repository's default branch. This does not change the production app.
 
