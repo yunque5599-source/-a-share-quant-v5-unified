@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRows, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, buildWideNewsCandidate, flattenNewsPayload, buildStockNewsFallback } from '../research/v13-limitup-precursor/live_snapshot.js';
+import { parseRows, isDailyBarCompleteAt, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, buildWideNewsCandidate, flattenNewsPayload, buildStockNewsFallback } from '../research/v13-limitup-precursor/live_snapshot.js';
 
 test('parsers exclude future-dated rows and sort history',()=>{
  const bars=parseRows(['2026-10-21,10,10.5,10.6,9.9,200,2100000,0,0,0,4.2','2026-10-19,9,9.2,9.3,8.9,100,920000,0,0,0,2.1','2026-10-22,10.5,11,11.1,10.4,300,3300000,0,0,0,5.1'],'bar','2026-10-21T05:00:00Z');
@@ -196,4 +196,13 @@ test('wide-universe catalyst scan admits only dated positive headlines known at 
  assert.equal(result.catalystEvidence.length,1);
  assert.equal(buildWideNewsCandidate(stock,[future],'2026-10-21T01:00:00Z'),null);
  assert.equal(buildWideNewsCandidate({...stock,name:'*ST风险'},[positive],'2026-10-21T01:00:00Z'),null);
+});
+
+
+test('live early-opportunity scoring treats the current session candle as partial',()=>{
+ assert.equal(isDailyBarCompleteAt('2026-10-22T01:20:00Z'),true);  // 09:20 China time
+ assert.equal(isDailyBarCompleteAt('2026-10-22T02:30:00Z'),false); // 10:30 China time
+ assert.equal(isDailyBarCompleteAt('2026-10-22T06:59:00Z'),false); // 14:59 China time
+ assert.equal(isDailyBarCompleteAt('2026-10-22T07:00:00Z'),true);  // 15:00 China time
+ assert.equal(isDailyBarCompleteAt('invalid'),false);
 });
