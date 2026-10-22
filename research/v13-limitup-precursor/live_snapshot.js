@@ -57,7 +57,7 @@ export function mapUniverseRowsToRankCandidates(rows){
       rankHits:0,ranks:{fullUniverseSnapshot:0},board:stock.board??boardForCode(code),
       _source:'eastmoney-full-universe-live-quote-fallback'});
   }
-  return output;
+  return output.sort((a,b)=>b.rankScore-a.rankScore||String(a.f12).localeCompare(String(b.f12)));
 }
 export function selectCandidateFunnel(rows, limit=120) {
   const valid=(Array.isArray(rows)?rows:[]).filter(r=>/^(00|30|60|68)\d{4}$/.test(String(r?.f12??''))&&!isRestrictedListingName(r?.f14));
