@@ -435,11 +435,75 @@ function scoreCandidate(candidate, options = {}) {
     }
   };
 }
+function percentileRank(rows, getter) {
+  const values = rows.map((row, index) => ({ index, value: getter(row) }))
+    .filter(item => Number.isFinite(item.value))
+    .sort((a, b) => a.value - b.value);
+  const out = new Array(rows.length).fill(50);
+  if (values.length <= 1) return out;
+  let start = 0;
+  while (start < values.length) {
+    let end = start;
+    while (end + 1 < values.length && values[end + 1].value === values[start].value) end++;
+    const percentile = ((start + end) / 2) / (values.length - 1) * 100;
+    for (let i = start; i <= end; i++) out[values[i].index] = percentile;
+    start = end + 1;
+  }
+  return out;
+}
+
+function applyCrossSectionalRankEnsemble(rows) {
+  const features = {
+    r5: percentileRank(rows, row => row.features?.r5Pct),
+    r3: percentileRank(rows, row => row.features?.r3Pct),
+    r10: percentileRank(rows, row => row.features?.r10Pct),
+    trend: percentileRank(rows, row => row.components?.trend),
+    volumePrice: percentileRank(rows, row => row.components?.volumePrice),
+    flow: percentileRank(rows, row => row.components?.flow),
+    sector: percentileRank(rows, row => row.components?.sector)
+  };
+  return rows.map((row, index) => {
+    // Cross-sectional percentiles avoid saturating strong 5-day momentum at 100.
+    // Trend, volume, capital and sector are confirmation signals, not hard gates.
+    const grossScore = 0.50 * features.r5[index]
+      + 0.15 * features.r3[index]
+      + 0.10 * features.r10[index]
+      + 0.10 * features.trend[index]
+      + 0.06 * features.volumePrice[index]
+      + 0.06 * features.flow[index]
+      + 0.03 * features.sector[index];
+    const score = clamp(grossScore - row.riskPenalty);
+    return {
+      ...row,
+      modelVariant: 'v13-rank-ensemble',
+      score: Number(score.toFixed(2)),
+      grossScore: Number(grossScore.toFixed(2)),
+      scorePath: 'momentum-confirmed-rank',
+      setup: row.features?.r5Pct > 0 && row.components?.trend >= 55
+        ? '动量确认'
+        : row.components?.volumePrice >= 65 && row.features?.r3Pct > 0
+          ? '放量转强观察' : '综合观察',
+      components: {
+        ...row.components,
+        crossSectionalMomentum: Number(features.r5[index].toFixed(1)),
+        crossSectionalTrend: Number(features.trend[index].toFixed(1)),
+        crossSectionalVolumePrice: Number(features.volumePrice[index].toFixed(1)),
+        crossSectionalFlow: Number(features.flow[index].toFixed(1)),
+        crossSectionalSector: Number(features.sector[index].toFixed(1))
+      }
+    };
+  });
+}
+
 function rankCandidates(candidates, options = {}) {
-  return (Array.isArray(candidates) ? candidates : [])
+  const rows = (Array.isArray(candidates) ? candidates : [])
     .map(candidate => scoreCandidate(candidate, options))
-    .filter(result => result && result.discoveryEligible)
-    .sort((a, b) => b.score - a.score || b.confidence - a.confidence);
+    .filter(result => result && result.discoveryEligible);
+  if (options.modelVariant === 'v13-rank-ensemble') {
+    return applyCrossSectionalRankEnsemble(rows)
+      .sort((a, b) => b.score - a.score || b.confidence - a.confidence);
+  }
+  return rows.sort((a, b) => b.score - a.score || b.confidence - a.confidence);
 }
 
 export {
