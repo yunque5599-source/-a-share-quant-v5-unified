@@ -6,6 +6,7 @@ import psychologyHandler from '../../api/psychology_universe.js';
 import { boardForCode, isRestrictedListingName, scoreCandidate, rankCandidates } from './precursor_score.js';
 import { computeEarlyOpportunity } from '../../research/v11-short-alpha/early_opportunity.js';
 import { fetchUniverse } from './historical_replay.js';
+import { fetchUniverse } from './historical_replay.js';
 
 const MODEL_VERSION = 'V13-live-psychology-catalyst-overlay-research-v2-wide-news';
 const n = v => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
@@ -39,6 +40,25 @@ export function isDailyBarCompleteAt(timestamp){
   const get=type=>Number(parts.find(part=>part.type===type)?.value);
   const minuteOfDay=get('hour')*60+get('minute');
   return minuteOfDay<570||minuteOfDay>=900;
+}
+export function mapUniverseRowsToRankCandidates(rows){
+  const output=[];
+  for(const stock of Array.isArray(rows)?rows:[]){
+    const code=String(stock?.code??''),name=String(stock?.name??code);
+    if(!/^(00|30|60|68|43|83|87|92)\d{4}$/.test(code)||isRestrictedListingName(name))continue;
+    const price=n(stock.price),pct=n(stock.pct),amount=n(stock.amount),turnoverRate=n(stock.turnoverRate);
+    const mainNet=n(stock.mainNet);
+    const mainPct=n(stock.mainPct)??(amount>0&&mainNet!==null?mainNet/amount*100:null);
+    if(price===null||price<=0||pct===null)continue;
+    const momentumScore=clamp(50+pct*3);
+    const capitalScore=mainPct===null?45:clamp(50+mainPct*5);
+    output.push({f12:code,f14:name,f2:price,f3:pct,f6:amount,f8:turnoverRate,
+      f62:mainNet,f184:mainPct,f100:String(stock.industry??''),
+      rankScore:Number((0.60*momentumScore+0.40*capitalScore).toFixed(2)),
+      rankHits:0,ranks:{fullUniverseSnapshot:0},board:stock.board??boardForCode(code),
+      _source:'eastmoney-full-universe-live-quote-fallback'});
+  }
+  return output;
 }
 export function selectCandidateFunnel(rows, limit=120) {
   const valid=(Array.isArray(rows)?rows:[]).filter(r=>/^(00|30|60|68)\d{4}$/.test(String(r?.f12??''))&&!isRestrictedListingName(r?.f14));
@@ -415,13 +435,35 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const capturedAt=new Date().toISOString(),requestedAsOf=asOf||capturedAt;
   const dailyBarComplete=isDailyBarCompleteAt(capturedAt);
   const ranked=parseResult('ranked_candidates',await invoke(marketHandler,'/api/market?action=ranked_candidates'));
-  const raw=ranked?.data?.candidates??[];
+  let raw=ranked?.data?.candidates??[];
+  const fullUniverseFallback={attempted:false,used:false,error:null,universeCount:0,providerTotal:null,pageCount:null,segmentTotals:null};
+  let fullUniverseSnapshot=null;
+  if(ranked?.data?.degraded===true||ranked?.data?.serverStale===true||raw.length<300){
+    fullUniverseFallback.attempted=true;
+    try{
+      fullUniverseSnapshot=await fetchUniverse({concurrency:4,pageSize:100});
+      const fullRows=mapUniverseRowsToRankCandidates(fullUniverseSnapshot.rows);
+      if(fullRows.length<3000)throw new Error('full-universe quote fallback returned only '+fullRows.length+' usable rows');
+      raw=fullRows;
+      fullUniverseFallback.used=true;
+      fullUniverseFallback.universeCount=fullRows.length;
+      fullUniverseFallback.providerTotal=fullUniverseSnapshot.providerTotal;
+      fullUniverseFallback.pageCount=fullUniverseSnapshot.pageCount;
+      fullUniverseFallback.segmentTotals=fullUniverseSnapshot.segmentTotals??null;
+    }catch(error){
+      fullUniverseFallback.error=String(error?.message??error);
+      fullUniverseSnapshot=null;
+    }
+  }
+  const rankingSourceDegraded=!fullUniverseFallback.used&&ranked?.data?.degraded===true;
+  const rankingSourceStale=!fullUniverseFallback.used&&ranked?.data?.serverStale===true;
+  const rankingSourceMethod=fullUniverseFallback.used?'eastmoney-full-universe-live-quote-fallback':ranked?.data?.method??null;
   let funnel=selectCandidateFunnel(raw,candidateLimit);
   const seededNewsByCode=new Map();
   let wideNewsDiagnostics={enabled:false,reason:'not-requested'};
   if(wideNewsScan){
     try{
-      const universe=await fetchUniverse({concurrency:4,pageSize:100});
+      const universe=fullUniverseSnapshot??await fetchUniverse({concurrency:4,pageSize:100});
       const scan=await scanUniverseCatalystNews(universe.rows,capturedAt,{limit:60,concurrency:2,batchSize:8});
       wideNewsDiagnostics={...scan.diagnostics,providerTotal:universe.providerTotal,pageCount:universe.pageCount};
       const existing=new Set(funnel.map(row=>String(row.f12)));
@@ -456,6 +498,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     return {codes,deep,psych,deepError,psychError};
   });
   const deepByCode=new Map(),psychByCode=new Map(),psychSuccessCodes=new Set(),sourceErrors=[];
+  if(fullUniverseFallback.error)sourceErrors.push('full-universe-quote-fallback: '+fullUniverseFallback.error);
   for(const batch of batches){
     if(batch.deep) for(const item of batch.deep.items??[]) deepByCode.set(String(item.code??''),item);
     else sourceErrors.push('deep_batch: '+batch.deepError);
@@ -590,7 +633,8 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   }).filter(row=>row.code);
   const deepGood=records.filter(r=>r.source.klineSource==='eastmoney'&&r.source.flowSource==='eastmoney').length;
   const barsGood=records.filter(r=>r.source.barCount>=25).length,psychGood=records.filter(r=>r.psychology.available&&r.psychology.source!=='timestamped-stock-news-fallback').length;
-  const quality={rankedSourceDegraded:ranked?.data?.degraded===true,rankedSourceStale:ranked?.data?.serverStale===true,rankedSourceMethod:ranked?.data?.method??null,
+  const quality={rankedSourceDegraded:rankingSourceDegraded,rankedSourceStale:rankingSourceStale,rankedSourceMethod:rankingSourceMethod,
+    originalRankedSourceDegraded:ranked?.data?.degraded===true,originalRankedSourceMethod:ranked?.data?.method??null,
     rankedCandidateCount:raw.length,funnelCandidateCount:funnel.length,deepSuccessCount:deepGood,deepSuccessPct:+(deepGood/Math.max(1,funnel.length)*100).toFixed(2),
     industryContextCandidateCount:funnel.filter(row=>industryContextByCode.has(String(row.f12))).length,
     industryContextCoveragePct:+(funnel.filter(row=>industryContextByCode.has(String(row.f12))).length/Math.max(1,funnel.length)*100).toFixed(2),
@@ -608,10 +652,12 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const snapshot={schema:'v13-live-psychology-catalyst-snapshot-v1',modelVersion:MODEL_VERSION,
     snapshotId:'v13-'+capturedAt.replace(/[-:.TZ]/g,''),capturedAt,asOf:requestedAsOf,
     sourcePolicy:{provider:'Eastmoney public quote/history and psychology/theme/news endpoint',pointInTime:'captured-at-source',
-      futureDatedBarsExcluded:true,catalystOnlyUsedWhenNewsTimestampVerified:true,dailyBarCompleteAtCapture:dailyBarComplete,brokerConnected:false,automaticOrderPlacement:false},
+      futureDatedBarsExcluded:true,catalystOnlyUsedWhenNewsTimestampVerified:true,dailyBarCompleteAtCapture:dailyBarComplete,
+      rankedUniverseFallback:fullUniverseFallback.used?'eastmoney-full-universe-live-quote-fallback':null,
+      brokerConnected:false,automaticOrderPlacement:false},
     quality:{},coverage:{rawRankedCandidates:raw.length,funnelCandidates:funnel.length,scoredCandidates:rankedScores.length,
       preLimitUpEligibleCount:preLimitUpScores.length,earlyOpportunityCandidates:earlyRows.length,balancedBlendCount:balancedBlend.length,
-      wideNewsScan:wideNewsDiagnostics},
+      fullUniverseFallback,wideNewsScan:wideNewsDiagnostics},
     candidates:auditRecords,rankings:{
       overall,
       catalystConfirmed,
