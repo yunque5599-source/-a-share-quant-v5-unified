@@ -109,6 +109,10 @@ function deriveFeatures(candidate, options = {}) {
   const asOf = options.asOf || candidate.asOf || '';
   const bars = cleanDatedRows(candidate.bars, asOf, 'bar');
   const flows = cleanDatedRows(candidate.flows, asOf, 'flow');
+  const currentFlowSnapshot=candidate.currentFlowSnapshot??null;
+  const currentMainNet=num(currentFlowSnapshot?.mainNet);
+  const currentMainPct=num(currentFlowSnapshot?.mainPct);
+  const currentFlowAvailable=Number.isFinite(currentMainNet)||Number.isFinite(currentMainPct);
   if (bars.length < 25) return null;
 
   const latest = bars[bars.length - 1];
@@ -174,6 +178,7 @@ function deriveFeatures(candidate, options = {}) {
     volumeExpansion, priorVolumeCompression, closeLocation: clamp(closeLocation, 0, 1),
     gapPct, atrProxyPct, amount, turnoverRate, mainNet5, mainNet3, previousMainNet3,
     flowPositiveShare, mainFlowRatioPct, mainPctLatest, flowCount: flows.length,
+    currentMainNetSnapshot:currentMainNet,currentMainPctSnapshot:currentMainPct,currentFlowAvailable,
     recentLimitUp5Count, recentLimitUp10Count, recentStrongUp10Count,
     sectorFieldsPresent, sector
   };
@@ -200,13 +205,22 @@ function volumePriceScore(f) {
   return clamp(0.34 * expansion + 0.22 * f.closeLocation * 100 + 0.26 * breakout + 0.18 * compression);
 }
 function flowScore(f) {
-  if (f.flowCount === 0) return 45;
+  if (f.flowCount === 0) {
+    if(!f.currentFlowAvailable)return 45;
+    const direction=Number.isFinite(f.currentMainNetSnapshot)?(f.currentMainNetSnapshot>0?70:f.currentMainNetSnapshot<0?30:50):50;
+    const ratio=Number.isFinite(f.currentMainPctSnapshot)?ramp(f.currentMainPctSnapshot,-1.5,4.5):50;
+    const oneDay=0.55*direction+0.45*ratio;
+    // One quote-time observation is weak evidence; it cannot stand in for multi-day persistence.
+    return clamp(45+(oneDay-45)*0.30);
+  }
   const positive = Number.isFinite(f.flowPositiveShare) ? f.flowPositiveShare * 100 : 50;
   const ratio = ramp(f.mainFlowRatioPct, -1.5, 4.5);
   const acceleration = f.mainNet3 > f.previousMainNet3 ? 82 : f.mainNet3 > 0 ? 62 : 25;
   const persistence = f.mainNet5 > 0 ? 78 : 24;
   const latest = f.mainPctLatest > 0 ? 65 : f.mainPctLatest < 0 ? 35 : 50;
-  return clamp(0.28 * positive + 0.22 * ratio + 0.20 * acceleration + 0.18 * persistence + 0.12 * latest);
+  const raw=clamp(0.28*positive+0.22*ratio+0.20*acceleration+0.18*persistence+0.12*latest);
+  const sampleReliability=f.flowCount>=5?1:f.flowCount>=3?0.75:f.flowCount===2?0.55:0.35;
+  return clamp(45+(raw-45)*sampleReliability);
 }
 function sectorScore(f) {
   const s = f.sector || {};
