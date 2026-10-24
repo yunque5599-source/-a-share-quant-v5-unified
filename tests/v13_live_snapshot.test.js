@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRows, isDailyBarCompleteAt, mapUniverseRowsToRankCandidates, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, buildWideNewsCandidate, flattenNewsPayload, buildStockNewsFallback } from '../research/v13-limitup-precursor/live_snapshot.js';
+import { parseRows, isDailyBarCompleteAt, mapUniverseRowsToRankCandidates, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, buildWideNewsCandidate, flattenNewsPayload, buildStockNewsFallback, selectWideNewsScanUniverse } from '../research/v13-limitup-precursor/live_snapshot.js';
 
 test('parsers exclude future-dated rows and sort history',()=>{
  const bars=parseRows(['2026-10-21,10,10.5,10.6,9.9,200,2100000,0,0,0,4.2','2026-10-19,9,9.2,9.3,8.9,100,920000,0,0,0,2.1','2026-10-22,10.5,11,11.1,10.4,300,3300000,0,0,0,5.1'],'bar','2026-10-21T05:00:00Z');
@@ -226,4 +226,23 @@ test('degraded ranked feed can be replaced by a full-universe live quote candida
  assert.ok(mapped.every(row=>Number.isFinite(row.rankScore)));
  assert.ok(highMomentum.rankScore>normal.rankScore);
  assert.equal(mapped[0].f12,'300001');
+});
+
+
+test('wide catalyst news prescreen samples liquidity, flow, swing momentum and early daily moves across boards',()=>{
+ const rows=Array.from({length:100},(_,i)=>({
+  code:String(600000+i),name:'样本'+i,amount:100000000-i*100000,
+  mainNet:5000000-i*100000,mainPct:4-i*.03,pct60:30-i*.2,
+  pct:i%12,turnoverRate:3+(i%10)
+ }));
+ rows.push({code:'301159',name:'创业板样本',amount:25000000,mainNet:900000000,mainPct:22,pct60:120,pct:2.4,turnoverRate:8});
+ rows.push({code:'600999',name:'*ST风险',amount:999000000,mainNet:999000000,mainPct:99,pct60:200,pct:9,turnoverRate:30});
+ const result=selectWideNewsScanUniverse(rows,24);
+ assert.equal(result.rows.length,24);
+ assert.equal(new Set(result.rows.map(x=>x.code)).size,24);
+ assert.ok(result.rows.some(x=>x.code==='301159'));
+ assert.ok(!result.rows.some(x=>x.code==='600999'));
+ assert.ok(result.laneCounts.liquidity>0);
+ assert.ok(result.laneCounts['capital-inflow']>0);
+ assert.ok(result.laneCounts['swing-momentum']>0);
 });
