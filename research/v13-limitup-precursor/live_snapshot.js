@@ -386,8 +386,63 @@ export function buildWideNewsCandidate(stock, rawNews, capturedAt) {
   };
 }
 
-export async function scanUniverseCatalystNews(universeRows, capturedAt, {limit=60, concurrency=2, batchSize=8}={}) {
-  const stocks=Array.isArray(universeRows)?universeRows:[];
+export function selectWideNewsScanUniverse(universeRows, maxSymbols=320) {
+  const all=(Array.isArray(universeRows)?universeRows:[]).filter(row=>{
+    const code=String(row?.code??'');
+    const name=String(row?.name??'');
+    return /^\d{6}$/.test(code)&&!/ST|退|PT/i.test(name)&&Number.isFinite(Number(row?.amount))&&Number(row.amount)>0;
+  });
+  const lanes=[
+    ['liquidity', [...all].sort((a,b)=>(Number(b.amount)||0)-(Number(a.amount)||0))],
+    ['capital-inflow', all.filter(x=>Number(x.mainNet)>0).sort((a,b)=>(Number(b.mainNet)||0)-(Number(a.mainNet)||0))],
+    ['flow-ratio', all.filter(x=>Number(x.mainPct)>0).sort((a,b)=>(Number(b.mainPct)||0)-(Number(a.mainPct)||0))],
+    ['swing-momentum', all.filter(x=>Number.isFinite(Number(x.pct60))).sort((a,b)=>(Number(b.pct60)||0)-(Number(a.pct60)||0))],
+    ['early-daily-move', all.filter(x=>Number.isFinite(Number(x.pct))&&Number(x.pct)>=0&&Number(x.pct)<=8)
+      .sort((a,b)=>(Number(b.amount)||0)-(Number(a.amount)||0))],
+    ['active-turnover', all.filter(x=>Number.isFinite(Number(x.turnoverRate))&&Number(x.turnoverRate)>=2&&Number(x.turnoverRate)<=20)
+      .sort((a,b)=>(Number(b.amount)||0)-(Number(a.amount)||0))]
+  ];
+  const cap=Math.max(1,Math.min(800,Number(maxSymbols)||320));
+  const chosen=new Map(),counts={};
+  let cursor=0;
+  while(chosen.size<cap&&lanes.some(([,rows])=>rows.some(row=>!chosen.has(String(row.code))))){
+    let progressed=false;
+    for(const [lane,rows] of lanes){
+      while(cursor<rows.length&&chosen.has(String(rows[cursor].code)))cursor++;
+      // Use independent cursors per lane below; this branch is intentionally unused.
+      void lane;
+    }
+    for(const [lane,rows] of lanes){
+      let index=counts[lane+'_cursor']||0;
+      while(index<rows.length&&chosen.has(String(rows[index].code)))index++;
+      counts[lane+'_cursor']=index;
+      if(index>=rows.length)continue;
+      const row=rows[index];
+      counts[lane+'_cursor']=index+1;
+      const code=String(row.code);
+      if(!chosen.has(code)){chosen.set(code,{...row,wideNewsPrescreenLanes:[]});progressed=true;}
+      const entry=chosen.get(code);
+      if(entry&&!entry.wideNewsPrescreenLanes.includes(lane))entry.wideNewsPrescreenLanes.push(lane);
+      if(chosen.size>=cap)break;
+    }
+    if(!progressed)break;
+  }
+  if(chosen.size<cap){
+    for(const row of [...all].sort((a,b)=>(Number(b.amount)||0)-(Number(a.amount)||0))){
+      if(chosen.size>=cap)break;
+      const code=String(row.code);
+      if(!chosen.has(code))chosen.set(code,{...row,wideNewsPrescreenLanes:['liquidity-fill']});
+    }
+  }
+  return {rows:[...chosen.values()],universeCount:all.length,selectedCount:chosen.size,laneCounts:Object.fromEntries(
+    lanes.map(([lane])=>[lane,[...chosen.values()].filter(row=>row.wideNewsPrescreenLanes.includes(lane)).length])
+  )};
+}
+
+export async function scanUniverseCatalystNews(universeRows, capturedAt, {limit=60, concurrency=4, batchSize=8, maxScanSymbols=320}={}) {
+  const allStocks=Array.isArray(universeRows)?universeRows:[];
+  const prescreen=selectWideNewsScanUniverse(allStocks,maxScanSymbols);
+  const stocks=prescreen.rows;
   const stockByCode=new Map(stocks.map(row=>[String(row.code),row]));
   const groups=chunks(stocks,Math.max(1,Math.min(8,batchSize)));
   const failures=[];
@@ -416,7 +471,7 @@ export async function scanUniverseCatalystNews(universeRows, capturedAt, {limit=
     return sb-sa||b.datedNewsCount-a.datedNewsCount;
   });
   return {candidates:candidates.slice(0,Math.max(1,Math.min(100,limit))),
-    diagnostics:{enabled:true,universeCount:stocks.length,batchCount:groups.length,successfulSymbolCount,
+    diagnostics:{enabled:true,universeCount:allStocks.length,scannedSymbolCount:stocks.length,prescreenLaneCounts:prescreen.laneCounts,batchCount:groups.length,successfulSymbolCount,
       positiveCatalystCount:candidates.length,selectedCount:Math.min(candidates.length,Math.max(1,Math.min(100,limit))),
       failedBatchCount:failures.length,failures:failures.slice(0,20),
       policy:'Only timestamp-verified positive headlines at or before capturedAt; headline classifier is experimental.'}};
@@ -470,7 +525,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   if(wideNewsScan){
     try{
       const universe=fullUniverseSnapshot??await fetchUniverse({concurrency:4,pageSize:100});
-      const scan=await scanUniverseCatalystNews(universe.rows,capturedAt,{limit:60,concurrency:2,batchSize:8});
+      const scan=await scanUniverseCatalystNews(universe.rows,capturedAt,{limit:60,concurrency:4,batchSize:8,maxScanSymbols:320});
       wideNewsDiagnostics={...scan.diagnostics,providerTotal:universe.providerTotal,pageCount:universe.pageCount};
       const existing=new Set(funnel.map(row=>String(row.f12)));
       const candidates=scan.candidates.filter(row=>!existing.has(row.code)).slice(0,60);
