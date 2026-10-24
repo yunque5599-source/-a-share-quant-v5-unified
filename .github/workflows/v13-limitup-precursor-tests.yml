@@ -36,5 +36,7 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Check V13 endpoint and scanner syntax
+        run: node --check api/v13_prelimitup.js && node --check index.html && node --check research/v13-limitup-precursor/live_snapshot.js
       - name: Run V13 research tests
         run: node --test tests/v13_limitup_precursor.test.js tests/v13_historical_replay.test.js tests/v13_walk_forward_eval.test.js tests/v13_holdout_audit.test.js tests/v13_supervised_ranker.test.js tests/v13_live_snapshot.test.js
