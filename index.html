@@ -261,7 +261,7 @@ function preLimitupRow(row,index){
     '<span class="chip">'+preEsc(preLimitupLabel(row.scorePath))+'</span>',
     row.setup?'<span class="chip">'+preEsc(row.setup)+'</span>':'',
     row.primaryTheme?'<span class="chip">'+preEsc(row.primaryTheme)+'</span>':'',
-    row.executionEligible===true?'<span class="chip green">权限可用标记</span>':'<span class="chip amber">权限另核</span>'
+    '<span class="chip amber">研究观察·非买入信号</span>'
   ].join('');
   const evidenceHtml=evidence.map(item=>'<div class="small" style="margin-top:5px">催化：'+preEsc(item.title||'')+
     (item.publishedAt?' · '+preEsc(item.publishedAt):'')+'</div>').join('');
@@ -305,7 +305,7 @@ async function runPreLimitupWatch(){
     for(const r of repair){if(combined.length>=12)break;const code=String(r.code||'');if(code&&!seen.has(code)){seen.add(code);combined.push(r)}}
     $('preLimitupStatus').textContent='采集时间 '+(j.capturedAt||'—')+' · '+(j.scope||'V13研究观察')+
       (wide.failed?' · 宽新闻扫描失败：只保留实际已评分候选':'')+
-      (j.recommendationsAvailable===true?' · 质量门槛通过（仍非买入指令）':' · 质量门槛未通过/未授权执行，仅观察');
+      (j.qualityGatePassed===true?' · 数据质量门槛通过（仍仅研究观察）':' · 数据质量门槛未通过，仅观察');
     $('preLimitupList').innerHTML=combined.length?combined.map(preLimitupRow).join(''):
       '<div class="note danger">没有足够可靠的前瞻候选。不会为了凑名单降低门槛，也不会用历史涨停结果填充。</div>';
   }catch(error){
