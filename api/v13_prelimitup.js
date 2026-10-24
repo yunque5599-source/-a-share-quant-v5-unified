@@ -17,7 +17,7 @@ export default async function handler(req, res) {
   const startedAt = Date.now();
   try {
     const snapshot = await captureV13LiveSnapshot({
-      candidateLimit: 120,
+      candidateLimit: 90,
       wideNewsScan: true,
       out: '/tmp/v13-prelimitup-' + startedAt + '.json'
     });
