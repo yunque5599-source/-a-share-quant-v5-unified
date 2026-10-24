@@ -44,6 +44,7 @@ export default async function handler(req, res) {
     return json(res, 200, {
       schema: 'v13-prelimitup-watch-v1',
       status: snapshot?.recommendationsAvailable ? 'OBSERVATION_READY' : 'OBSERVATION_ONLY_QUALITY_GATE',
+      qualityGatePassed: snapshot?.recommendationsAvailable === true,
       recommendationsAvailable: false,
       executionAllowed: false,
       capturedAt: snapshot?.capturedAt ?? new Date().toISOString(),
