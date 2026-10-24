@@ -4,6 +4,8 @@ on:
     branches: [research/v13-limitup-precursor]
     paths:
       - 'research/v13-limitup-precursor/**'
+      - 'api/v13_prelimitup.js'
+      - 'index.html'
       - 'tests/v13_limitup_precursor.test.js'
       - 'tests/v13_historical_replay.test.js'
       - 'tests/v13_walk_forward_eval.test.js'
@@ -14,6 +16,8 @@ on:
   pull_request:
     paths:
       - 'research/v13-limitup-precursor/**'
+      - 'api/v13_prelimitup.js'
+      - 'index.html'
       - 'tests/v13_limitup_precursor.test.js'
       - 'tests/v13_historical_replay.test.js'
       - 'tests/v13_walk_forward_eval.test.js'
