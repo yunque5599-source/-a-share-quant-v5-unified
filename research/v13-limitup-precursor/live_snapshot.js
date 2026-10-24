@@ -404,14 +404,8 @@ export function selectWideNewsScanUniverse(universeRows, maxSymbols=320) {
   ];
   const cap=Math.max(1,Math.min(800,Number(maxSymbols)||320));
   const chosen=new Map(),counts={};
-  let cursor=0;
   while(chosen.size<cap&&lanes.some(([,rows])=>rows.some(row=>!chosen.has(String(row.code))))){
     let progressed=false;
-    for(const [lane,rows] of lanes){
-      while(cursor<rows.length&&chosen.has(String(rows[cursor].code)))cursor++;
-      // Use independent cursors per lane below; this branch is intentionally unused.
-      void lane;
-    }
     for(const [lane,rows] of lanes){
       let index=counts[lane+'_cursor']||0;
       while(index<rows.length&&chosen.has(String(rows[index].code)))index++;
