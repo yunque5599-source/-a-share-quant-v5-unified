@@ -46,6 +46,19 @@
     </div>
 
     <div class="card">
+      <div class="row between">
+        <div><b>涨停前瞻观察池（V13 研究通道）</b><div class="small">随“一键选股”启动，独立寻找未来1–5个交易日的趋势转强、情绪修复和有时间戳验证的题材催化。包含创业板等研究标的，但不改变主信号、仓位或下单权限。</div></div>
+        <button class="btn" id="preLimitupBtn" onclick="runPreLimitupWatch()">刷新前瞻</button>
+      </div>
+      <div class="status" id="preLimitupStatus">等待一键选股启动。该通道是研究观察，不是涨停保证。</div>
+      <div class="grid" id="preLimitupMetrics">
+        <div class="metric"><b>—</b><span>研究候选</span></div><div class="metric"><b>—</b><span>深扫覆盖</span></div><div class="metric"><b>—</b><span>时间戳催化</span></div><div class="metric"><b>未运行</b><span>数据状态</span></div>
+      </div>
+      <div id="preLimitupList" class="small" style="margin-top:10px">尚无前瞻排名。</div>
+      <div class="note" style="margin-top:10px"><b>使用边界：</b>榜单可能显示创业板/科创板/北交所股票用于发现机会；是否可交易由账户权限另行决定。数据质量门槛未通过时仅供观察，绝不自动生成买入指令。</div>
+    </div>
+
+    <div class="card">
       <div class="row between"><div><b>V12 心理/题材决策层</b><div class="small">独立于 V10 主信号运行，用真实题材、资金、龙头、新闻叙事、想象空间与群体情绪重新验证短线优势。证据不完整时只显示“证据不足”，不会强行生成买入信号。</div></div><button class="btn" id="v12Btn">运行 V12</button></div>
       <div class="status" id="v12Status">尚未运行。</div>
       <div id="v12Result" class="small" style="margin-top:10px">V12 尚未生成候选。</div>
@@ -224,7 +237,88 @@ function renderPrimary(x,reg){const p=planFor(x,reg),time=new Date().toLocaleStr
 function recordForwardSignal(x,reg){try{const p=planFor(x,reg);if(isPremarket()||!p.pass||!x?.dataDate||x.dataDate<'2026-09-22')return false;const key='v1019_forward',arr=JSON.parse(localStorage.getItem(key)||'[]');if(arr.some(z=>z.date===x.dataDate))return false;arr.push({model:'V10.2.4-S',date:x.dataDate,recordedAt:Date.now(),code:x.code,name:x.name,price:x.price,score:x.final,market:reg.label,shares:p.shares,actualPos:p.actualPos,stop:p.stop,stopPct:p.stopPct,actualRiskPct:p.actualRiskPct,target1:p.target1,target2:p.target2});localStorage.setItem(key,JSON.stringify(arr.slice(-120)));return true}catch{return false}}
 function renderCandidates(rows,reg){$('candidateList').innerHTML=rows.slice(0,3).map((x,i)=>`<div class="cand"><div><b>${i+1}. ${x.name} ${x.code}</b><div class="kicker">${x.industry} · 现价${x.price.toFixed(2)} · 涨跌${x.pct.toFixed(2)}% · 主力${money(x.mainNet)}</div><div class="chips"><span class="chip">R ${Math.round(x.rankScore||0)}</span><span class="chip">T ${x.T.toFixed(0)}</span><span class="chip green">F ${x.F.toFixed(0)}</span><span class="chip">行业 ${x.M.toFixed(0)}</span><span class="chip">新闻 ${x.N.toFixed(0)}</span>${(x.C||0)>0?`<span class="chip amber">追高-${x.C.toFixed(0)}</span>`:''}${x.news?.veto?'<span class="chip red">新闻否决</span>':''}</div></div><div class="score">${x.final.toFixed(1)}</div></div>`).join('')||'暂无候选。'}
 function renderNews(x){if(!x){$('newsBadge').textContent='—';$('newsList').textContent='暂无';return}$('newsBadge').textContent=`新闻分 ${x.N.toFixed(0)}`;$('newsList').innerHTML=(x.news?.items||[]).slice(0,5).map(n=>`<div class="news"><b>${n.title||'无标题'}</b><div>${n.date||''} ${n.source?'· '+n.source:''}</div></div>`).join('')||'<div class="small">未取得最新新闻，新闻因子按中性50分处理。</div>'}
-async function runScan(){const btn=$('scanBtn');btn.disabled=true;$('scanBar').style.width='2%';const pre=isPremarket();$('scanStatus').textContent=pre?'盘前模式：尝试读取最近成功排名池并复核最近收盘数据…':'读取全市场多因子排名…';$('shadowStatus').textContent=pre?'盘前影子观察：仅供参考，不写入前向样本。':'同步寻找强势突破影子候选…';try{const market=await loadRankedMarket((p,n)=>{$('scanBar').style.width=(2+Math.round(p/n*18))+'%';$('scanStatus').textContent='服务器生成全市场排名候选池…'});lastMarket=market;const filtered=hardFilter(market),reg=marketRegime(market);lastRegime=reg;const s1=stage1Score(filtered,reg),prodTop=s1.slice(0,30),prodCodes=new Set(prodTop.map(x=>x.code)),shadowPre=breakoutStage1Score(filtered).slice(0,8),shadowOnly=shadowPre.filter(x=>!prodCodes.has(x.code)).slice(0,5),shadowCodes=new Set(shadowOnly.map(x=>x.code)),scanSet=[...prodTop,...shadowOnly];$('scanMetrics').innerHTML=`<div class="metric"><b>${lastMarketMeta.total||'—'}</b><span>全市场排名基数</span></div><div class="metric"><b>${filtered.length}</b><span>可执行候选</span></div><div class="metric"><b>${prodTop.length}+${shadowOnly.length}</b><span>主模型+影子深扫</span></div><div class="metric"><b>${reg.label}</b><span>${reg.basis}</span></div>`;$('scanStatus').textContent=`深扫主模型30只 + 影子${shadowOnly.length}只：K线 + 资金持续性…`;const deepAll=await deepBatch(scanSet,(i,n,ok)=>{$('scanBar').style.width=(22+Math.round(i/n*50))+'%';$('scanStatus').textContent=`服务器深扫 ${i}/${n} · 成功${ok}`});const deep=deepAll.filter(x=>prodCodes.has(x.code)),shadowDeep=deepAll.filter(x=>shadowCodes.has(x.code));if(deep.length<8)throw Error('深度数据可用候选不足8只');lastDeep=deep;const shadowFinal=shadowFinalBase(shadowDeep);renderShadow(shadowFinal);recordShadowSignal(shadowFinal[0]);let base=finalBase(deep,reg);$('scanStatus').textContent='给主模型最强8只补最新新闻与风险词…';const final=await addNews(base,(i,n)=>{$('scanBar').style.width=(73+Math.round(i/n*24))+'%'});lastFinal=final;const primary=final[0];renderPrimary(primary,reg);renderCandidates(final,reg);renderNews(primary);recordForwardSignal(primary,reg);$('scanBar').style.width='100%';const cacheNote=lastMarketMeta.stale?(pre?` · 盘前使用最近成功候选池（约${(lastMarketMeta.staleAgeMin/60).toFixed(1)}小时前；仅观察不可执行）`:` · 排名池使用${Math.max(1,Math.round(lastMarketMeta.staleAgeMin||0))}分钟前缓存（约${Math.max(0,Math.round(lastMarketMeta.staleTradeAgeMin||0))}个交易分钟；深扫/新闻仍取当前数据）${freshnessBlocked()?' · 已触发新鲜度闸门':''}`):'',intradayNote=primary?.intraday?' · 盘中量能已按交易进度归一化':'';$('scanStatus').textContent=`完成：全市场排名基数${lastMarketMeta.total||'—'}只 → 多因子候选${lastMarketMeta.ranked}只 → 可执行${filtered.length}只 → 主模型深扫${deep.length}只 + 影子${shadowDeep.length}只 → ${pre?'盘前观察':'主信号'}${pre?'（不可执行）':planFor(primary,reg).pass?primary.code:'WAIT'}${cacheNote}${intradayNote}。`;try{localStorage.v10_last=JSON.stringify({time:Date.now(),reg,top:final.slice(0,5).map(x=>({code:x.code,name:x.name,price:x.price,final:x.final,T:x.T,F:x.F,M:x.M,N:x.N})),shadow:shadowFinal.slice(0,3).map(x=>({code:x.code,name:x.name,price:x.price,score:x.shadowFinal}))})}catch{}}catch(e){$('scanStatus').textContent='扫描失败：'+(e?.message||e);$('shadowStatus').textContent='影子通道本次未完成。';$('scanBar').style.width='0%'}finally{btn.disabled=false}}
+let preLimitupInFlight=false,preLimitupSequence=0;
+function preEsc(value){return String(value??'').replace(/[&<>"']/g,ch=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]))}
+function preLimitupLabel(path){
+  const labels={
+    'balanced-blend':'动量+早期机会',
+    'balanced-plus-catalyst-confirmed':'趋势+催化',
+    'timestamped-catalyst-confirmed':'时间戳催化',
+    'emotion-repair-observation':'情绪修复观察',
+    'oversold-observation':'超跌稳定观察',
+    'early-opportunity':'早期机会'
+  };
+  return labels[path]||String(path||'研究评分');
+}
+function preLimitupRow(row,index){
+  const q=row.quote||{},pct=Number(q.pct),price=Number(q.price),score=Number(row.score);
+  const pctText=Number.isFinite(pct)?(pct>0?'+':'')+pct.toFixed(2)+'%':'涨跌幅待核验';
+  const priceText=Number.isFinite(price)&&price>0?price.toFixed(2):'价格待核验';
+  const board=preEsc(row.board||'板块待核验');
+  const risk=(Array.isArray(row.riskFlags)?row.riskFlags:[]).slice(0,2);
+  const evidence=(Array.isArray(row.catalystEvidence)?row.catalystEvidence:[]).slice(0,1);
+  const chips=[
+    '<span class="chip">'+preEsc(preLimitupLabel(row.scorePath))+'</span>',
+    row.setup?'<span class="chip">'+preEsc(row.setup)+'</span>':'',
+    row.primaryTheme?'<span class="chip">'+preEsc(row.primaryTheme)+'</span>':'',
+    row.executionEligible===true?'<span class="chip green">权限可用标记</span>':'<span class="chip amber">权限另核</span>'
+  ].join('');
+  const evidenceHtml=evidence.map(item=>'<div class="small" style="margin-top:5px">催化：'+preEsc(item.title||'')+
+    (item.publishedAt?' · '+preEsc(item.publishedAt):'')+'</div>').join('');
+  const riskHtml=risk.length?'<div class="small" style="margin-top:5px">风险：'+risk.map(preEsc).join(' · ')+'</div>':'';
+  return '<div class="cand"><div><b>#'+(Number(row.rank)||index+1)+' '+preEsc(row.name||row.code)+' '+preEsc(row.code||'')+'</b>'+
+    '<div class="kicker">'+board+' · 参考价 '+priceText+' · 当日 '+pctText+' · '+(Number.isFinite(score)?score.toFixed(1)+'分':'评分缺失')+'</div>'+
+    '<div class="chips">'+chips+'</div>'+evidenceHtml+riskHtml+
+    '</div><div class="score">'+(Number.isFinite(score)?score.toFixed(1):'—')+'</div></div>';
+}
+async function runPreLimitupWatch(){
+  if(preLimitupInFlight)return;
+  preLimitupInFlight=true;const seq=++preLimitupSequence,btn=$('preLimitupBtn');
+  if(btn)btn.disabled=true;
+  $('preLimitupStatus').textContent='正在运行 V13 研究观察通道：趋势/情绪修复 + 时间戳催化扫描。该扫描可能比常规选股耗时更长。';
+  $('preLimitupList').textContent='正在收集候选与核验历史数据；不会使用演示名单。';
+  try{
+    const ctrl=new AbortController(),timer=setTimeout(()=>ctrl.abort(),65000);
+    let response;
+    try{response=await fetch('/api/v13_prelimitup',{signal:ctrl.signal,cache:'no-store',credentials:'same-origin'})}
+    finally{clearTimeout(timer)}
+    const txt=await response.text();let j=null;try{j=JSON.parse(txt)}catch{}
+    if(!response.ok)throw Error(j?.error||txt.slice(0,240)||('HTTP '+response.status));
+    if(seq!==preLimitupSequence)return;
+    const q=j.quality||{},coverage=j.coverage||{},wide=coverage.wideNewsScan||{};
+    $('preLimitupMetrics').innerHTML=
+      '<div class="metric"><b>'+earlyNum(coverage.funnelCandidates,0)+'</b><span>研究候选</span></div>'+
+      '<div class="metric"><b>'+earlyNum(q.deepSuccessPct,0)+'%</b><span>深扫覆盖</span></div>'+
+      '<div class="metric"><b>'+earlyNum(wide.positiveCatalystCount,0)+'</b><span>正向催化候选</span></div>'+
+      '<div class="metric"><b>'+(j.status==='OBSERVATION_READY'?'观察可用':j.status==='OBSERVATION_ONLY_QUALITY_GATE'?'质量门槛未通过':'数据异常')+'</b><span>数据状态</span></div>';
+    const rows=Array.isArray(j.ranking)?j.ranking:[];
+    const catalyst=Array.isArray(j.catalystRanking)?j.catalystRanking:[];
+    const seen=new Set(),combined=[];
+    // Keep the general ranking dominant, while reserving slots for separately ranked
+    // time-verified catalyst candidates that price/flow ranks might otherwise miss.
+    let i=0,k=0;
+    while(combined.length<12&&(i<rows.length||k<catalyst.length)){
+      if(i<rows.length){const r=rows[i++],code=String(r.code||'');if(code&&!seen.has(code)){seen.add(code);combined.push(r)}}
+      if(k<catalyst.length&&combined.length<12){const r=catalyst[k++],code=String(r.code||'');if(code&&!seen.has(code)){seen.add(code);combined.push(r)}}
+    }
+    const repair=Array.isArray(j.emotionRepair)?j.emotionRepair:[];
+    for(const r of repair){if(combined.length>=12)break;const code=String(r.code||'');if(code&&!seen.has(code)){seen.add(code);combined.push(r)}}
+    $('preLimitupStatus').textContent='采集时间 '+(j.capturedAt||'—')+' · '+(j.scope||'V13研究观察')+
+      (wide.failed?' · 宽新闻扫描失败：只保留实际已评分候选':'')+
+      (j.recommendationsAvailable===true?' · 质量门槛通过（仍非买入指令）':' · 质量门槛未通过/未授权执行，仅观察');
+    $('preLimitupList').innerHTML=combined.length?combined.map(preLimitupRow).join(''):
+      '<div class="note danger">没有足够可靠的前瞻候选。不会为了凑名单降低门槛，也不会用历史涨停结果填充。</div>';
+  }catch(error){
+    if(seq!==preLimitupSequence)return;
+    $('preLimitupStatus').textContent='前瞻扫描未完成：'+(error?.name==='AbortError'?'超过65秒，可能是全市场新闻源限流或扫描耗时过长':(error?.message||'未知错误'));
+    $('preLimitupMetrics').innerHTML='<div class="metric"><b>—</b><span>研究候选</span></div><div class="metric"><b>—</b><span>深扫覆盖</span></div><div class="metric"><b>—</b><span>正向催化候选</span></div><div class="metric"><b>失败</b><span>数据状态</span></div>';
+    $('preLimitupList').innerHTML='<div class="note danger">本轮没有获得可验证的前瞻榜单。主信号不受影响；请稍后刷新前瞻，不能将扫描失败视为无机会。</div>';
+  }finally{
+    preLimitupInFlight=false;if(btn)btn.disabled=false;
+  }
+}
+
+async function runScan(){const btn=$('scanBtn');btn.disabled=true;$('scanBar').style.width='2%';const pre=isPremarket();$('scanStatus').textContent=pre?'盘前模式：尝试读取最近成功排名池并复核最近收盘数据…':'读取全市场多因子排名…';$('shadowStatus').textContent=pre?'盘前影子观察：仅供参考，不写入前向样本。':'同步寻找强势突破影子候选…';try{const market=await loadRankedMarket((p,n)=>{$('scanBar').style.width=(2+Math.round(p/n*18))+'%';$('scanStatus').textContent='服务器生成全市场排名候选池…'});lastMarket=market;const filtered=hardFilter(market),reg=marketRegime(market);lastRegime=reg;const s1=stage1Score(filtered,reg),prodTop=s1.slice(0,30),prodCodes=new Set(prodTop.map(x=>x.code)),shadowPre=breakoutStage1Score(filtered).slice(0,8),shadowOnly=shadowPre.filter(x=>!prodCodes.has(x.code)).slice(0,5),shadowCodes=new Set(shadowOnly.map(x=>x.code)),scanSet=[...prodTop,...shadowOnly];$('scanMetrics').innerHTML=`<div class="metric"><b>${lastMarketMeta.total||'—'}</b><span>全市场排名基数</span></div><div class="metric"><b>${filtered.length}</b><span>可执行候选</span></div><div class="metric"><b>${prodTop.length}+${shadowOnly.length}</b><span>主模型+影子深扫</span></div><div class="metric"><b>${reg.label}</b><span>${reg.basis}</span></div>`;$('scanStatus').textContent=`深扫主模型30只 + 影子${shadowOnly.length}只：K线 + 资金持续性…`;const deepAll=await deepBatch(scanSet,(i,n,ok)=>{$('scanBar').style.width=(22+Math.round(i/n*50))+'%';$('scanStatus').textContent=`服务器深扫 ${i}/${n} · 成功${ok}`});const deep=deepAll.filter(x=>prodCodes.has(x.code)),shadowDeep=deepAll.filter(x=>shadowCodes.has(x.code));if(deep.length<8)throw Error('深度数据可用候选不足8只');lastDeep=deep;const shadowFinal=shadowFinalBase(shadowDeep);renderShadow(shadowFinal);recordShadowSignal(shadowFinal[0]);let base=finalBase(deep,reg);$('scanStatus').textContent='给主模型最强8只补最新新闻与风险词…';const final=await addNews(base,(i,n)=>{$('scanBar').style.width=(73+Math.round(i/n*24))+'%'});lastFinal=final;const primary=final[0];renderPrimary(primary,reg);renderCandidates(final,reg);renderNews(primary);recordForwardSignal(primary,reg);$('scanBar').style.width='100%';void runPreLimitupWatch();const cacheNote=lastMarketMeta.stale?(pre?` · 盘前使用最近成功候选池（约${(lastMarketMeta.staleAgeMin/60).toFixed(1)}小时前；仅观察不可执行）`:` · 排名池使用${Math.max(1,Math.round(lastMarketMeta.staleAgeMin||0))}分钟前缓存（约${Math.max(0,Math.round(lastMarketMeta.staleTradeAgeMin||0))}个交易分钟；深扫/新闻仍取当前数据）${freshnessBlocked()?' · 已触发新鲜度闸门':''}`):'',intradayNote=primary?.intraday?' · 盘中量能已按交易进度归一化':'';$('scanStatus').textContent=`完成：全市场排名基数${lastMarketMeta.total||'—'}只 → 多因子候选${lastMarketMeta.ranked}只 → 可执行${filtered.length}只 → 主模型深扫${deep.length}只 + 影子${shadowDeep.length}只 → ${pre?'盘前观察':'主信号'}${pre?'（不可执行）':planFor(primary,reg).pass?primary.code:'WAIT'}${cacheNote}${intradayNote}。`;try{localStorage.v10_last=JSON.stringify({time:Date.now(),reg,top:final.slice(0,5).map(x=>({code:x.code,name:x.name,price:x.price,final:x.final,T:x.T,F:x.F,M:x.M,N:x.N})),shadow:shadowFinal.slice(0,3).map(x=>({code:x.code,name:x.name,price:x.price,score:x.shadowFinal}))})}catch{}}catch(e){$('scanStatus').textContent='扫描失败：'+(e?.message||e);$('shadowStatus').textContent='影子通道本次未完成。';$('scanBar').style.width='0%'}finally{btn.disabled=false}}
 function quoteUrl(code){const p=new URLSearchParams({secid:secid(code),fields:'f43,f57,f58,f169,f170,f46,f44,f45,f47,f48,f60,f62,f184,f168,f100',fltt:'2',invt:'2'});return'https://push2.eastmoney.com/api/qt/stock/get?'+p}
 async function getV12Holding(code){
   try{
