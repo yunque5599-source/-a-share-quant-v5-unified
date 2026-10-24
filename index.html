@@ -251,9 +251,11 @@ function preLimitupLabel(path){
   return labels[path]||String(path||'研究评分');
 }
 function preLimitupRow(row,index){
-  const q=row.quote||{},pct=Number(q.pct),price=Number(q.price),score=Number(row.score);
-  const pctText=Number.isFinite(pct)?(pct>0?'+':'')+pct.toFixed(2)+'%':'涨跌幅待核验';
-  const priceText=Number.isFinite(price)&&price>0?price.toFixed(2):'价格待核验';
+  const q=row.quote||{},pctRaw=q.pct,priceRaw=q.price,scoreRaw=row.score;
+  const pct=Number(pctRaw),price=Number(priceRaw),score=Number(scoreRaw);
+  const pctText=pctRaw!==null&&pctRaw!==undefined&&pctRaw!==''&&Number.isFinite(pct)?(pct>0?'+':'')+pct.toFixed(2)+'%':'涨跌幅待核验';
+  const priceText=priceRaw!==null&&priceRaw!==undefined&&priceRaw!==''&&Number.isFinite(price)&&price>0?price.toFixed(2):'价格待核验';
+  const scoreText=scoreRaw!==null&&scoreRaw!==undefined&&scoreRaw!==''&&Number.isFinite(score)?score.toFixed(1)+'分':'评分缺失';
   const board=preEsc(row.board||'板块待核验');
   const risk=(Array.isArray(row.riskFlags)?row.riskFlags:[]).slice(0,2);
   const evidence=(Array.isArray(row.catalystEvidence)?row.catalystEvidence:[]).slice(0,1);
@@ -267,9 +269,9 @@ function preLimitupRow(row,index){
     (item.publishedAt?' · '+preEsc(item.publishedAt):'')+'</div>').join('');
   const riskHtml=risk.length?'<div class="small" style="margin-top:5px">风险：'+risk.map(preEsc).join(' · ')+'</div>':'';
   return '<div class="cand"><div><b>#'+(Number(row.rank)||index+1)+' '+preEsc(row.name||row.code)+' '+preEsc(row.code||'')+'</b>'+
-    '<div class="kicker">'+board+' · 参考价 '+priceText+' · 当日 '+pctText+' · '+(Number.isFinite(score)?score.toFixed(1)+'分':'评分缺失')+'</div>'+
+    '<div class="kicker">'+board+' · 参考价 '+priceText+' · 当日 '+pctText+' · '+scoreText+'</div>'+
     '<div class="chips">'+chips+'</div>'+evidenceHtml+riskHtml+
-    '</div><div class="score">'+(Number.isFinite(score)?score.toFixed(1):'—')+'</div></div>';
+    '</div><div class="score">'+(scoreRaw!==null&&scoreRaw!==undefined&&scoreRaw!==''&&Number.isFinite(score)?score.toFixed(1):'—')+'</div></div>';
 }
 async function runPreLimitupWatch(){
   if(preLimitupInFlight)return;
