@@ -396,8 +396,8 @@ export function selectWideNewsScanUniverse(universeRows, maxSymbols=320) {
     ['liquidity', [...all].sort((a,b)=>(Number(b.amount)||0)-(Number(a.amount)||0))],
     ['capital-inflow', all.filter(x=>Number(x.mainNet)>0).sort((a,b)=>(Number(b.mainNet)||0)-(Number(a.mainNet)||0))],
     ['flow-ratio', all.filter(x=>Number(x.mainPct)>0).sort((a,b)=>(Number(b.mainPct)||0)-(Number(a.mainPct)||0))],
-    ['swing-momentum', all.filter(x=>Number.isFinite(Number(x.pct60))).sort((a,b)=>(Number(b.pct60)||0)-(Number(a.pct60)||0))],
-    ['early-daily-move', all.filter(x=>Number.isFinite(Number(x.pct))&&Number(x.pct)>=0&&Number(x.pct)<=8)
+    ['swing-momentum', all.filter(x=>x.pct60!==null&&x.pct60!==undefined&&Number.isFinite(Number(x.pct60))).sort((a,b)=>(Number(b.pct60)||0)-(Number(a.pct60)||0))],
+    ['early-daily-move', all.filter(x=>x.pct!==null&&x.pct!==undefined&&Number.isFinite(Number(x.pct))&&Number(x.pct)>=0&&Number(x.pct)<=8)
       .sort((a,b)=>(Number(b.amount)||0)-(Number(a.amount)||0))],
     ['active-turnover', all.filter(x=>Number.isFinite(Number(x.turnoverRate))&&Number(x.turnoverRate)>=2&&Number(x.turnoverRate)<=20)
       .sort((a,b)=>(Number(b.amount)||0)-(Number(a.amount)||0))]
