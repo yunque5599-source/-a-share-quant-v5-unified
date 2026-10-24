@@ -23,7 +23,7 @@ const MARKET_SEGMENTS = [
   { key: 'STAR', fs: 'm:1+t:23' },
   { key: 'BSE', fs: 'm:0+t:81' }
 ];
-const MARKET_FIELDS = 'f12,f14,f2,f3,f6,f8,f62,f184,f100';
+const MARKET_FIELDS = 'f12,f14,f2,f3,f6,f8,f10,f20,f24,f62,f184,f100';
 const USER_AGENT = 'Mozilla/5.0 AShareQuant/V13-historical-replay';
 const TARGETS_PATH = resolve('research/v13-limitup-precursor/target_symbols.json');
 
@@ -213,7 +213,8 @@ export async function fetchUniverse({ concurrency = 4, pageSize = 100, priorityC
         industry: String(row?.f100 ?? '').trim(),
         board: boardForCode(code),
         price: asNumber(row?.f2), pct: asNumber(row?.f3),
-        amount: asNumber(row?.f6), turnoverRate: asNumber(row?.f8),
+        amount: asNumber(row?.f6), turnoverRate: asNumber(row?.f8), volumeRatio: asNumber(row?.f10),
+        marketCap: asNumber(row?.f20), pct60: asNumber(row?.f24),
         mainNet: asNumber(row?.f62), mainPct: asNumber(row?.f184)
       });
     }
