@@ -4,7 +4,7 @@
 
 Rank A-share candidates that may enter a strong 1–5 trading-day move before a limit-up event. The target is earlier discovery, not simply selecting stocks that have already risen the most. This is an experimental ranking model, not a calibrated probability model and not a promise to predict limit-ups.
 
-This module is isolated from the production page, market API, current execution rules, and automatic trading. It must be evaluated in historical replay before any UI or execution integration.
+The V13 scoring layer remains research-only. On this research branch, the page has an optional one-click observation panel backed by `/api/v13_prelimitup`; it does not alter the primary V10 signal, sizing, stops, or order execution. The panel is not deployed to the default branch.
 
 ## Why the design differs from the current one-click screen
 
@@ -62,7 +62,7 @@ target_symbols.json records the four screenshot names as holdout replay targets 
 
 ## Historical replay artifacts and quality gate
 
-Run the full-universe historical collector manually from GitHub Actions using **V13 historical limit-up replay**. It uses conservative request concurrency by default to reduce upstream throttling.
+Run the full-universe historical collector manually from GitHub Actions using **V13 historical limit-up replay**. It uses conservative request concurrency by default to reduce upstream throttling. For live observation, the one-click panel uses a bounded 320-symbol timestamped-news prescreen diversified across liquidity, capital inflow, swing momentum, daily move and turnover, then deep-scans at most 90 base candidates plus up to 20 catalyst additions. This bounded scan is a recall/latency compromise, not an exhaustive news search of every listed company.
 
 The replay writes:
 - `replay_report.json`: ranks, target audit, coverage, and a `validation` status.
