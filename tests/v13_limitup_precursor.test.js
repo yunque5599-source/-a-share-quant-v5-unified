@@ -243,3 +243,23 @@ test('PT, ST, and delisting-status names are excluded from discovery',()=>{
   assert.equal(result.tradeabilityReason,'ST_OR_DELISTING');
  }
 });
+
+
+test('policy-aware ranking exposes policy evidence and adapts to market regime without replacing the core score', () => {
+  const candidate = makeCandidate({ code: '301159', name: '三维天地', strong: true });
+  candidate.policyAlignment = {
+    score: 96,
+    evidenceAvailable: true,
+    matchedThemes: [{ label: '人工智能/算力', score: 96, policy: { title: '官方政策', url: 'https://example.gov.cn/policy' } }]
+  };
+  candidate.marketRegime = { regime: 'risk-on', label: '风险偏好回升', dataQuality: 'multi-index-with-ranked-candidate-sample' };
+  const core = scoreCandidate(candidate, { modelVariant: 'v13-core-only' });
+  const aware = scoreCandidate(candidate, { modelVariant: 'v13-policy-aware' });
+  assert.ok(core && aware);
+  assert.equal(aware.modelVariant, 'v13-policy-aware');
+  assert.equal(aware.policyAlignment.evidenceAvailable, true);
+  assert.equal(aware.marketRegime.regime, 'risk-on');
+  assert.ok(Number.isFinite(aware.components.policyAlignment));
+  assert.ok(Number.isFinite(aware.components.marketFit));
+  assert.ok(aware.score >= core.score);
+});
