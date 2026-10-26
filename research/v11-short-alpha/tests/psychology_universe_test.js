@@ -9,7 +9,8 @@ const {
   isThemeMemberRow,
   isNarrativeTheme,
   themeStrength,
-  summarizeSourceCoverage
+  summarizeSourceCoverage,
+  parseTencentCandidateQuotes
 } = universe;
 
 test('concept ranking accepts Eastmoney BK concept-board codes and requires price change', () => {
@@ -103,4 +104,38 @@ test('source coverage remains available with populated source families and parti
   });
   assert.equal(result.degraded, false);
   assert.equal(result.status, 'SOURCE_COVERAGE_AVAILABLE');
+});
+
+
+test('Tencent quote fallback parses requested symbols, computes return and retains quote timestamp', () => {
+  const raw = [
+    'v_sz000001="1~平安银行~000001~10.50~10.00~10.01~100000~50000~50000~10.49~100~10.48~200~10.51~100~10.52~200~10.53~300~10.54~100~10.55~200~10.56~300~10.57~400~2026/10/26~15:00:00~00";',
+    'v_sh600000="1~浦发银行~600000~8.20~8.00~8.01~100000~50000~50000~8.19~100~8.18~200~8.21~100~8.22~200~8.23~300~8.24~100~8.25~200~8.26~300~8.27~400~2026/10/26~15:00:00~00";',
+    'v_sz300001="1~不请求的股票~300001~20.00~19.00~19.01~100000~50000~50000~19.99~100~19.98~200~20.01~100~20.02~200~20.03~300~20.04~100~20.05~200~20.06~300~20.07~400~2026/10/26~15:00:00~00";'
+  ].join('');
+  const result = parseTencentCandidateQuotes(raw, ['000001','600000']);
+  assert.equal(result.size, 2);
+  assert.equal(result.get('000001').name, '平安银行');
+  assert.equal(result.get('000001').pct, 5);
+  assert.equal(result.get('000001').source, 'tencent');
+  assert.equal(result.get('000001').quoteTimestamp, Math.floor(Date.parse('2026-10-26T15:00:00+08:00') / 1000));
+  assert.equal(result.has('300001'), false);
+});
+
+test('Tencent quote fallback ignores rows with missing or invalid previous close', () => {
+  const raw = [
+    'v_sz000001="1~平安银行~000001~10.50~0~10.01~100000~2026/10/26~15:00:00~00";',
+    'v_sh600000="1~浦发银行~600000~N/A~8.00~8.01~100000~2026/10/26~15:00:00~00";'
+  ].join('');
+  assert.equal(parseTencentCandidateQuotes(raw, ['000001','600000']).size, 0);
+});
+
+test('source coverage degrades when quote fallback only covers part of the requested universe', () => {
+  const result = summarizeSourceCoverage({
+    requestedCodes: 10, conceptRows: 80, quoteRows: 7, themeCount: 12,
+    researchThemes: 6, membershipFailures: 0, flowFailures: 1,
+    researchFailures: 2, sourceFailures: []
+  });
+  assert.equal(result.degraded, true);
+  assert.ok(result.warnings.includes('candidate-quotes-partial:7/10'));
 });
