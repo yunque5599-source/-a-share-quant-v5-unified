@@ -136,3 +136,20 @@ test('the upstream pre-limit-up gate is respected even when every score componen
   assert.equal(result.ranking.length,0);
   assert.ok(result.assessed[0].selection.failedGates.some(g=>g.key==='pre-limit-up-risk-filter'));
 });
+
+
+test('relative strength is ranked inside the pre-limit-up pool, not against already-overheated stocks',()=>{
+  const leader=makeRow({code:'600030',r5Pct:10,currentPct:3.1});
+  const peer=makeRow({code:'600031',r5Pct:4,currentPct:1.2,score:70});
+  const overheated=makeRow({code:'600032',r5Pct:80,currentPct:8.2});
+  const result=rankCoreSelection([leader,peer,overheated],{
+    marketRegime:leader.marketRegime,
+    eligibleCodes:new Set(['600030','600031']),
+    maxResults:5
+  });
+  assert.equal(result.ranking.length,1);
+  assert.equal(result.ranking[0].code,'600030');
+  assert.equal(result.ranking[0].relativeStrengthPercentile,100);
+  assert.ok(result.assessed.find(row=>row.code==='600031').selection.failedGates.some(g=>g.key==='relative-strength'));
+  assert.ok(result.assessed.find(row=>row.code==='600032').selection.failedGates.some(g=>g.key==='pre-limit-up-risk-filter'));
+});
