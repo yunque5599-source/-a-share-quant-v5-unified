@@ -285,7 +285,7 @@ function preBreakoutRow(row,index){
   ].map(([label,value])=>'<span class="chip '+(value===true?'green':value===false?'amber':'')+'">'+preEsc(label)+'：'+(value===true?'已满足':value===false?'待确认':'数据不足')+'</span>').join('');
   const reasons=(row.failedGates||[]).slice(0,3).join('、');
   return '<div class="cand"><div><b>#'+(Number(row.rank)||index+1)+' '+preEsc(row.name||row.code)+' '+preEsc(row.code||'')+'</b>'+
-    '<div class="kicker">'+preEsc(row.board||'板块待核验')+' · 当日 '+priceText+' · 距前20日高点 '+distanceText+' · 启动前评分 '+(Number.isFinite(score)?score.toFixed(1):'—')+' · 置信度 '+(Number.isFinite(Number(row.confidence))?(Number(row.confidence)*100).toFixed(0)+'%':'—')+'</div>'+
+    '<div class="kicker">'+preEsc(row.board||'板块待核验')+' · 当日 '+priceText+' · 距前20日高点 '+distanceText+' · 启动前评分 '+(Number.isFinite(score)?score.toFixed(1):'—')+' · 证据覆盖度 '+(Number.isFinite(Number(row.evidenceCoverage??row.confidence))?(Number((row.evidenceCoverage??row.confidence))*100).toFixed(0)+'%':'—')+'</div>'+
     '<div class="chips">'+chips+'</div>'+
     '<div class="small" style="margin-top:5px">启动确认检查：'+checklist+'</div>'+
     '<div class="small" style="margin-top:5px">'+preEsc(row.interpretation||'等待进一步验证')+'</div>'+
