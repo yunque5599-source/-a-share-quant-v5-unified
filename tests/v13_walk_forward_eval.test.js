@@ -119,6 +119,11 @@ test('strict core-leader walk-forward refuses to infer policy or leader evidence
   assert.equal(core.selectedCandidateCount, 0);
   assert.ok(core.reasons.includes('point-in-time-policy-evidence-unavailable'));
   assert.ok(core.reasons.includes('point-in-time-theme-leader-evidence-unavailable'));
+  assert.equal(report.preBreakoutEvaluation.status, 'NOT_MEASURABLE');
+  assert.equal(report.preBreakoutEvaluation.strictLeaderEvidenceStatus, 'NOT_MEASURABLE');
+  assert.equal(report.preBreakoutEvaluation.strictLeaderMetricsAvailable, false);
+  assert.ok(report.preBreakoutEvaluation.reasons.includes('no-verified-point-in-time-leader-evidence-in-pre-breakout-watch'));
+  assert.ok(report.preBreakoutEvaluation.reasons.includes('no-verified-point-in-time-policy-evidence-in-pre-breakout-watch'));
   assert.ok(report.perDate.every(day => day.coreSelectionTop5Codes.length === 0));
   assert.equal(report.perDate[0].coreSelectionDiagnostics.marketDataQuality, 'ranked-universe-proxy');
 });
