@@ -102,8 +102,30 @@ function effectivePolicy(policyId, cutoff) {
 export function scorePolicyAlignment({ industry='', themeNames=[], companyNews=[], asOf=null } = {}) {
   const cutoff = cutoffMs(asOf);
   const catalogReviewedMs = Date.parse(POLICY_CATALOG_REVIEWED_AT);
-  const catalogAgeDays = Number.isFinite(catalogReviewedMs) ? Math.max(0,(cutoff-catalogReviewedMs)/86400000) : 999;
-  const catalogStale = catalogAgeDays > 14;
+  const catalogNotYetAvailable = Number.isFinite(cutoff) && Number.isFinite(catalogReviewedMs) && cutoff < catalogReviewedMs;
+  const catalogAgeDays = Number.isFinite(catalogReviewedMs) && !catalogNotYetAvailable
+    ? Math.max(0,(cutoff-catalogReviewedMs)/86400000) : 0;
+  const catalogStale = !catalogNotYetAvailable && catalogAgeDays > 14;
+  // Do not retroactively apply a taxonomy first reviewed after the requested signal cutoff.
+  // The policy documents themselves are date-filtered below, but the keyword map is also
+  // knowledge that must have existed at the time of the signal.
+  if (catalogNotYetAvailable) {
+    return {
+      score:50,
+      evidenceAvailable:false,
+      matchedThemeCount:0,
+      matchedThemes:[],
+      catalogVersion:POLICY_CATALOG_VERSION,
+      catalogReviewedAt:POLICY_CATALOG_REVIEWED_AT,
+      catalogAgeDays:0,
+      catalogStale:false,
+      catalogNotYetAvailable:true,
+      catalogAvailableAtCutoff:false,
+      catalogWarning:'policy-catalog-not-available-at-signal-cutoff',
+      asOf:String(asOf??''),
+      interpretation:'policy-catalog-not-available-at-signal-cutoff'
+    };
+  }
   const industries = normalizeText(industry);
   const themes = (Array.isArray(themeNames) ? themeNames : [themeNames]).map(normalizeText).filter(Boolean);
   const news = (Array.isArray(companyNews) ? companyNews : []).filter(item => {
@@ -151,6 +173,8 @@ export function scorePolicyAlignment({ industry='', themeNames=[], companyNews=[
     catalogReviewedAt:POLICY_CATALOG_REVIEWED_AT,
     catalogAgeDays:Number(catalogAgeDays.toFixed(1)),
     catalogStale,
+    catalogNotYetAvailable:false,
+    catalogAvailableAtCutoff:true,
     catalogWarning:catalogStale?'policy-catalog-review-older-than-14-days':'',
     asOf:String(asOf??''),
     interpretation:scoredThemes.length ? 'sectoral-policy-alignment-not-company-specific-subsidy' : 'no-verifiable-policy-theme-match'
