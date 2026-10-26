@@ -532,21 +532,31 @@ export function evaluateWalkForward(candidates, {
   summary.coreSelectionTop5 = coreSelectionTop5;
   summary.preBreakoutTop10 = preBreakoutTop10;
   summary.preBreakoutTop15 = preBreakoutTop15;
+  const preBreakoutStructuralMeasurable = eligibleDates.length >= 3 && preBreakoutReturnedRows > 0;
+  const preBreakoutStrictEvidenceMeasurable = preBreakoutStructuralMeasurable
+    && preBreakoutLeaderRows > 0 && preBreakoutPolicyRows > 0;
   const preBreakoutEvaluation = {
-    status: eligibleDates.length >= 3 && preBreakoutReturnedRows > 0 ? 'MEASURABLE' : 'NOT_MEASURABLE',
+    // "status" is reserved for the intended policy-aligned, verified-leader claim.
+    // Aggregate structural-watch returns remain separately visible but must not be
+    // mistaken for evidence that the strict leader/policy selector has been validated.
+    status: preBreakoutStrictEvidenceMeasurable ? 'MEASURABLE' : 'NOT_MEASURABLE',
+    structuralWatchStatus: preBreakoutStructuralMeasurable ? 'MEASURABLE' : 'NOT_MEASURABLE',
+    strictLeaderEvidenceStatus: preBreakoutStrictEvidenceMeasurable ? 'MEASURABLE' : 'NOT_MEASURABLE',
     signalDateCount: eligibleDates.length,
     returnedCandidateRows: preBreakoutReturnedRows,
     verifiedLeaderRows: preBreakoutLeaderRows,
     policyVerifiedRows: preBreakoutPolicyRows,
+    strictLeaderMetricsAvailable: preBreakoutStrictEvidenceMeasurable,
     top10: preBreakoutTop10,
     top15: preBreakoutTop15,
+    structuralWatchMetrics: { top10: preBreakoutTop10, top15: preBreakoutTop15 },
     reasons: [
       ...(eligibleDates.length < 3 ? ['fewer-than-three-complete-forward-evaluation-dates'] : []),
       ...(preBreakoutReturnedRows === 0 ? ['no-pre-breakout-candidates-passed-the-strict-watch-gates'] : []),
       ...(preBreakoutLeaderRows === 0 ? ['no-verified-point-in-time-leader-evidence-in-pre-breakout-watch'] : []),
       ...(preBreakoutPolicyRows === 0 ? ['no-verified-point-in-time-policy-evidence-in-pre-breakout-watch'] : [])
     ],
-    interpretation: 'Measures forward outcomes of pre-breakout watch candidates; it is not a probability model and does not authorize trading.'
+    interpretation: 'top10/top15 describe all structural-watch candidates. Verified policy-aligned leader performance is NOT_MEASURABLE unless point-in-time leader and policy evidence are both present. These metrics are not a breakout probability and do not authorize trading.'
   };
   const modelTop10T5 = summary.top10?.model?.t5 ?? {};
   const baselineTop10T5 = summary.top10?.momentumBaseline?.t5 ?? {};
