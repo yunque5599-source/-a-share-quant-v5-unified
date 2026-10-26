@@ -42,6 +42,7 @@
       <div class="grid" id="scanMetrics">
         <div class="metric"><b>—</b><span>全市场</span></div><div class="metric"><b>—</b><span>硬过滤</span></div><div class="metric"><b>—</b><span>深度候选</span></div><div class="metric"><b>—</b><span>市场环境</span></div>
       </div>
+      <div id="regimeSummary" class="note" style="margin-top:12px">市场状态尚未识别。模型将结合指数历史趋势、当日指数涨跌与市场广度代理动态调整策略。</div>
     </div>
 
     <div class="card" id="discoveryPanel">
@@ -168,6 +169,22 @@ function assessRankQuality(d,rows){
  else if(generatedAt>Date.now()+120000||tradingAgeMinutes(generatedAt)>20)reasons.push('候选池生成时间超过20个交易分钟或时间异常');
  return{rankPass:reasons.length===0,deepPass:false,pass:false,listsOk:ok,listsTotal:total,flowCoverage,failures,ranked:rows.length,reasons,sourceGeneratedAt:d?.generatedAt||'',method:d?.method||''};
 }
+function renderRegime(reg){
+ const f=reg?.features||{},fmt=v=>Number.isFinite(v)?(v*100).toFixed(1)+'%':'—';
+ const full=reg?.breadthSource==='independent-main-board-universe';
+ const bits=[
+  '置信度 '+(reg?.confidence??'—')+'/100',
+  '5日指数趋势 '+fmt(f.trend5),
+  '20日指数趋势 '+fmt(f.trend20),
+  '上涨广度 '+(Number.isFinite(f.breadthUp)?(f.breadthUp*100).toFixed(1)+'%':'—')+'（'+(full?'独立主板样本':'候选池代理')+'，样本 '+(f.breadthN||0)+'）',
+  '单笔风险预算 '+((reg?.riskPerTrade||0)*100).toFixed(2)+'%',
+  '总仓位上限 '+((reg?.maxPos||0)*100).toFixed(1)+'%',
+  '最长持仓 '+(reg?.maxHoldingDays||'—')+' 个交易日',
+  '选股门槛 '+(reg?.minScore??'—')+' 分'
+ ];
+ $('regimeSummary').innerHTML='<b>'+reg.label+' · 状态置信度 '+reg.confidence+'/100</b><br>'+bits.join(' · ')+'<br><b>判断依据：</b>'+(reg.evidence||[]).join('；')+'<br><b>数据限制：</b>'+(full?'已使用当日合格的独立主板扫描。':'目前使用候选池广度代理；如需提高置信度，请先运行“扫描独立主板池”。');
+}
+
 function updateQualityUI(){const q=lastQuality,b=$('qualityStatus');if(!b)return;
  b.className='note'+(q.pass?'':' danger');b.textContent=`数据质量：${q.pass?'完整，可用于影子样本':'不完整，本轮仅观察/WAIT'}。排名源${Number.isFinite(q.listsOk)?q.listsOk:'?'} / ${Number.isFinite(q.listsTotal)?q.listsTotal:'?'}；资金字段完整率${((q.flowCoverage||0)*100).toFixed(1)}%；主模型深扫${q.deepOk??'?'} / ${q.deepTotal??'?'}；新闻${q.newsOk??'?'} / ${q.newsTotal??'?'}。${(q.reasons||[]).join('；')}`;
 }
@@ -467,12 +484,14 @@ function qualifiedUniverseForRegime(){
  return u.records;
 }
 function marketRegime(m,histories=[]){
- const quotes=lastMarketMeta.indices||[];
- const indices=(histories||[]).map(x=>{
-  const q=quotes.find(z=>String(z.id)===String(x.id));
-  const pct=Number.isFinite(q?.pct)?q.pct:x.pct;
-  return{...x,pct,dailyReturn:Number.isFinite(q?.pct)?q.pct/100:x.dailyReturn};
- });
+ const quotes=lastMarketMeta.indices||[],hm=new Map((histories||[]).map(x=>[String(x.id),x]));
+ const ids=new Set();
+ const indices=quotes.map(q=>{
+  const h=hm.get(String(q.id));ids.add(String(q.id));
+  return h?{...h,pct:q.pct,dailyReturn:Number.isFinite(q.pct)?q.pct/100:h.dailyReturn}
+   :{name:q.name||String(q.id),id:q.id,pct:q.pct,dailyReturn:Number.isFinite(q.pct)?q.pct/100:null};
+ }).filter(x=>Number.isFinite(x.dailyReturn));
+ for(const h of histories||[])if(!ids.has(String(h.id)))indices.push(h);
  const reg=classifyMarketRegime({indices,candidates:m,fullUniverse:qualifiedUniverseForRegime(),now:new Date().toISOString()});
  return{...reg,label:reg.legacyLabel,basis:reg.basis};
 }
@@ -630,7 +649,7 @@ function renderPrimary(x,reg){const p=planFor(x,reg),time=new Date().toLocaleStr
 function recordForwardSignal(x,reg){try{const p=planFor(x,reg);if(isPremarket()||!p.pass||!x?.dataDate||x.dataDate<'2026-09-22')return false;const key='v13_primary_forward',arr=JSON.parse(localStorage.getItem(key)||'[]');if(arr.some(z=>z.date===x.dataDate))return false;arr.push({model:'V13-ADAPTIVE-REGIME-SHADOW',date:x.dataDate,recordedAt:Date.now(),code:x.code,name:x.name,price:x.price,score:x.final,market:reg.label,mainline:x.M,persistence:x.P,crowding:x.X,breakoutRetention:x.B,failedBreakout:x.Y,leaderOverride:x.L,observedTop1:lastSelection?.observedTop?.code||x.code,selectionReason:lastSelection?.reason||'top1-qualified',signalTime:new Date().toISOString(),intradayProvisional:!!x.intraday,shares:p.shares,actualPos:p.actualPos,stop:p.stop,stopPct:p.stopPct,actualRiskPct:p.actualRiskPct,target1:p.target1,target2:p.target2});localStorage.setItem(key,JSON.stringify(arr.slice(-120)));return true}catch{return false}}
 function renderCandidates(rows,reg){$('candidateList').innerHTML=rows.slice(0,3).map((x,i)=>`<div class="cand"><div><b>${i+1}. ${x.name} ${x.code}</b><div class="kicker">${x.industry} · 现价${x.price.toFixed(2)} · 涨跌${x.pct.toFixed(2)}% · 主力${money(x.mainNet)}</div><div class="kicker">3万元对照：${executionScenario(x,reg,30000).pass?executionScenario(x,reg,30000).shares+'股可满足整手/风控':'整手/资金/风险门槛不足'}；8万元研究预算：${executionScenario(x,reg,80000).pass?executionScenario(x,reg,80000).shares+'股':'不可执行'}（未计当日实际持仓与真实可用资金）</div><div class="chips"><span class="chip">R ${Math.round(x.rankScore||0)}</span><span class="chip">T ${x.T.toFixed(0)}</span><span class="chip green">F ${x.F.toFixed(0)}</span><span class="chip">主线 ${x.M.toFixed(0)}</span><span class="chip green">持续 ${x.P.toFixed(0)}</span><span class="chip">守板 ${x.B?.toFixed?.(0)??'—'}</span>${x.L?'<span class="chip green">龙头豁免</span>':''}<span class="chip">新闻 ${x.N.toFixed(0)}</span>${(x.C||0)>0?`<span class="chip amber">追高-${x.C.toFixed(0)}</span>`:''}${(x.X||0)>0?`<span class="chip red">拥挤-${x.X.toFixed(0)}</span>`:''}${(x.Y||0)>0?`<span class="chip red">炸板-${x.Y.toFixed(0)}</span>`:''}${x.news?.veto?'<span class="chip red">新闻否决</span>':''}</div></div><div class="score">${x.final.toFixed(1)}</div></div>`).join('')||'暂无候选。'}
 function renderNews(x){if(!x){$('newsBadge').textContent='—';$('newsList').textContent='暂无';return}$('newsBadge').textContent=`新闻分 ${x.N.toFixed(0)}`;$('newsList').innerHTML=(x.news?.items||[]).slice(0,5).map(n=>`<div class="news"><b>${n.title||'无标题'}</b><div>${n.date||''} ${n.source?'· '+n.source:''}</div></div>`).join('')||'<div class="small">未取得最新新闻，新闻因子按中性50分处理。</div>'}
-async function runScan(){lastEvidence={schema:'ashare-asof-evidence-v5',model:'V13-ADAPTIVE-REGIME-SHADOW',scanStartedAt:new Date().toISOString(),inputs:{},events:[]};lastSelection=null;lastMarket=[];lastDeep=[];lastFinal=[];lastShadow=[];lastDiscovery={status:'NOT_RUN',sectorProxy:[],lanes:{},diagnostics:[],shadowErrors:[],preNewsAudit:null,excludedSummary:null};lastRegime=null;lastMarketMeta={total:0,ranked:0,sourceGeneratedAt:'',serverStale:false,stale:false};$('exportSnapshotBtn').disabled=true;const btn=$('scanBtn');btn.disabled=true;$('scanBar').style.width='2%';const pre=isPremarket();lastQuality={pass:false,rankPass:false,deepPass:false,newsPass:false,reasons:['扫描开始，尚未验证'],rejectedDeep:[]};updateQualityUI();$('scanStatus').textContent=pre?'盘前模式：尝试读取最近成功排名池并复核最近收盘数据…':'读取全市场多因子排名…';$('shadowStatus').textContent=pre?'盘前影子观察：仅供参考，不写入前向样本。':'同步寻找强势突破影子候选…';try{const market=await loadRankedMarket((p,n)=>{$('scanBar').style.width=(2+Math.round(p/n*18))+'%';$('scanStatus').textContent='服务器生成全市场排名候选池…'});lastMarket=market;const filtered=hardFilter(market),reg=marketRegime(market);lastRegime=reg;const s1=stage1Score(filtered,reg);s1.forEach((x,i)=>{x.stage1Rank=i+1});const prodTop=s1.slice(0,30),prodCodes=new Set(prodTop.map(x=>x.code)),shadowPre=breakoutStage1Score(filtered).slice(0,8);lastDiscovery=discoveryRankings(s1,prodTop,shadowPre,market);renderDiscovery(lastDiscovery);const shadowOnly=[...lastDiscovery.lanes.breakout,...lastDiscovery.lanes.sector,...lastDiscovery.lanes.relative,...lastDiscovery.lanes.leaderWatch].filter(x=>!x.noDeepReason),shadowCodes=new Set(shadowOnly.map(x=>x.code));for(const x of lastDiscovery.lanes.leaderWatch.filter(z=>z.noDeepReason))lastDiscovery.shadowErrors.push(`${x.code}仅观察：${x.noDeepReason}`);$('scanMetrics').innerHTML=`<div class="metric"><b>${lastMarketMeta.total||'—'}</b><span>行情源报告的全市场排名基数</span></div><div class="metric"><b>${filtered.length}</b><span>可执行候选</span></div><div class="metric"><b>${prodTop.length}+${shadowOnly.length}</b><span>主模型+影子深扫</span></div><div class="metric"><b>${reg.label}</b><span>${reg.basis}</span></div>`;$('scanStatus').textContent=`深扫主模型30只 + 独立影子${shadowOnly.length}只：K线 + 资金持续性…`;const deep=await deepBatch(prodTop,(i,n,ok)=>{$('scanBar').style.width=(22+Math.round(i/n*50))+'%';$('scanStatus').textContent=`主模型深扫 ${i}/${n} · 成功${ok}`});let shadowDeep=[];if(shadowOnly.length){try{shadowDeep=await deepBatch(shadowOnly);
+async function runScan(){lastEvidence={schema:'ashare-asof-evidence-v5',model:'V13-ADAPTIVE-REGIME-SHADOW',scanStartedAt:new Date().toISOString(),inputs:{},events:[]};lastSelection=null;lastMarket=[];lastDeep=[];lastFinal=[];lastShadow=[];lastDiscovery={status:'NOT_RUN',sectorProxy:[],lanes:{},diagnostics:[],shadowErrors:[],preNewsAudit:null,excludedSummary:null};lastRegime=null;lastMarketMeta={total:0,ranked:0,sourceGeneratedAt:'',serverStale:false,stale:false};$('exportSnapshotBtn').disabled=true;const btn=$('scanBtn');btn.disabled=true;$('scanBar').style.width='2%';const pre=isPremarket();lastQuality={pass:false,rankPass:false,deepPass:false,newsPass:false,reasons:['扫描开始，尚未验证'],rejectedDeep:[]};updateQualityUI();$('scanStatus').textContent=pre?'盘前模式：尝试读取最近成功排名池并复核最近收盘数据…':'读取全市场多因子排名…';$('shadowStatus').textContent=pre?'盘前影子观察：仅供参考，不写入前向样本。':'同步寻找强势突破影子候选…';try{const market=await loadRankedMarket((p,n)=>{$('scanBar').style.width=(2+Math.round(p/n*18))+'%';$('scanStatus').textContent='服务器生成全市场排名候选池…'});lastMarket=market;const indexHistory=await loadIndexRegimeHistory();const filtered=hardFilter(market),reg=marketRegime(market,indexHistory);lastRegime=reg;renderRegime(reg);captureEvidence('regime_decision',{state:reg.state,label:reg.label,confidence:reg.confidence,dataQuality:reg.dataQuality,breadthSource:reg.breadthSource,features:reg.features,evidence:reg.evidence,weights:reg.weights,stage1Weights:reg.stage1Weights});const s1=stage1Score(filtered,reg);s1.forEach((x,i)=>{x.stage1Rank=i+1});const prodTop=s1.slice(0,30),prodCodes=new Set(prodTop.map(x=>x.code)),shadowPre=breakoutStage1Score(filtered).slice(0,8);lastDiscovery=discoveryRankings(s1,prodTop,shadowPre,market);renderDiscovery(lastDiscovery);const shadowOnly=[...lastDiscovery.lanes.breakout,...lastDiscovery.lanes.sector,...lastDiscovery.lanes.relative,...lastDiscovery.lanes.leaderWatch].filter(x=>!x.noDeepReason),shadowCodes=new Set(shadowOnly.map(x=>x.code));for(const x of lastDiscovery.lanes.leaderWatch.filter(z=>z.noDeepReason))lastDiscovery.shadowErrors.push(`${x.code}仅观察：${x.noDeepReason}`);$('scanMetrics').innerHTML=`<div class="metric"><b>${lastMarketMeta.total||'—'}</b><span>行情源报告的全市场排名基数</span></div><div class="metric"><b>${filtered.length}</b><span>可执行候选</span></div><div class="metric"><b>${prodTop.length}+${shadowOnly.length}</b><span>主模型+影子深扫</span></div><div class="metric"><b>${reg.label}</b><span>${reg.confidence}/100 · ${reg.dataQuality}</span></div>`;$('scanStatus').textContent=`深扫主模型30只 + 独立影子${shadowOnly.length}只：K线 + 资金持续性…`;const deep=await deepBatch(prodTop,(i,n,ok)=>{$('scanBar').style.width=(22+Math.round(i/n*50))+'%';$('scanStatus').textContent=`主模型深扫 ${i}/${n} · 成功${ok}`});let shadowDeep=[];if(shadowOnly.length){try{shadowDeep=await deepBatch(shadowOnly);
   const returned=new Set(shadowDeep.map(x=>x.code));for(const x of shadowOnly)if(!returned.has(x.code))lastDiscovery.shadowErrors.push(`${x.code}影子深扫缺失，不能算作漏选成功`);
  }catch(e){lastDiscovery.shadowErrors.push(String(e?.message||e));captureEvidence('shadow_discovery_error',{error:String(e?.message||e),requested:shadowOnly.map(x=>x.code)});}}renderDiscovery(lastDiscovery);if(deep.length<8)throw Error('深度数据可用候选不足8只');
  lastQuality.deepOk=deep.length;lastQuality.deepTotal=prodTop.length;lastQuality.deepPass=prodTop.length>0&&deep.length===prodTop.length;
