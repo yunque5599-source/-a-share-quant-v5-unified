@@ -320,6 +320,7 @@ function summarizeSourceCoverage(diagnostics = {}) {
   else if (requested > 0 && quotes < requested) warnings.push('candidate-quotes-partial:' + quotes + '/' + requested);
   if (requested > 0 && themes === 0) warnings.push('theme-evidence-empty');
   if (requested > 0 && membershipFailures >= requested) warnings.push('all-stock-theme-membership-requests-failed');
+  else if (requested > 0 && membershipFailures > 0) warnings.push('stock-theme-membership-partial-failures:' + membershipFailures + '/' + requested);
   if (researchThemes > 0 && flowFailures >= researchThemes) warnings.push('all-theme-flow-requests-failed');
   if (researchThemes > 0 && researchFailures >= researchThemes * 2) warnings.push('all-theme-member-and-news-research-failed');
   const degraded = warnings.length > 0;
@@ -799,6 +800,8 @@ export default async function handler(req, res) {
         diagnostics.membershipSource = fallback.diagnostics.membershipSource;
         diagnostics.membershipFailures += fallback.diagnostics.membershipFailures;
         diagnostics.sourceWarnings.push('concept-ranking-fell-back-to-sina-and-10jqka');
+        diagnostics.sourceWarnings.push('sina-board-members-sampled-first-two-pages-up-to-160');
+        diagnostics.sourceWarnings.push('sina-theme-change-is-sample-member-average-not-official-board-index');
         if (fallback.diagnostics.unmappedConcepts > 0) {
           diagnostics.sourceWarnings.push('sina-ths-unmapped-concepts:' + fallback.diagnostics.unmappedConcepts);
         }
