@@ -18,5 +18,22 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
+      - name: Check API syntax
+        run: node --check api/market.js
+      - name: Check adaptive dashboard inline module syntax
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          import re
+          source = Path('index_V13_ADAPTIVE_REGIME_SHADOW.html').read_text(encoding='utf-8')
+          match = re.search(r'<script type="module">([\\s\\S]*?)</script>', source)
+          if not match:
+              raise SystemExit('V13 module script not found')
+          code = match.group(1)
+          code = re.sub(r"^import \\{ classifyMarketRegime, adaptiveScore, sizePosition \} from './regime-engine\\.js';\\s*", '', code)
+          Path('/tmp/v13-inline.mjs').write_text(code, encoding='utf-8')
+          PY
+          node --check /tmp/v13-inline.mjs
       - name: Run deterministic regime and sizing tests
         run: npm test
