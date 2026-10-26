@@ -489,6 +489,8 @@ async function fetchCurrentQuoteForNewsCandidate(stock) {
 
 export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=null,wideNewsScan=false}={}){
   const capturedAt=new Date().toISOString(),requestedAsOf=asOf||capturedAt;
+  const signalCutoff=/^\d{4}-\d{2}-\d{2}$/.test(String(requestedAsOf))
+    ?new Date(String(requestedAsOf)+'T15:00:00+08:00').toISOString():requestedAsOf;
   const dailyBarComplete=isDailyBarCompleteAt(capturedAt);
   const ranked=parseResult('ranked_candidates',await invoke(marketHandler,'/api/market?action=ranked_candidates'));
   let raw=ranked?.data?.candidates??[];
@@ -521,7 +523,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   if(wideNewsScan){
     try{
       const universe=fullUniverseSnapshot??await fetchUniverse({concurrency:4,pageSize:100});
-      const scan=await scanUniverseCatalystNews(universe.rows,capturedAt,{limit:60,concurrency:4,batchSize:8,maxScanSymbols:320});
+      const scan=await scanUniverseCatalystNews(universe.rows,signalCutoff,{limit:60,concurrency:4,batchSize:8,maxScanSymbols:320});
       wideNewsDiagnostics={...scan.diagnostics,providerTotal:universe.providerTotal,pageCount:universe.pageCount};
       const existing=new Set(funnel.map(row=>String(row.f12)));
       const candidates=scan.candidates.filter(row=>!existing.has(row.code)).slice(0,60);
@@ -619,13 +621,13 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     const currentFlowSnapshot=flows.length===0&&(quoteMainNet!==null||quoteMainPct!==null)
       ?{date:String(requestedAsOf).slice(0,10),mainNet:quoteMainNet,mainPct:quoteMainPct,amount:n(row.f6)??bars.at(-1)?.amount??0,source:'quote-snapshot'}:null;
     const themeRows=psychByCode.get(code)??[];
-    const themePsychology=buildPsychologySector(themeRows,capturedAt);
+    const themePsychology=buildPsychologySector(themeRows,signalCutoff);
     const newsItems=newsByCode.get(code)??[];
-    const newsFallback=buildStockNewsFallback(code,String(row.f14??code),newsItems,capturedAt);
+    const newsFallback=buildStockNewsFallback(code,String(row.f14??code),newsItems,signalCutoff);
     const psychology={sector:{...themePsychology.sector,...(themePsychology.sector.catalystScore==null&&newsFallback.sector.catalystScore!=null?{catalystScore:newsFallback.sector.catalystScore}:{})},
       overlay:themePsychology.overlay.available?{...themePsychology.overlay,stockNewsFallback:newsFallback.overlay}:newsFallback.overlay};
     const themeNames=[...themeRows.map(theme=>String(theme?.name??theme?.themeName??'')).filter(Boolean),String(themePsychology.overlay.primaryTheme??'')].filter(Boolean);
-    const policyAlignment=scorePolicyAlignment({industry:String(row.f100??''),themeNames,companyNews:newsItems,asOf:requestedAsOf});
+    const policyAlignment=scorePolicyAlignment({industry:String(row.f100??''),themeNames,companyNews:newsItems,asOf:signalCutoff});
     const candidate={code,name:String(row.f14??code),asOf:requestedAsOf,isST:/(^|\*)ST(?=[\u4e00-\u9fff\d\s]|$)|^退/i.test(String(row.f14??'')),bars,flows,currentFlowSnapshot,
       sector:{...(industryContextByCode.get(code)??{}),...psychology.sector},
       policyAlignment,marketRegime,
@@ -712,7 +714,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     if(main&&catalyst)return {...main,rank:index+1,scorePath:policy?'policy-market-aligned':'balanced-plus-catalyst-confirmed',
       policyRankScore:policy?.score??null,catalystRankScore:catalyst.score,catalystComponents:catalyst.components};
     if(policy&&!main)return {...policy,rank:index+1,scorePath:'policy-market-aligned'};
-    if(main&&policy)return {...main,...policy,rank:index+1,scorePath:'policy-market-aligned',policyRankScore:policy.score};
+    if(main&&policy)return {...main,...policy,components:{...main.components,...policy.components},rank:index+1,scorePath:'policy-market-aligned',policyRankScore:policy.score};
     return {...main,rank:index+1};
   }).filter(row=>row.code);
   const deepGood=records.filter(r=>r.source.klineSource==='eastmoney'&&r.source.flowSource==='eastmoney').length;
