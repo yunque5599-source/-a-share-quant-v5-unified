@@ -593,6 +593,10 @@ function rankScoredCandidates(scoredRows, modelVariant = 'v13-current') {
       setup = row.setup;
     } else if (modelVariant === 'v13-core-only') {
       grossScore = core;
+    } else if (modelVariant === 'v13-policy-aware') {
+      grossScore = Number(row.components?.policyAwareComposite ?? core);
+      scorePath = row.policyAlignment?.evidenceAvailable === true && grossScore > core + 0.5
+        ? 'policy-market-aligned' : 'market-regime-adjusted';
     } else if (modelVariant === 'v13-early-turn') {
       grossScore = Math.max(core, earlyTurn);
       if (earlyTurn > core) {
