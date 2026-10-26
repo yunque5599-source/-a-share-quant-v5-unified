@@ -687,16 +687,32 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     .sort((a,b)=>b.headlineCatalystScore-a.headlineCatalystScore||(Number(b.baseScore)||0)-(Number(a.baseScore)||0)).slice(0,20);
   const negativeCatalystRisk=catalystRows.filter(row=>row.headlineCatalystDirection==='negative')
     .sort((a,b)=>a.headlineCatalystScore-b.headlineCatalystScore).slice(0,20);
-  const overallCodes=interleaveCatalystCodes(balancedBlend.map(row=>row.code),catalystConfirmed.map(row=>row.code),30,6);
+  const policyConfirmed=preLimitUpScores.filter(row=>{
+    const comp=row.components??{};
+    return row.policyAlignment?.evidenceAvailable===true
+      &&Number(comp.policyAlignment)>=75
+      &&Number(comp.flow)>=55
+      &&Number(comp.trend)>=45
+      &&Number(comp.marketFit)>=55
+      &&Number(row.score)>=55
+      &&isPreLimitUpCandidate(row,earlyByCode.get(row.code));
+  }).sort((a,b)=>b.score-a.score||Number(b.components?.policyAlignment)-Number(a.components?.policyAlignment)).slice(0,20)
+    .map((row,index)=>({...row,policyRank:index+1,policyRankScore:row.score,scorePath:'policy-market-aligned'}));
+  const baseOverallCodes=interleaveCatalystCodes(balancedBlend.map(row=>row.code),catalystConfirmed.map(row=>row.code),30,6);
+  const overallCodes=interleaveCatalystCodes(baseOverallCodes,policyConfirmed.map(row=>row.code),30,6);
   const balancedByCode=new Map(balancedBlend.map(row=>[row.code,row]));
   const catalystByCode=new Map(catalystConfirmed.map(row=>[row.code,row]));
+  const policyByCode=new Map(policyConfirmed.map(row=>[row.code,row]));
   const overall=overallCodes.map((code,index)=>{
-    const main=balancedByCode.get(code), catalyst=catalystByCode.get(code);
-    if(catalyst&&!main)return {...(scoreByCode.get(code)??{}),...catalyst,rank:index+1,
-      modelVariant:'v13-live-catalyst-confirmed-blend',scorePath:'timestamped-catalyst-confirmed',
+    const main=balancedByCode.get(code), catalyst=catalystByCode.get(code), policy=policyByCode.get(code);
+    if(catalyst&&!main)return {...(scoreByCode.get(code)??{}),...catalyst,
+      ...(policy?{policyAlignment:policy.policyAlignment,components:{...(scoreByCode.get(code)?.components??{}),...policy.components},policyRankScore:policy.score}:{}),
+      rank:index+1,modelVariant:'v13-live-catalyst-confirmed-blend',scorePath:policy?'policy-market-aligned':'timestamped-catalyst-confirmed',
       catalystRankScore:catalyst.score,catalystComponents:catalyst.components};
-    if(main&&catalyst)return {...main,rank:index+1,scorePath:'balanced-plus-catalyst-confirmed',
-      catalystRankScore:catalyst.score,catalystComponents:catalyst.components};
+    if(main&&catalyst)return {...main,rank:index+1,scorePath:policy?'policy-market-aligned':'balanced-plus-catalyst-confirmed',
+      policyRankScore:policy?.score??null,catalystRankScore:catalyst.score,catalystComponents:catalyst.components};
+    if(policy&&!main)return {...policy,rank:index+1,scorePath:'policy-market-aligned'};
+    if(main&&policy)return {...main,...policy,rank:index+1,scorePath:'policy-market-aligned',policyRankScore:policy.score};
     return {...main,rank:index+1};
   }).filter(row=>row.code);
   const deepGood=records.filter(r=>r.source.klineSource==='eastmoney'&&r.source.flowSource==='eastmoney').length;
@@ -719,7 +735,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     newsResponseCount:newsSuccessCodes.size,newsResponseCoveragePct:+(newsSuccessCodes.size/Math.max(1,funnel.length)*100).toFixed(2),
     datedNewsCandidateCount:records.filter(r=>Math.max(r.psychology.datedNewsCount??0,r.psychology.stockNewsFallback?.datedNewsCount??0)>0).length,
     datedNewsCoveragePct:+(records.filter(r=>Math.max(r.psychology.datedNewsCount??0,r.psychology.stockNewsFallback?.datedNewsCount??0)>0).length/Math.max(1,funnel.length)*100).toFixed(2),sourceErrors};
-  const diagnosticRankings={overall:balancedBlend,catalystConfirmed,combinedOverall:overall,trendTransition:rankedScores.slice(0,20),
+  const diagnosticRankings={overall:balancedBlend,catalystConfirmed,policyConfirmed,combinedOverall:overall,trendTransition:rankedScores.slice(0,20),
     emotionRepair:rankedScores.filter(r=>Number(r.components?.emotionRepair)>=65).sort((a,b)=>Number(b.components.emotionRepair)-Number(a.components.emotionRepair)).slice(0,20),
     oversold:rankedScores.filter(r=>Number(r.components?.oversoldReversal)>=65).sort((a,b)=>Number(b.components.oversoldReversal)-Number(a.components.oversoldReversal)).slice(0,20),
     coreRanking:rankedScores.slice(0,30),technicalOnlyBaseline:coreRankedScores.slice(0,30),
@@ -737,12 +753,14 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     quality:{},coverage:{rawRankedCandidates:raw.length,funnelCandidates:funnel.length,scoredCandidates:rankedScores.length,
       preLimitUpEligibleCount:preLimitUpScores.length,earlyOpportunityCandidates:earlyRows.length,balancedBlendCount:balancedBlend.length,
       policyMatchedCandidateCount:records.filter(r=>r.score?.policyAlignment?.evidenceAvailable).length,
+      policyConfirmedCandidateCount:policyConfirmed.length,
       policyMatchCoveragePct:+(records.filter(r=>r.score?.policyAlignment?.evidenceAvailable).length/Math.max(1,records.length)*100).toFixed(2),
       marketRegimeSourceQuality:marketRegime.dataQuality,
       fullUniverseFallback,wideNewsScan:wideNewsDiagnostics},
     candidates:auditRecords,rankings:{
       overall,
       catalystConfirmed,
+      policyConfirmed,
       trendTransition:preLimitUpScores.slice(0,20),
       emotionRepair:diagnosticRankings.emotionRepair,
       oversold:diagnosticRankings.oversold,
