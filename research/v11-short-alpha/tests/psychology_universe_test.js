@@ -194,3 +194,21 @@ test('theme normalization matches concept labels with and without the generic su
   assert.equal(normalizeThemeName('人工智能 概念'), normalizeThemeName('人工智能'));
   assert.equal(normalizeThemeName('CPO（共封装光学）'), normalizeThemeName('CPO-共封装光学'));
 });
+
+
+test('Sina-derived narrative themes are eligible only when theme names pass the evidence filter', () => {
+  assert.equal(isNarrativeTheme({code:'SINA:gn_hwzn',name:'人工智能'}), true);
+  assert.equal(isNarrativeTheme({code:'SINA:gn_yesterday_limitup',name:'昨日涨停'}), false);
+  assert.equal(isNarrativeTheme({code:'SINA:gn_holder',name:'机构重仓'}), false);
+  assert.equal(isNarrativeTheme({code:'UNKNOWN:gn_hwzn',name:'人工智能'}), false);
+});
+
+test('source coverage reports partial stock-theme membership failures', () => {
+  const result = summarizeSourceCoverage({
+    requestedCodes: 10, conceptRows: 80, quoteRows: 10, themeCount: 12,
+    researchThemes: 6, membershipFailures: 2, flowFailures: 1,
+    researchFailures: 0, sourceFailures: []
+  });
+  assert.equal(result.degraded, true);
+  assert.ok(result.warnings.includes('stock-theme-membership-partial-failures:2/10'));
+});
