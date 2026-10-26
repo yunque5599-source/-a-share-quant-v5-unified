@@ -9,7 +9,7 @@ import { fetchUniverse } from './historical_replay.js';
 import { scorePolicyAlignment, deriveMarketRegime, POLICY_CATALOG_VERSION, POLICY_CATALOG_REVIEWED_AT } from './policy_alignment.js';
 import { rankCoreSelection } from './core_selection.js';
 
-const MODEL_VERSION = 'V13-live-four-layer-core-leader-selection-v4';
+const MODEL_VERSION = 'V13-live-four-layer-core-leader-selection-v5';
 const n = v => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
 const clamp = (v, lo=0, hi=100) => Math.max(lo, Math.min(hi, v));
 const avg = xs => { const a=xs.filter(Number.isFinite); return a.length ? a.reduce((x,y)=>x+y,0)/a.length : null; };
@@ -801,6 +801,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   console.log(JSON.stringify({snapshotId:finalSnapshot.snapshotId,capturedAt,asOf:requestedAsOf,
     recommendationStatus:finalSnapshot.recommendationStatus,recommendationsAvailable:finalSnapshot.recommendationsAvailable,
     marketRegime:finalSnapshot.marketRegime,policyFramework:finalSnapshot.policyFramework,quality:finalSnapshot.quality,
+    selectionSummary:finalSnapshot.selectionSummary,
     coreSelection:finalSnapshot.rankings.coreSelection.slice(0,5).map(r=>({rank:r.rank,code:r.code,name:r.name,selectionScore:r.selectionScore,
       decision:r.selection?.decision,policyScore:r.components?.policyAlignment??null,flowScore:r.components?.flow??null,
       leader:r.leaderEvidence?.label??null,rewardRisk:r.riskReward?.rewardRiskRatio??null})),
