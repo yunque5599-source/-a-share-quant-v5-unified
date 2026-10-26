@@ -332,10 +332,33 @@ async function runPreLimitupWatch(){
     $('preLimitupStatus').textContent='采集 '+(j.capturedAt||'—')+' · 市场环境 '+((j.marketRegime||{}).label||'未知')+'（'+((j.marketRegime||{}).dataQuality||'数据不足')+'） · 评估 '+Number(summary.assessedCount??coverage.funnelCandidates??0)+' 只 · 过热初筛 '+Number(summary.preLimitUpEligibleCount??0)+' 只 / 严格通过 '+coreCount+' 只 · 政策目录 '+((j.policyFramework||{}).catalogVersion||'未加载')+' / 复核 '+((j.policyFramework||{}).reviewedAt||'未知')+(((j.policyFramework||{}).catalogStale)?' · 政策目录超过14天未复核，已降低政策权重':'')+
       (wide.failed?' · 宽新闻扫描失败：不补入未经验证的新闻候选':'')+
       (qualityOk?' · 数据质量门槛通过（研究观察，不是买入指令）':' · 数据质量门槛未通过，本轮不输出核心候选');
+    const rejectionLabels={
+      'execution-eligibility':'非沪深主板或板块信息冲突',
+      'pre-limit-up-risk-filter':'涨幅过热/追高风险',
+      'policy-direction':'缺少可验证的政策方向匹配',
+      'trend':'趋势强度不足',
+      'volume-price':'量价结构未确认',
+      'theme-leader':'题材龙头证据不足',
+      'sustained-capital-flow':'主力资金流不持续',
+      'relative-strength':'相对强度不足',
+      'market-regime':'当前市场环境不支持',
+      'risk-reward':'收益风险比不足',
+      'chase-control':'短线过热/追高风险',
+      'overnight-risk':'隔夜风险过高'
+    };
+    const rejectionCounts=summary.rejectionCounts&&typeof summary.rejectionCounts==='object'?summary.rejectionCounts:{};
+    const topRejections=Object.entries(rejectionCounts)
+      .filter(([key,count])=>rejectionLabels[key]&&Number(count)>0)
+      .sort((a,b)=>Number(b[1])-Number(a[1])).slice(0,5);
+    const rejectionHtml=qualityOk&&!rows.length&&topRejections.length
+      ?'<div class="small" style="margin-top:8px"><b>本轮主要淘汰原因（诊断，不是候选推荐）：</b>'+
+        (Number(summary.preLimitUpExcludedCount)>0?'<div>过热/启动阶段过滤：'+Number(summary.preLimitUpExcludedCount)+' 只</div>':'')+
+        topRejections.map(([key,count])=>'<div>'+preEsc(rejectionLabels[key])+'：'+Number(count)+' 只</div>').join('')+
+        '</div>':'';
     $('preLimitupList').innerHTML=!qualityOk?
       '<div class="note danger">数据质量门槛未通过，本轮榜单不具备筛选依据。请修复数据源后重跑，不把数据异常当成买入或卖出信号。</div>':
       rows.length?rows.map(preLimitupRow).join(''):
-      '<div class="note danger">本轮没有股票同时通过市场、政策、趋势、龙头、持续资金流、相对强度和风险收益硬门槛。系统不会凑数；宁可空仓/等待，也不把杂毛股列为核心候选。</div>';
+      '<div class="note danger">本轮没有股票同时通过市场、政策、趋势、龙头、持续资金流、相对强度和风险收益硬门槛。系统不会凑数；宁可空仓/等待，也不把杂毛股列为核心候选。</div>'+rejectionHtml;
   }catch(error){
     if(seq!==preLimitupSequence)return;
     $('preLimitupStatus').textContent='四层选股失败：'+(error?.name==='AbortError'?'超过65秒，可能是数据源限流或扫描耗时过长':(error?.message||'未知错误'));
