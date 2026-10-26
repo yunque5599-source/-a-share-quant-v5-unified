@@ -194,3 +194,15 @@ test('inconsistent exchange-board metadata is rejected from the primary shortlis
   assert.equal(result.ranking.length,0);
   assert.ok(result.assessed[0].selection.failedGates.some(g=>g.key==='execution-eligibility'));
 });
+
+
+test('main-board execution gate uses recognized Shanghai/Shenzhen code prefixes and rejects unknown prefixes',()=>{
+  for (const code of ['600001','601001','603001','605001','000001','001001','002001','003001']) {
+    const result=assessCoreSelectionCandidate(makeRow({code}),{relativeStrengthPercentile:100});
+    assert.ok(!result.selection.failedGates.some(g=>g.key==='execution-eligibility'),code+' should be recognized as main board');
+  }
+  for (const code of ['604001','009999','300001','688001','830001']) {
+    const result=assessCoreSelectionCandidate(makeRow({code}),{relativeStrengthPercentile:100});
+    assert.ok(result.selection.failedGates.some(g=>g.key==='execution-eligibility'),code+' must not enter the main-board primary shortlist');
+  }
+});
