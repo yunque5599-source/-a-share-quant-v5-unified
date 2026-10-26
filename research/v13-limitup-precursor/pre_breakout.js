@@ -133,7 +133,7 @@ export function assessPreBreakoutCandidate(row = {}, earlyOpportunity = null) {
 
   return {
     code, name: String(row.name ?? code), board,
-    score, confidence, stage, passed,
+    score, confidence, evidenceCoverage: confidence, stage, passed,
     leaderVerified, policyVerified: policyScore !== null,
     themeName: String(leader.themeName ?? row.psychology?.primaryTheme ?? '') || null,
     asOf: String(row.asOf ?? f.asOf ?? ''),
