@@ -171,7 +171,7 @@ export function assessCoreSelectionCandidate(row = {}, options = {}) {
     flow: riskOff ? 65 : 58,
     sector: 55,
     marketFit: riskOff ? 62 : 55,
-    relativeStrengthPercentile: riskOff ? 80 : 68,
+    relativeStrengthPercentile: riskOff ? 85 : 75,
     rewardRiskRatio: 1.25,
     currentPctMax: 6.5,
     amount5AvgMin: 50000000,
