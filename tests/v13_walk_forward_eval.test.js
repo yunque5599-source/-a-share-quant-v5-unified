@@ -98,3 +98,23 @@ test('walk-forward evaluation becomes measurable with sufficient dates and compl
   assert.equal(new Set(report.perDate[0].balancedBlendTop10Codes).size, 3);
   assert.ok(report.perDate[0].rankEnsembleTop10Codes.length <= 10);
 });
+
+
+test('strict core-leader walk-forward refuses to infer policy or leader evidence from current industry and price alone', () => {
+  const candidates = [
+    makeHistory('600001', '样本A', 0.025, '计算机设备'),
+    makeHistory('000001', '样本B', 0.015, '计算机设备'),
+    makeHistory('600002', '样本C', -0.005, '医药制造')
+  ];
+  const report = evaluateWalkForward(candidates, { signalDays: 5, sourceCoveragePct: 100 });
+  const core = report.coreSelectionEvaluation;
+  assert.equal(core.status, 'NOT_MEASURABLE');
+  assert.equal(core.pointInTimePolicyEvidenceRows, 0);
+  assert.equal(core.pointInTimeLeaderEvidenceRows, 0);
+  assert.equal(core.strictEligibleCandidateCount, 0);
+  assert.equal(core.selectedCandidateCount, 0);
+  assert.ok(core.reasons.includes('point-in-time-policy-evidence-unavailable'));
+  assert.ok(core.reasons.includes('point-in-time-theme-leader-evidence-unavailable'));
+  assert.ok(report.perDate.every(day => day.coreSelectionTop5Codes.length === 0));
+  assert.equal(report.perDate[0].coreSelectionDiagnostics.marketDataQuality, 'ranked-universe-proxy');
+});
