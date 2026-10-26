@@ -80,7 +80,18 @@ function normalizeText(value) {
 }
 function matchKeywords(text, keywords) {
   const haystack = normalizeText(text).toLowerCase();
+  return keywords.filter(keyword => {
+    const needle = String(keyword).toLowerCase();
+    // Short Latin acronyms (especially "AI") need token boundaries: "AI" must not match "retail".
+    if (/^[a-z0-9]{1,2}$/.test(needle)) {
+      const escaped = needle.replace(/[.*+?^\x24{}()|[\]\\]/g, '\\function matchKeywords(text, keywords) {
+  const haystack = normalizeText(text).toLowerCase();
   return keywords.filter(keyword => haystack.includes(String(keyword).toLowerCase()));
+}');
+      return new RegExp('(^|[^a-z0-9])' + escaped + '([^a-z0-9]|$)', 'i').test(haystack);
+    }
+    return haystack.includes(needle);
+  });
 }
 function policyAgeFactor(publishedAt, cutoff) {
   const ageDays = Math.max(0, (cutoff - Date.parse(publishedAt + 'T23:59:59+08:00')) / 86400000);
