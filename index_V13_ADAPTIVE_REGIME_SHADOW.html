@@ -478,7 +478,19 @@ function marketRegime(m,histories=[]){
 }
 
 function sectorMap(m){const mp=new Map();for(const x of m){const k=x.industry||'未知';if(!mp.has(k))mp.set(k,[]);mp.get(k).push(x)}const raw=[];for(const[k,a]of mp){const medPct=median(a.map(x=>x.pct))/100,posFlow=a.filter(x=>x.mainNet>0).length/Math.max(1,a.length),upBreadth=a.filter(x=>x.pct>0).length/Math.max(1,a.length),strongBreadth=a.filter(x=>x.pct>=3).length/Math.max(1,a.length),flowSum=a.reduce((z,x)=>z+(Number.isFinite(x.mainNet)?x.mainNet:0),0);raw.push({k,medPct,posFlow,upBreadth,strongBreadth,flowSum,n:a.length})}const strength=raw.map(z=>z.medPct*100),flows=raw.map(z=>z.flowSum);const out=new Map;for(const z of raw){const rel=.45*percentile(strength,z.medPct*100)+.25*(z.posFlow*100)+.20*(z.upBreadth*100)+.10*percentile(flows,z.flowSum);const mainline=clamp(rel+(z.strongBreadth-.15)*35,0,100);out.set(z.k,{...z,mainline})}return out}
-function stage1Score(rows,reg){const sectors=sectorMap(rows),mainP=rows.map(x=>x.mainPct),mainN=rows.map(x=>x.mainNet),amts=rows.map(x=>Math.log10(Math.max(1,x.amount))),p60=rows.map(x=>x.pct60),pcts=rows.map(x=>x.pct);return rows.map(x=>{const s=sectors.get(x.industry)||{medPct:0,posFlow:.5},flow=.55*percentile(mainP,x.mainPct)+.45*percentile(mainN,x.mainNet),liq=percentile(amts,Math.log10(Math.max(1,x.amount))),rs60=percentile(p60,x.pct60),mom=percentile(pcts,x.pct),turnOpt=100-Math.min(100,Math.abs((x.turn||5)-6)*8),sect=clamp(50+s.medPct*1700+(s.posFlow-.5)*45,0,100),rank=clamp(x.rankScore||50,0,100),heat=(x.pct>8?18:0)+(x.turn>18?10:0),score=.30*flow+.14*liq+.10*rs60+.08*mom+.08*turnOpt+.10*sect+.20*rank-heat;return{...x,stage1:score,sectorScore:sect}}).sort((a,b)=>b.stage1-a.stage1)}
+function stage1Score(rows,reg){
+ const sectors=sectorMap(rows),mainP=rows.map(x=>x.mainPct),mainN=rows.map(x=>x.mainNet),amts=rows.map(x=>Math.log10(Math.max(1,x.amount))),p60=rows.map(x=>x.pct60),pcts=rows.map(x=>x.pct);
+ const w=reg?.stage1Weights||{flow:.30,liq:.14,rs60:.10,momentum:.08,turnover:.08,sector:.10,rank:.20};
+ return rows.map(x=>{
+  const sec=sectors.get(x.industry)||{medPct:0,posFlow:.5};
+  const flow=.55*percentile(mainP,x.mainPct)+.45*percentile(mainN,x.mainNet),liq=percentile(amts,Math.log10(Math.max(1,x.amount)));
+  const rs60=percentile(p60,x.pct60),mom=percentile(pcts,x.pct),turnOpt=100-Math.min(100,Math.abs((x.turn||5)-6)*8);
+  const sect=clamp(50+sec.medPct*1700+(sec.posFlow-.5)*45,0,100),rank=clamp(x.rankScore||50,0,100);
+  const heat=(x.pct>8?18:0)+(x.turn>18?10:0);
+  const score=w.flow*flow+w.liq*liq+w.rs60*rs60+w.momentum*mom+w.turnover*turnOpt+w.sector*sect+w.rank*rank-heat;
+  return{...x,stage1:score,sectorScore:sect};
+ }).sort((a,b)=>b.stage1-a.stage1);
+}
 function breakoutStage1Score(rows){const sectors=sectorMap(rows),mainP=rows.map(x=>x.mainPct),mainN=rows.map(x=>x.mainNet),amts=rows.map(x=>Math.log10(Math.max(1,x.amount))),p60=rows.map(x=>x.pct60),pcts=rows.map(x=>x.pct);return rows.filter(x=>x.pct>=4&&x.pct<=10.1&&x.turn>=4&&x.turn<=25&&x.mainNet>0&&x.mainPct>2).map(x=>{const s=sectors.get(x.industry)||{medPct:0,posFlow:.5},flow=.55*percentile(mainP,x.mainPct)+.45*percentile(mainN,x.mainNet),liq=percentile(amts,Math.log10(Math.max(1,x.amount))),rs60=percentile(p60,x.pct60),mom=percentile(pcts,x.pct),turnBreak=clamp(100-Math.abs((x.turn||10)-14)*4,35,100),sect=clamp(50+s.medPct*1700+(s.posFlow-.5)*45,0,100),rank=clamp(x.rankScore||50,0,100),zone=clamp(55+(x.pct-4)*7.5,55,100),penalty=(x.turn>22?(x.turn-22)*2:0)+(x.mainPct<5?6:0)+(x.pct>=9.8&&x.mainPct<8?5:0),shadowStage1=.27*flow+.10*liq+.10*rs60+.12*mom+.10*turnBreak+.12*sect+.12*rank+.07*zone-penalty;return{...x,shadowStage1,shadowFlow:flow,shadowLiq:liq,shadowRs60:rs60,shadowMom:mom,shadowTurn:turnBreak,sectorScore:sect,shadowRank:rank,shadowZone:zone,shadowPenalty:penalty}}).sort((a,b)=>b.shadowStage1-a.shadowStage1)}
 function breakoutTechnicalScore(x){let s=48;s+=clamp((x.r3||0)*210,-15,20);s+=clamp((x.r5||0)*100,-12,16);s+=x.align*12;s+=clamp((x.volAccel-1)*16,-7,12);if((x.r1||0)>.04&&(x.r1||0)<.105)s+=6;if((x.r5||0)>.28)s-=8;if((x.atr||0)>.10)s-=10;return clamp(s,0,100)}
 function breakoutExecutionScore(x){let s=52;s+=clamp(Math.log10(Math.max(1,x.amount/1e8))*14,-8,18);if(x.turn>=5&&x.turn<=22)s+=12;else if(x.turn>22)s-=6;if(x.pct>=4&&x.pct<=9.6)s+=8;else if(x.pct>9.6)s-=6;if((x.mainPct||0)>=8)s+=8;if((x.atr||0)>.10)s-=10;return clamp(s,0,100)}
@@ -540,7 +552,15 @@ const POS_WORDS=['中标','订单','回购','增持','预增','扭亏','获批',
 const NEG_WORDS=['减持','立案','调查','处罚','亏损','下修','终止','风险提示','问询','诉讼','退市','停产','被执行','质押风险','业绩下降','监管函','警示函'];
 function scoreNews(items){let s=50,veto=false,pos=0,neg=0;for(const it of items.slice(0,8)){const t=(it.title||'')+' '+(it.content||'');for(const w of POS_WORDS)if(t.includes(w)){s+=5;pos++}for(const w of NEG_WORDS)if(t.includes(w)){s-=8;neg++;if(['立案','退市','停产','处罚'].some(q=>t.includes(q)))veto=true}}return{score:clamp(s,0,100),veto,pos,neg}}
 async function getNews(x){try{const j=await apiCall('news',{code:x.code},12000),arr=j?.result?.cmsArticleWebOld||j?.Result?.cmsArticleWebOld||[];const items=arr.map(a=>({title:stripHtml(a.title),content:stripHtml(a.content),date:a.date||'',source:a.mediaName||'',url:a.url||''}));return{items,...scoreNews(items),available:Array.isArray(j?.result?.cmsArticleWebOld)||Array.isArray(j?.Result?.cmsArticleWebOld)}}catch{return{items:[],score:50,veto:false,pos:0,neg:0,available:false}}}
-function finalBase(deep,reg){const sectors=sectorMap(lastMarket.length?lastMarket:deep),tvals=deep.map(technicalScore),fvals=deep.map(flowScore),evals=deep.map(executionScore);return deep.map((x,i)=>{const T=tvals[i],F=fvals[i],E=evals[i],M=mainlineScore(x,sectors),C=chasePenalty(x),X=crowdingPenalty(x),Y=failedBreakoutPenalty(x),B=breakoutRetentionScore(x);const pre={...x,T,F,E,M,C,X,Y,B};const P=persistenceScore(pre),base=.22*T+.23*F+.15*M+.12*E+.18*P+.10*50;const row={...pre,P,N:50,news:{items:[],score:50,veto:false},final:clamp(base-C-X-Y,0,100)};row.L=leaderOverride(row);return row}).sort((a,b)=>b.final-a.final)}
+function finalBase(deep,reg){
+ const sectors=sectorMap(lastMarket.length?lastMarket:deep),tvals=deep.map(technicalScore),fvals=deep.map(flowScore),evals=deep.map(executionScore);
+ return deep.map((x,i)=>{
+  const T=tvals[i],F=fvals[i],E=evals[i],M=mainlineScore(x,sectors),C=chasePenalty(x),X=crowdingPenalty(x),Y=failedBreakoutPenalty(x),B=breakoutRetentionScore(x);
+  const pre={...x,T,F,E,M,C,X,Y,B},P=persistenceScore(pre);
+  const row={...pre,P,N:50,news:{items:[],score:50,veto:false},final:adaptiveScore({T,F,M,E,P,N:50,C,X,Y},reg)};
+  row.L=leaderOverride(row);return row;
+ }).sort((a,b)=>b.final-a.final);
+}
 async function addNews(rows,progress){
  const top=rows.slice(0,8),codes=top.map(x=>x.code).join(','),j=await apiCall('news_batch',{codes},25000);
  captureEvidence('news_batch',j);
@@ -553,7 +573,7 @@ async function addNews(rows,progress){
  }
  return rows.map(x=>{
   const nw=mp.get(x.code)||{items:[],score:50,veto:false,pos:0,neg:0,available:false};
-  let score=.22*x.T+.23*x.F+.15*x.M+.12*x.E+.18*(x.P||50)+.10*nw.score-(x.C||0)-(x.X||0)-(x.Y||0);
+  let score=adaptiveScore({T:x.T,F:x.F,M:x.M,E:x.E,P:x.P||50,N:nw.score,C:x.C,X:x.X,Y:x.Y},lastRegime);
   if(nw.veto)score-=35;
   const row={...x,N:nw.score,news:nw,newsAvailable:nw.available,final:clamp(score,0,100)};row.L=leaderOverride(row);return row;
  }).sort((a,b)=>b.final-a.final);
@@ -561,9 +581,9 @@ async function addNews(rows,progress){
 function strategyGate(x,reg){
  if(!x)return{pass:false,reason:'NO_CANDIDATE'};
  if(!Number.isFinite(x.final)||x.final<reg.minScore)return{pass:false,reason:'threshold'};
- if(!((x.M||0)>=55||x.L===true))return{pass:false,reason:'mainline'};
- if((x.P||0)<58)return{pass:false,reason:'persistence'};
- if((x.X||0)>=14||(x.Y||0)>=12)return{pass:false,reason:'exhaustion'};
+ if(!((x.M||0)>=(reg.minMainline??55)||x.L===true))return{pass:false,reason:'mainline'};
+ if((x.P||0)<(reg.minPersistence??58))return{pass:false,reason:'persistence'};
+ if((x.X||0)>=(reg.maxCrowding??14)||(x.Y||0)>=(reg.maxBreakoutPenalty??12))return{pass:false,reason:'exhaustion'};
  if(x.news?.veto)return{pass:false,reason:'news-veto'};
  return{pass:true,reason:'factor-qualified'};
 }
@@ -573,11 +593,12 @@ function planFor(x,reg){
  if(outside)return{pass:false,reason:'outside-market-hours'};
  if(freshnessBlocked())return{pass:false,reason:'stale-ranking'};
  if(!lastQuality.pass)return{pass:false,reason:'data-quality'};
+ if(!reg?.allowNewPositions)return{pass:false,reason:'market-risk-lock'};
  if(!x?.newsAvailable)return{pass:false,reason:'news-unavailable'};
  const score=strategyGate(x,reg);if(!score.pass)return score;
  const ex=executionScenario(x,reg,CAPITAL);
  if(!ex.pass)return{pass:false,reason:'lot-risk',stop:ex.stop,stopPct:ex.stopPct,minLotRiskPct:100*x.price*ex.stopPct/CAPITAL};
- const target1=x.price*(1+Math.max(.07,ex.stopPct*1.55)),target2=x.price*(1+Math.max(.12,ex.stopPct*2.4));
+ const target1=x.price*(1+Math.max(reg.targetFloor1??.07,ex.stopPct*(reg.targetMultiple1??1.55))),target2=x.price*(1+Math.max(reg.targetFloor2??.12,ex.stopPct*(reg.targetMultiple2??2.4)));
  return{pass:true,reason:'factor-and-lot-qualified',shares:ex.shares,actualNotional:ex.notional,actualPos:ex.positionPct,
   actualRiskPct:ex.riskPct,riskAmount:ex.notional*ex.stopPct,targetPos:ex.targetPos,
   stopPct:ex.stopPct,stop:ex.stop,target1,target2,buyLow:x.price*.99,buyHigh:x.price*1.008,
@@ -600,14 +621,7 @@ function chooseCandidate(rows,reg){
  return{observedTop,selected:null,reason:'no-executable-qualified-candidate',skipped};
 }
 function executionScenario(x,reg,capital,availableCash=capital,alreadyHeldValue=0,globalRemaining=capital){
- if(!(capital>0)||!(availableCash>=0)||!(x?.price>0))return{pass:false,reason:'invalid-input'};
- let pos=reg.maxPos;if(x.final<80)pos=Math.min(pos,.25);if(x.final>=86&&reg.label==='强势')pos=.35;
- const stopPct=clamp((Number.isFinite(x.atr)?x.atr:.045)*1.4,.045,.07);
- let risk=reg.label==='强势'?.018:reg.label==='弱势'?.008:.015;
- if(x.final<80)risk=Math.min(risk,.010);if(x.final>=86&&reg.label==='强势')risk=.020;
- const feeReserve=10,limit=Math.min(Math.max(0,capital*pos-alreadyHeldValue),capital*risk/stopPct,Math.max(0,availableCash-feeReserve),Math.max(0,globalRemaining));
- const shares=Math.floor(limit/x.price/100)*100;
- return{pass:shares>=100,reason:shares>=100?'sizing-feasible':'cash-lot-position-or-risk',shares,notional:shares*x.price,positionPct:shares*x.price/capital,targetPos:pos,stopPct,stop:x.price*(1-stopPct),riskPct:shares*x.price*stopPct/capital,requiredOneLot:100*x.price};
+ return sizePosition({price:x?.price,atrPct:x?.atr,score:x?.final,capital,availableCash,alreadyHeldValue,globalRemaining},reg);
 }
 function recordScanDecision(x,reg){try{const now=new Date().toISOString(),p=x?planFor(x,reg):{pass:false,reason:'NO_CANDIDATE'},key='v13_scan_audit';const arr=JSON.parse(localStorage.getItem(key)||'[]');arr.push({model:'V13-ADAPTIVE-REGIME-SHADOW',recordedAt:now,date:shanghaiStamp().date,signalDataDate:x?.dataDate||null,rankedAt:lastMarketMeta.sourceGeneratedAt||null,code:x?.code||null,score:x?.final??null,signal:p.pass?'QUALIFIED_RESEARCH_ONLY':'WAIT',reason:p.reason||null,quality:lastQuality,observedTop1:lastSelection?.observedTop?.code||null,selected:lastSelection?.selected?.code||null,selectionReason:lastSelection?.reason||null,skipped:lastSelection?.skipped||[],threeWanComparison:x?executionScenario(x,reg,30000):null,eightWanResearch:x?executionScenario(x,reg,80000):null,manualAccountPreview:x?liveAccountPreview(x,reg):null});localStorage.setItem(key,JSON.stringify(arr.slice(-120)));}catch{}}
 
