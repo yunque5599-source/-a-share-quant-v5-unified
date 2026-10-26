@@ -55,6 +55,12 @@
         <div class="metric"><b>—</b><span>严格核心候选</span></div><div class="metric"><b>—</b><span>深扫覆盖</span></div><div class="metric"><b>—</b><span>龙头证据通过</span></div><div class="metric"><b>—</b><span>政策+资金共振</span></div>
       </div>
       <div id="preLimitupList" class="small" style="margin-top:10px">尚无前瞻排名。</div>
+      <div class="divider" style="margin:16px 0;border-top:1px solid var(--line)"></div>
+      <div class="row between"><b>启动前龙头观察（独立预警通道）</b><span class="pill">PRE-BREAKOUT</span></div>
+      <div class="small" style="margin-top:6px">寻找尚未有效突破前20日高点、但平台收敛、趋势拐头、资金积累和板块强度改善的候选。只有政策与题材龙头证据都通过，才标记为“启动前龙头观察”；证据不足的只列为结构观察。</div>
+      <div class="status" id="preBreakoutStatus">等待四层选股完成后显示启动前观察名单。</div>
+      <div id="preBreakoutList" class="small" style="margin-top:10px">尚无启动前观察结果。</div>
+      <div class="note" style="margin-top:10px"><b>启动确认条件：</b>等待收盘有效突破前20日高点，并确认成交量扩张、资金净流入、板块共振。名单用于提前观察，不代表现在买入；模型不保证捕捉所有启动，也不自动下单。</div>
       <div class="note" style="margin-top:10px"><b>使用边界：</b>本榜单是未来1–5个交易日的研究观察，不保证涨停或盈利；“龙头”若只有行业涨幅代理、缺乏题材排名证据，会被降级或排除。收益空间、止损和隔夜风险为启发式估算，必须结合实时报价复核；不自动下单，也不改变主模型实盘权限。</div>
     </div>
 
@@ -250,6 +256,42 @@ function preLimitupLabel(path){
   };
   return labels[path]||String(path||'研究评分');
 }
+function preBreakoutRow(row,index){
+  const components=row.components||{},metrics=row.metrics||{},trigger=row.triggerChecklist||{};
+  const pct=Number(metrics.currentPct),dist=Number(metrics.distHigh20Pct),score=Number(row.score);
+  const stageLabels={
+    PREBREAKOUT_LEADER_WATCH:'启动前龙头观察',
+    PREBREAKOUT_SETUP_WATCH:'启动前结构观察',
+    BASE_FORMING_OBSERVATION:'平台/底部形成观察'
+  };
+  const chip=(label,value)=>value===null||value===undefined||value===''||!Number.isFinite(Number(value))?'':'<span class="chip">'+preEsc(label)+' '+Number(value).toFixed(0)+'</span>';
+  const chips=[
+    '<span class="chip '+(row.stage==='PREBREAKOUT_LEADER_WATCH'?'green':'amber')+'">'+preEsc(stageLabels[row.stage]||row.stage||'结构观察')+'</span>',
+    row.themeName?'<span class="chip">'+preEsc(row.themeName)+'</span>':'',
+    '<span class="chip">'+(row.leaderVerified?'题材龙头证据已核验':'龙头证据待确认')+'</span>',
+    '<span class="chip">'+(row.policyVerified?'政策证据已核验':'政策证据待确认')+'</span>',
+    chip('结构',components.baseCompression),
+    chip('趋势',components.trendTurn),
+    chip('资金',components.capitalAccumulation),
+    chip('板块',components.sectorStrength)
+  ].join('');
+  const priceText=Number.isFinite(pct)?(pct>0?'+':'')+pct.toFixed(2)+'%':'涨跌幅待核验';
+  const distanceText=Number.isFinite(dist)?(dist>0?'+':'')+dist.toFixed(2)+'%':'—';
+  const checklist=[
+    ['站上前20日高点',trigger.prior20DayHighBroken],
+    ['量能扩张≥1.5倍',trigger.volumeExpansionConfirmed],
+    ['持续资金流入',trigger.sustainedCapitalFlowConfirmed],
+    ['板块强度确认',trigger.sectorStrengthConfirmed]
+  ].map(([label,value])=>'<span class="chip '+(value===true?'green':value===false?'amber':'')+'">'+preEsc(label)+'：'+(value===true?'已满足':value===false?'待确认':'数据不足')+'</span>').join('');
+  const reasons=(row.failedGates||[]).slice(0,3).join('、');
+  return '<div class="cand"><div><b>#'+(Number(row.rank)||index+1)+' '+preEsc(row.name||row.code)+' '+preEsc(row.code||'')+'</b>'+
+    '<div class="kicker">'+preEsc(row.board||'板块待核验')+' · 当日 '+priceText+' · 距前20日高点 '+distanceText+' · 启动前评分 '+(Number.isFinite(score)?score.toFixed(1):'—')+' · 置信度 '+(Number.isFinite(Number(row.confidence))?(Number(row.confidence)*100).toFixed(0)+'%':'—')+'</div>'+
+    '<div class="chips">'+chips+'</div>'+
+    '<div class="small" style="margin-top:5px">启动确认检查：'+checklist+'</div>'+
+    '<div class="small" style="margin-top:5px">'+preEsc(row.interpretation||'等待进一步验证')+'</div>'+
+    (reasons?'<div class="small" style="margin-top:5px">未通过原因：'+preEsc(reasons)+'</div>':'')+
+    '</div><div class="score">'+(Number.isFinite(score)?score.toFixed(1):'—')+'</div></div>';
+}
 function preLimitupRow(row,index){
   const q=row.quote||{},pctRaw=q.pct,priceRaw=q.price,scoreRaw=row.selectionScore??row.score,modelScoreRaw=row.modelScore;
   const pct=Number(pctRaw),price=Number(priceRaw),score=Number(scoreRaw),modelScore=Number(modelScoreRaw);
@@ -363,6 +405,13 @@ async function runPreLimitupWatch(){
       '<div class="note danger">数据质量门槛未通过，本轮榜单不具备筛选依据。请修复数据源后重跑，不把数据异常当成买入或卖出信号。</div>':
       rows.length?rows.map(preLimitupRow).join(''):
       '<div class="note danger">本轮没有股票同时通过市场、政策、趋势、龙头、持续资金流、相对强度和风险收益硬门槛。系统不会凑数；宁可空仓/等待，也不把杂毛股列为核心候选。</div>'+rejectionHtml;
+    const preBreakoutRows=qualityOk&&Array.isArray(j.preBreakoutRanking)?j.preBreakoutRanking:[];
+    const preBreakoutSummary=j.preBreakoutSummary||{};
+    $('preBreakoutStatus').textContent='启动前观察 '+Number(preBreakoutSummary.returnedCount??preBreakoutRows.length)+' 只 · 已核验龙头 '+Number(preBreakoutSummary.verifiedLeaderCount??0)+' 只 · 政策证据通过 '+Number(preBreakoutSummary.policyVerifiedCount??0)+' 只。全部是观察名单，需等待突破确认。';
+    $('preBreakoutList').innerHTML=!qualityOk?
+      '<div class="note danger">数据质量门槛未通过，启动前名单已隐藏，不能把数据缺失当成机会。</div>':
+      preBreakoutRows.length?preBreakoutRows.map(preBreakoutRow).join(''):
+      '<div class="note">本轮没有候选同时满足启动前结构门槛。不会为了凑数把已拉升、下跌趋势或远离压力位的股票放进名单。</div>';
   }catch(error){
     if(seq!==preLimitupSequence)return;
     $('preLimitupStatus').textContent='四层选股失败：'+(error?.name==='AbortError'?'超过65秒，可能是数据源限流或扫描耗时过长':(error?.message||'未知错误'));
