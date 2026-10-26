@@ -74,13 +74,14 @@ export function selectCandidateFunnel(rows, limit=120) {
   return [...chosen.values()].slice(0,limit).map(r=>({...r,funnelLanes:[...new Set(r.funnelLanes)],board:boardForCode(r.f12)}));
 }
 export function deriveLiveIndustryContext(rows){
-  const groups=new Map();
+  const groups=new Map(),seenCodes=new Set();
   for(const row of Array.isArray(rows)?rows:[]){
     const code=String(row?.f12??row?.code??'');
     const name=String(row?.f14??row?.name??'');
     const industry=String(row?.f100??row?.industry??row?.industryName??row?.sectorName??'').trim();
     const pct=n(row?.f3??row?.changePct);
-    if(!code||!industry||pct===null||isRestrictedListingName(name))continue;
+    if(!code||!industry||pct===null||isRestrictedListingName(name)||seenCodes.has(code))continue;
+    seenCodes.add(code);
     const group=groups.get(industry)??[];
     group.push({code,name,pct,board:boardForCode(code)});
     groups.set(industry,group);
