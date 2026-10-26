@@ -33,7 +33,7 @@ function parseMaybeJson(text) {
   throw new Error('invalid upstream response');
 }
 
-async function fetchParsed(url, timeoutMs = 7000) {
+async function fetchParsed(url, timeoutMs = 7000, referer = 'https://quote.eastmoney.com/') {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -43,7 +43,7 @@ async function fetchParsed(url, timeoutMs = 7000) {
       headers: {
         accept: 'application/json,text/javascript,*/*;q=0.8',
         'user-agent': UA,
-        referer: 'https://quote.eastmoney.com/'
+        referer
       }
     });
     if (!response.ok) throw new Error('HTTP ' + response.status);
@@ -156,7 +156,8 @@ async function fetchThsStockConcepts(code) {
 async function fetchSinaConceptNodes() {
   const tree = await fetchParsed(
     'https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodes',
-    7000
+    7000,
+    'https://vip.stock.finance.sina.com.cn/'
   );
   const nodes = parseSinaConceptNodes(tree);
   if (!nodes.size) throw new Error('Sina concept node tree yielded no gn_/chgn_ nodes');
@@ -173,7 +174,7 @@ async function fetchSinaNodeMembers(nodeCode, maxPages = 1) {
         node:nodeCode, sort:'changepercent', asc:'0',
         page:String(page), num:'80', _s_r_a:'page'
       }).toString();
-      const rows = await fetchParsed(url.toString(), 6500);
+      const rows = await fetchParsed(url.toString(), 6500, 'https://vip.stock.finance.sina.com.cn/');
       return parseSinaNodeMembers(rows);
     }
   );
@@ -800,7 +801,6 @@ export default async function handler(req, res) {
         diagnostics.membershipSource = 'unavailable';
       }
     }
-    let effectiveConceptRows = conceptRows;
     if (diagnostics.conceptSource === 'eastmoney') diagnostics.membershipSource = 'eastmoney';
     if (quoteResult.status === 'fulfilled') {
       diagnostics.quoteSource = 'eastmoney';
