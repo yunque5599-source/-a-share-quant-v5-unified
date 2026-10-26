@@ -158,7 +158,7 @@ export function deriveMarketRegime({ indices=[], universeRows=[], capturedAt=nul
   }
   return {
     regime,label,riskAppetite,capturedAt,
-    dataQuality:indexRows.length>=2&&broad.length>=100?'multi-index-and-broad-quote-proxy':indexRows.length>=2?'multi-index-with-limited-breadth':'ranked-universe-proxy',
+    dataQuality:indexRows.length>=2&&broad.length>=1000?'multi-index-and-broad-quote-proxy':indexRows.length>=2?'multi-index-and-ranked-candidate-sample':'ranked-universe-proxy',
     indexCount:indexRows.length,indexMedianPct:indexMedianPct===null?null:Number(indexMedianPct.toFixed(3)),
     quoteSampleCount:broad.length,medianPct:medianPct===null?null:Number(medianPct.toFixed(3)),
     upRatio:upRatio===null?null:Number(upRatio.toFixed(4)),
