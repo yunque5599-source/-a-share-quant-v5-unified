@@ -21,7 +21,7 @@ export default async function handler(req, res) {
       wideNewsScan: true,
       out: '/tmp/v13-prelimitup-' + startedAt + '.json'
     });
-    const ranking = Array.isArray(snapshot?.rankings?.overall) ? snapshot.rankings.overall : [];
+    const ranking = Array.isArray(snapshot?.rankings?.coreSelection) ? snapshot.rankings.coreSelection : [];
     const catalysts = Array.isArray(snapshot?.rankings?.catalystConfirmed) ? snapshot.rankings.catalystConfirmed : [];
     const emotionRepair = Array.isArray(snapshot?.rankings?.emotionRepair) ? snapshot.rankings.emotionRepair : [];
     const oversold = Array.isArray(snapshot?.rankings?.oversold) ? snapshot.rankings.oversold : [];
@@ -30,12 +30,22 @@ export default async function handler(req, res) {
       code: String(row?.code ?? ''),
       name: String(row?.name ?? row?.code ?? ''),
       board: row?.board ?? null,
-      score: Number.isFinite(Number(row?.score)) ? Number(row.score) : null,
+      score: Number.isFinite(Number(row?.selectionScore)) ? Number(row.selectionScore)
+        : Number.isFinite(Number(row?.score)) ? Number(row.score) : null,
+      selectionScore: Number.isFinite(Number(row?.selectionScore)) ? Number(row.selectionScore) : null,
+      modelScore: Number.isFinite(Number(row?.score)) ? Number(row.score) : null,
       scorePath: row?.scorePath ?? lane,
       setup: row?.setup ?? null,
       quote: row?.quote ?? {},
       confidence: Number.isFinite(Number(row?.confidence)) ? Number(row.confidence) : null,
-      primaryTheme: row?.psychology?.primaryTheme ?? row?.primaryTheme ?? null,
+      primaryTheme: row?.leaderEvidence?.themeName ?? row?.psychology?.primaryTheme ?? row?.primaryTheme ?? null,
+      selection: row?.selection ?? null,
+      leaderEvidence: row?.leaderEvidence ?? null,
+      riskReward: row?.riskReward ?? null,
+      relativeStrengthPercentile: Number.isFinite(Number(row?.relativeStrengthPercentile)) ? Number(row.relativeStrengthPercentile) : null,
+      trendScore: Number.isFinite(Number(row?.components?.trend)) ? Number(row.components.trend) : null,
+      flowScore: Number.isFinite(Number(row?.components?.flow)) ? Number(row.components.flow) : null,
+      sectorScore: Number.isFinite(Number(row?.components?.sector)) ? Number(row.components.sector) : null,
       catalystRankScore: Number.isFinite(Number(row?.catalystRankScore)) ? Number(row.catalystRankScore) : null,
       policyScore: Number.isFinite(Number(row?.components?.policyAlignment)) ? Number(row.components.policyAlignment) : null,
       marketFitScore: Number.isFinite(Number(row?.components?.marketFit)) ? Number(row.components.marketFit) : null,
@@ -61,9 +71,11 @@ export default async function handler(req, res) {
       elapsedMs: Date.now() - startedAt,
       quality: snapshot?.quality ?? {},
       coverage: snapshot?.coverage ?? {},
-      scope: 'V13 research-only 1–5 session watchlist. It may include non-main-board names for discovery; this output never creates a buy order or changes the primary production signal.',
-      ranking: compact(ranking, 'balanced-blend'),
-      catalystRanking: compact(catalysts, 'timestamped-catalyst-confirmed'),
+      selectionSummary: snapshot?.selectionSummary ?? {},
+      selectionPolicy: 'Four-layer strict selection: market regime; policy/trend/relative strength/theme leadership/sustained capital flow; risk-reward and overnight risk; decision tier. No candidates are added to fill empty slots.',
+      scope: 'V13 research-only 1–5 session core-leader shortlist. It may return zero names when the hard gates are not met. This output never creates a buy order or changes the primary production signal.',
+      ranking: compact(ranking, 'four-layer-core-leader-selection'),
+      catalystRanking: compact(catalysts, 'diagnostic-timestamped-catalyst'),
       emotionRepair: compact(emotionRepair, 'emotion-repair-observation'),
       oversold: compact(oversold, 'oversold-observation')
     });
