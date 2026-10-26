@@ -199,3 +199,26 @@ test('policy availability uses the public release date rather than the earlier d
   assert.equal(commerce.issuedAt,'2026-10-13');
   assert.equal(commerce.publishedAt,'2026-10-19');
 });
+
+
+test('verified AI+ and new-energy-storage policies are mapped to the relevant themes',()=>{
+  const ai = OFFICIAL_POLICIES.find(policy => policy.id === 'ai-plus-action-2025-08-26');
+  const storage = OFFICIAL_POLICIES.find(policy => policy.id === 'new-energy-storage-2025-09-12');
+  assert.ok(ai && ai.url.startsWith('https://www.miit.gov.cn/'));
+  assert.equal(ai.issuedAt,'2025-08-21');
+  assert.equal(ai.publishedAt,'2025-08-26');
+  assert.ok(storage && storage.url.startsWith('https://www.ndrc.gov.cn/'));
+  assert.equal(storage.issuedAt,'2025-08-27');
+  assert.equal(storage.publishedAt,'2025-09-12');
+  const result = scorePolicyAlignment({
+    industry:'储能设备',
+    themeNames:['新型储能'],
+    companyNews:[],
+    asOf:'2026-10-26'
+  });
+  const match = result.matchedThemes.find(theme => theme.themeId === 'energy-storage-grid');
+  assert.ok(match);
+  assert.equal(match.policy.id,'new-energy-storage-2025-09-12');
+  assert.equal(match.evidenceType,'sector-theme-match');
+  assert.ok(match.score >= 70);
+});
