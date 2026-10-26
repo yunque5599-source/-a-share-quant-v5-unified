@@ -19,16 +19,19 @@ test('policy scoring cites official source and matches policy-aligned themes', (
   assert.equal(result.catalogVersion, POLICY_CATALOG_VERSION);
 });
 
-test('policy scorer does not use policy announcements published after the signal cutoff', () => {
+test('policy taxonomy reviewed after the signal cutoff is unavailable for historical scoring', () => {
   const result = scorePolicyAlignment({
     industry: '计算机设备',
     themeNames: ['人工智能'],
-    companyNews: [],
+    companyNews: [{title:'人工智能业务落地',publishedAt:'2026-10-19 10:00:00'}],
     asOf: '2026-10-20'
   });
-  assert.equal(result.evidenceAvailable, true);
-  assert.ok(result.matchedThemes.every(theme => theme.policy.publishedAt <= '2026-10-20'));
-  assert.ok(!result.matchedThemes.some(theme => theme.policy.id === 'tech-industry-integration-2026-10-21'));
+  assert.equal(result.evidenceAvailable, false);
+  assert.equal(result.score, 50);
+  assert.equal(result.catalogNotYetAvailable, true);
+  assert.equal(result.catalogAvailableAtCutoff, false);
+  assert.equal(result.matchedThemes.length, 0);
+  assert.equal(result.catalogWarning, 'policy-catalog-not-available-at-signal-cutoff');
 });
 
 test('generic company names do not create policy alignment without sector/theme evidence', () => {
