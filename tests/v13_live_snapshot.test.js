@@ -246,3 +246,21 @@ test('wide catalyst news prescreen samples liquidity, flow, swing momentum and e
  assert.ok(result.laneCounts['capital-inflow']>0);
  assert.ok(result.laneCounts['swing-momentum']>0);
 });
+
+
+test('candidate funnel reserves capacity for main-board names when growth-board momentum dominates',()=>{
+ const rows=[];
+ for(let i=0;i<100;i++)rows.push({
+  f12:String(300000+i),f14:'成长板样本'+i,rankScore:300-i,rankHits:100-i,
+  f3:20-i*.1,f62:1000000000-i*1000
+ });
+ for(let i=0;i<100;i++)rows.push({
+  f12:String(600000+i),f14:'主板样本'+i,rankScore:100-i,rankHits:i%3,
+  f3:1-i*.01,f62:1000000-i*1000
+ });
+ const result=selectCandidateFunnel(rows,60);
+ const mainBoard=result.filter(row=>['SH_MAIN','SZ_MAIN'].includes(row.board));
+ assert.equal(result.length,60);
+ assert.ok(mainBoard.length>=10,'main-board candidates should retain dedicated funnel capacity');
+ assert.ok(mainBoard.some(row=>row.funnelLanes.some(lane=>lane.startsWith('main-board-'))));
+});
