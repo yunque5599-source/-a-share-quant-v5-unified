@@ -30,7 +30,7 @@ The current map covers AI/computing, robotics/embodied AI, semiconductors and ne
 
 ## Why the design differs from the current one-click screen
 
-- **Discovery coverage is separate from execution permission.** ChiNext names (300/301), STAR names (688/689), and Beijing listings can be scored for research coverage. By default, only Shanghai/Shenzhen main-board codes are marked execution-eligible; this does not suppress a research candidate from the ranked list.
+- **Discovery coverage is separate from execution permission.** ChiNext names (300/301), STAR names (688/689), and Beijing listings can be scored in broad diagnostic lanes. The strict primary core-leader shortlist also requires main-board classification and `executionEligible !== false`; non-main-board and unknown-board names cannot fill primary slots.
 - **No narrow same-day gain gate.** A candidate is not hard-rejected because it is up 4%, 8%, or close to its limit. Overheating is a soft risk penalty, not a discovery filter.
 - **The model seeks a transition, not just a strong snapshot.** It scores MA turning/stacking, price position versus the prior 20-day range, volume compression followed by expansion, closing strength, flow persistence/acceleration, and sector/theme breadth.
 - **A separate emotion-repair lane catches high-volatility dislocations.** It checks recent limit-up history, a sharp selloff, volume expansion, sector context, and early recovery. It is explicitly an observation/ranking lane, not an automatic buy signal; a limit-up history followed by a crash can also be a trap.
