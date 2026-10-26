@@ -93,3 +93,21 @@ test('risk-off market reduces policy weight and prioritizes capital/quality conf
   assert.equal(riskOff.policyWeight,0.06);
   assert.ok(OFFICIAL_POLICIES.length >= 3);
 });
+
+
+test('naive Chinese publication timestamps are interpreted as China Standard Time', () => {
+  const afterClose = scorePolicyAlignment({
+    industry: '综合',
+    themeNames: [],
+    companyNews: [{title:'人工智能新业务落地',publishedAt:'2026-10-26 15:01:00'}],
+    asOf: '2026-10-26'
+  });
+  const beforeClose = scorePolicyAlignment({
+    industry: '综合',
+    themeNames: [],
+    companyNews: [{title:'人工智能新业务落地',publishedAt:'2026-10-26 14:59:00'}],
+    asOf: '2026-10-26'
+  });
+  assert.equal(afterClose.evidenceAvailable, false);
+  assert.equal(beforeClose.evidenceAvailable, true);
+});
