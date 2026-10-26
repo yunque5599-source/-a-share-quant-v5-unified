@@ -107,6 +107,8 @@ For each historical signal date, the evaluator reconstructs the model's inputs u
 
 The walk-forward report remains `NOT_MEASURABLE` if the source replay has less than 90% historical-bar coverage or fewer than three complete signal dates. Even a measurable report is evidence about the tested window only, not proof of a persistent trading edge.
 
+The walk-forward evaluator now also runs the same **strict four-layer core-leader gate** used by the live observation panel and reports its T+1/T+3/T+5 outcomes separately as `coreSelectionEvaluation`. This is deliberately stricter than the technical-ranking comparison. It accepts policy/leader features only when the replay row carries explicit point-in-time metadata dated no later than the signal cutoff; timestamped company news is filtered by publication time. The current full-universe replay does not contain historical theme-leadership snapshots or a versioned historical policy catalog, so the strict selector should currently report `NOT_MEASURABLE` and return no core picks for those historical dates. That is an evidence gap, not a model success or a reason to infer leadership from price rank alone. A future historical metadata capture must include the catalog version, industry/theme metadata as-of date, and dated leader evidence before this evaluation can qualify.
+
 ### New comparison: cross-sectional momentum-confirmed rank ensemble
 
 Because the first walk-forward run showed the raw 5-session momentum baseline beating the hand-built composites, the research branch now adds \`v13-rank-ensemble\`. It ranks candidates by cross-sectional percentiles instead of saturating raw returns into a 0–100 ramp:
