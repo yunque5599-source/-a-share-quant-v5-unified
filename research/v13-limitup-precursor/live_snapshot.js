@@ -626,7 +626,8 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     const newsFallback=buildStockNewsFallback(code,String(row.f14??code),newsItems,signalCutoff);
     const psychology={sector:{...themePsychology.sector,...(themePsychology.sector.catalystScore==null&&newsFallback.sector.catalystScore!=null?{catalystScore:newsFallback.sector.catalystScore}:{})},
       overlay:themePsychology.overlay.available?{...themePsychology.overlay,stockNewsFallback:newsFallback.overlay}:newsFallback.overlay};
-    const themeNames=[...themeRows.map(theme=>String(theme?.name??theme?.themeName??'')).filter(Boolean),String(themePsychology.overlay.primaryTheme??'')].filter(Boolean);
+    // Use the selected primary theme only; long tail theme tags can be noisy and create false policy matches.
+    const themeNames=[String(themePsychology.overlay.primaryTheme??'')].filter(Boolean);
     const policyAlignment=scorePolicyAlignment({industry:String(row.f100??''),themeNames,companyNews:newsItems,asOf:signalCutoff});
     const candidate={code,name:String(row.f14??code),asOf:requestedAsOf,isST:/(^|\*)ST(?=[\u4e00-\u9fff\d\s]|$)|^退/i.test(String(row.f14??'')),bars,flows,currentFlowSnapshot,
       sector:{...(industryContextByCode.get(code)??{}),...psychology.sector},
