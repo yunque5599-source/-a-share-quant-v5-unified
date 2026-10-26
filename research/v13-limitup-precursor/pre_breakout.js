@@ -37,6 +37,7 @@ export function assessPreBreakoutCandidate(row = {}, earlyOpportunity = null) {
   const distMa20 = n(metrics.distanceMa20Pct);
   const range10 = n(metrics.range10dPct);
   const compression = n(metrics.volatilityCompressionRatio);
+  const volumeExpansion = n(f.volumeExpansion);
   const flowPositiveShare = n(f.flowPositiveShare);
   const mainNet5 = n(f.mainNet5);
   const mainFlowRatioPct = n(f.mainFlowRatioPct);
@@ -66,7 +67,7 @@ export function assessPreBreakoutCandidate(row = {}, earlyOpportunity = null) {
   if (currentPct !== null && currentPct >= 6.5) failedGates.push('intraday-move-too-extended');
   if (r5 !== null && r5 > 15) failedGates.push('five-day-move-too-extended');
   if (r20 !== null && r20 < -15) failedGates.push('persistent-downtrend-risk');
-  if (distHigh !== null && (distHigh > 0.5 || distHigh < -15)) failedGates.push('not-near-breakout-resistance');
+  if (distHigh !== null && (distHigh >= 0 || distHigh < -15)) failedGates.push('not-near-breakout-resistance');
   if (distMa20 !== null && distMa20 < -4) failedGates.push('below-medium-term-trend');
   if (earlyOpportunity?.stage === 'downtrend-risk' || earlyOpportunity?.stage === 'extended') {
     failedGates.push('early-opportunity-risk-stage');
@@ -137,9 +138,19 @@ export function assessPreBreakoutCandidate(row = {}, earlyOpportunity = null) {
     metrics: {
       currentPct, r3Pct:r3, r5Pct:r5, r20Pct:r20,
       distHigh20Pct:distHigh, distanceMa20Pct:distMa20,
-      range10dPct:range10, volatilityCompressionRatio:compression,
+      range10dPct:range10, volatilityCompressionRatio:compression, volumeExpansion,
       flowPositiveShare, mainNet5:mainNetObserved, mainFlowRatioPct:mainFlowRatioObserved,
       flowCount, flowObserved, barCount:bars
+    },
+    triggerChecklist: {
+      prior20DayHighBroken: distHigh !== null ? distHigh >= 0 : null,
+      volumeExpansionConfirmed: volumeExpansion !== null ? volumeExpansion >= 1.5 : null,
+      sustainedCapitalFlowConfirmed: flowObserved && mainNetObserved !== null
+        ? mainNetObserved > 0 && flowPositiveShare !== null && flowPositiveShare >= 0.6 : null,
+      sectorStrengthConfirmed: sectorScore !== null ? sectorScore >= 65 : null,
+      status: distHigh !== null && distHigh >= 0 ? 'BREAKOUT_ALREADY_STARTED_REASSESS_CHASE_RISK'
+        : 'WAIT_FOR_CLOSE_ABOVE_PRIOR_20D_HIGH_WITH_VOLUME_FLOW_AND_SECTOR_CONFIRMATION',
+      instruction: '启动前只加入观察；需收盘有效突破前20日高点、成交量扩张、资金净流入且板块共振后再重新评估，不构成买入指令'
     },
     passedGates: passed ? ['main-board','history','not-extended','near-resistance','trend-risk-check'] : [],
     failedGates,
