@@ -233,7 +233,9 @@ export function evaluateWalkForward(candidates, {
       const latestFlow = (Array.isArray(stock.flows) ? stock.flows : []).at(-1);
       return {
         code: stock.code, name: stock.name, pct: dailyChangePct(stock),
-        mainNet: Number.isFinite(Number(latestFlow?.mainNet)) ? Number(latestFlow.mainNet) : null,
+        mainNet: latestFlow?.mainNet !== null && latestFlow?.mainNet !== undefined
+          && latestFlow?.mainNet !== '' && Number.isFinite(Number(latestFlow.mainNet))
+          ? Number(latestFlow.mainNet) : null,
         amount: latest?.amount
       };
     }).filter(row => Number.isFinite(row.pct));
@@ -325,9 +327,11 @@ export function evaluateWalkForward(candidates, {
       marketRegime, eligibleCodes: coreEligibleCodes, maxResults: 5
     });
     const coreSelectionCodes = coreSelectionResult.ranking.map(row => String(row.code));
-    const corePolicyEvidenceCount = candidatesAtDate.filter(stock => stock.policyAlignment?.evidenceAvailable === true).length;
+    const corePolicyEvidenceCount = candidatesAtDate.filter(stock =>
+      stock.policyAlignment?.evidenceAvailable === true && stock.policyAlignment?.catalogStale !== true).length;
     const coreLeaderEvidenceCount = candidatesAtDate.filter(stock => Boolean(stock.leaderEvidence)).length;
     const corePolicyCatalogAvailable = candidatesAtDate.some(stock => stock.policyAlignment?.catalogAvailableAtCutoff === true);
+    const corePolicyCatalogStale = candidatesAtDate.some(stock => stock.policyAlignment?.catalogStale === true);
     const coreSelectionDiagnostics = {
       selectorVersion: coreSelectionResult.summary.version,
       marketRegime: marketRegime.regime,
@@ -336,6 +340,7 @@ export function evaluateWalkForward(candidates, {
       policyCatalogVersion: POLICY_CATALOG_VERSION,
       policyCatalogReviewedAt: POLICY_CATALOG_REVIEWED_AT,
       policyCatalogAvailableAtCutoff: corePolicyCatalogAvailable,
+      policyCatalogStaleAtCutoff: corePolicyCatalogStale,
       pointInTimePolicyEvidenceCount: corePolicyEvidenceCount,
       pointInTimeLeaderEvidenceCount: coreLeaderEvidenceCount,
       assessedCount: coreSelectionResult.summary.assessedCount,
