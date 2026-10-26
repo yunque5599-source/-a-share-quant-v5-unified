@@ -3,8 +3,8 @@
 // Point-in-time policy taxonomy and market-regime overlay.
 // Policy alignment is thematic exposure, NOT proof of a grant, subsidy, order, or company-specific government support.
 
-export const POLICY_CATALOG_VERSION = 'CN-policy-map-2026-10-26-v2';
-export const POLICY_CATALOG_REVIEWED_AT = '2026-10-26T12:05:00+08:00';
+export const POLICY_CATALOG_VERSION = 'CN-policy-map-2026-10-26-v3';
+export const POLICY_CATALOG_REVIEWED_AT = '2026-10-26T12:08:00+08:00';
 
 export const OFFICIAL_POLICIES = [
   {
