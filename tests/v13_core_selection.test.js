@@ -153,3 +153,13 @@ test('relative strength is ranked inside the pre-limit-up pool, not against alre
   assert.ok(result.assessed.find(row=>row.code==='600031').selection.failedGates.some(g=>g.key==='relative-strength'));
   assert.ok(result.assessed.find(row=>row.code==='600032').selection.failedGates.some(g=>g.key==='pre-limit-up-risk-filter'));
 });
+
+
+test('a qualified stock remains observation-only when market breadth coverage is limited',()=>{
+  const row=makeRow();
+  row.marketRegime.dataQuality='multi-index-and-ranked-candidate-sample';
+  const result=assessCoreSelectionCandidate(row,{relativeStrengthPercentile:100});
+  assert.equal(result.selection.eligible,true);
+  assert.equal(result.selection.decision,'OBSERVE_DATA_LIMITED');
+  assert.match(result.selection.decisionLabel,/市场数据有限/);
+});
