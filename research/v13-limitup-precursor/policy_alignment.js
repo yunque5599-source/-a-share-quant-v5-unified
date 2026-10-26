@@ -84,11 +84,7 @@ function matchKeywords(text, keywords) {
     const needle = String(keyword).toLowerCase();
     // Short Latin acronyms (especially "AI") need token boundaries: "AI" must not match "retail".
     if (/^[a-z0-9]{1,2}$/.test(needle)) {
-      const escaped = needle;
-  const haystack = normalizeText(text).toLowerCase();
-  return keywords.filter(keyword => haystack.includes(String(keyword).toLowerCase()));
-}');
-      return new RegExp('(^|[^a-z0-9])' + escaped + '([^a-z0-9]|$)', 'i').test(haystack);
+      return new RegExp('(^|[^a-z0-9])' + needle + '([^a-z0-9]|$)', 'i').test(haystack);
     }
     return haystack.includes(needle);
   });
