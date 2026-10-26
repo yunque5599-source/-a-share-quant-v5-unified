@@ -191,8 +191,8 @@ export function assessCoreSelectionCandidate(row = {}, options = {}) {
     : Array.isArray(options.eligibleCodes) ? new Set(options.eligibleCodes.map(String)) : null;
   const code = String(row?.code ?? '');
   const board = String(row?.board ?? '').toUpperCase();
-  const mainBoard = board === 'SH_MAIN' || board === 'SZ_MAIN'
-    || (!board && /^(?:60|00|001|002|003)\d{4}$/.test(code));
+  const mainBoardCode = /^(?:60|00)\d{4}$/.test(code);
+  const mainBoard = mainBoardCode && (!board || board === 'SH_MAIN' || board === 'SZ_MAIN');
   gate('execution-eligibility', row?.executionEligible !== false && mainBoard,
     '当前主选股只保留沪深主板可执行标的；创业板、科创板、北交所及未知板块仅留在诊断榜');
   const preLimitUpPassed = !eligibleCodes || eligibleCodes.has(code);
