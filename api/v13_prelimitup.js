@@ -25,6 +25,7 @@ export default async function handler(req, res) {
     const catalysts = Array.isArray(snapshot?.rankings?.catalystConfirmed) ? snapshot.rankings.catalystConfirmed : [];
     const emotionRepair = Array.isArray(snapshot?.rankings?.emotionRepair) ? snapshot.rankings.emotionRepair : [];
     const oversold = Array.isArray(snapshot?.rankings?.oversold) ? snapshot.rankings.oversold : [];
+    const preBreakout = Array.isArray(snapshot?.rankings?.preBreakoutWatch) ? snapshot.rankings.preBreakoutWatch : [];
     const compact = (rows, lane) => rows.slice(0, 12).map((row, index) => ({
       rank: Number(row?.rank) || index + 1,
       code: String(row?.code ?? ''),
@@ -58,6 +59,24 @@ export default async function handler(req, res) {
       riskFlags: row?.riskFlags ?? [],
       executionEligible: row?.executionEligible === true
     }));
+    const compactPreBreakout = preBreakout.slice(0, 15).map((row, index) => ({
+      rank: Number(row?.rank) || index + 1,
+      code: String(row?.code ?? ''),
+      name: String(row?.name ?? row?.code ?? ''),
+      board: row?.board ?? null,
+      score: Number.isFinite(Number(row?.score)) ? Number(row.score) : null,
+      confidence: Number.isFinite(Number(row?.confidence)) ? Number(row.confidence) : null,
+      stage: row?.stage ?? null,
+      themeName: row?.themeName ?? null,
+      leaderVerified: row?.leaderVerified === true,
+      policyVerified: row?.policyVerified === true,
+      components: row?.components ?? {},
+      metrics: row?.metrics ?? {},
+      triggerChecklist: row?.triggerChecklist ?? {},
+      interpretation: row?.interpretation ?? '',
+      passedGates: row?.passedGates ?? [],
+      failedGates: row?.failedGates ?? []
+    }));
     return json(res, 200, {
       schema: 'v13-prelimitup-watch-v1',
       status: snapshot?.recommendationsAvailable ? 'OBSERVATION_READY' : 'OBSERVATION_ONLY_QUALITY_GATE',
@@ -72,6 +91,9 @@ export default async function handler(req, res) {
       quality: snapshot?.quality ?? {},
       coverage: snapshot?.coverage ?? {},
       selectionSummary: snapshot?.selectionSummary ?? {},
+      preBreakoutSummary: snapshot?.preBreakoutSummary ?? {},
+      preBreakoutRanking: compactPreBreakout,
+      preBreakoutPolicy: 'Pre-breakout observation only: compressed base near prior 20-day high, trend turn, sustained flow, sector strength, and dated policy/leader evidence. Wait for a close above resistance with volume/flow/sector confirmation; no buy order is authorized.',
       selectionPolicy: 'Four-layer strict selection: market regime; policy/trend/relative strength/theme leadership/sustained capital flow; risk-reward and overnight risk; decision tier. No candidates are added to fill empty slots.',
       scope: 'V13 research-only 1–5 session core-leader shortlist. It may return zero names when the hard gates are not met. This output never creates a buy order or changes the primary production signal.',
       ranking: compact(ranking, 'four-layer-core-leader-selection'),
