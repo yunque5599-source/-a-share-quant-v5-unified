@@ -66,6 +66,8 @@ export default async function handler(req, res) {
       board: row?.board ?? null,
       score: Number.isFinite(Number(row?.score)) ? Number(row.score) : null,
       confidence: Number.isFinite(Number(row?.confidence)) ? Number(row.confidence) : null,
+      evidenceCoverage: Number.isFinite(Number(row?.evidenceCoverage ?? row?.confidence))
+        ? Number(row?.evidenceCoverage ?? row?.confidence) : null,
       stage: row?.stage ?? null,
       themeName: row?.themeName ?? null,
       leaderVerified: row?.leaderVerified === true,
