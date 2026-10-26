@@ -129,3 +129,15 @@ test('stale policy catalog is explicitly flagged and its score weight is reduced
   assert.equal(adjusted.policyWeight,0.015);
   assert.equal(adjusted.policyCatalogStale,true);
 });
+
+
+test('short acronym AI does not match unrelated words such as retail', () => {
+  const result = scorePolicyAlignment({
+    industry: 'Retail Services',
+    themeNames: ['Retail'],
+    companyNews: [],
+    asOf: '2026-10-26'
+  });
+  assert.equal(result.evidenceAvailable, false);
+  assert.equal(result.score, 50);
+});
