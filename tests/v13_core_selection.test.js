@@ -82,6 +82,10 @@ test('policy alignment alone cannot promote a follower with negative or non-pers
     policyScore:98,policyEvidence:true,leaderStatus:'follower',candidateRank:8,
     mainNet5:-50000000,mainFlowRatioPct:-1.5,flowPositiveShare:0.2
   });
+  row.leaderEvidence.industryLeaderScore=48;
+  row.leaderEvidence.themeHeat=42;
+  row.leaderEvidence.themeBreadth=0.3;
+  row.leaderEvidence.themeLimitUpCount=0;
   const result=assessCoreSelectionCandidate(row,{relativeStrengthPercentile:95});
   assert.equal(result.selection.eligible,false);
   assert.ok(result.selection.failedGates.some(g=>g.key==='theme-leader'));
