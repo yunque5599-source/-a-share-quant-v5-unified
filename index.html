@@ -339,7 +339,7 @@ async function runPreLimitupWatch(){
   }catch(error){
     if(seq!==preLimitupSequence)return;
     $('preLimitupStatus').textContent='四层选股失败：'+(error?.name==='AbortError'?'超过65秒，可能是数据源限流或扫描耗时过长':(error?.message||'未知错误'));
-    $('preLimitupMetrics').innerHTML='<div class="metric"><b>—</b><span>严格核心候选</span></div><div class="metric"><b>—</b><span>深扫覆盖</span></div><div class="metric"><b>—</b><span>龙头证据通过</span></div><div class="metric"><b>失败</b><span>数据状态</span></div>';
+    $('preLimitupMetrics').innerHTML='<div class="metric"><b>—</b><span>严格核心候选</span></div><div class="metric"><b>—</b><span>深扫覆盖</span></div><div class="metric"><b>—</b><span>龙头证据通过</span></div><div class="metric"><b>—</b><span>政策+资金共振</span></div>';
     $('preLimitupList').innerHTML='<div class="note danger">本轮没有获得可验证的四层选股结果。主信号不受影响；请稍后重试，不能将扫描失败视为无机会。</div>';
   }finally{
     preLimitupInFlight=false;if(btn)btn.disabled=false;
