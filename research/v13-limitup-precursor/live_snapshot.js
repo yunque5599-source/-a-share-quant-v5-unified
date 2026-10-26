@@ -8,8 +8,9 @@ import { computeEarlyOpportunity } from '../../research/v11-short-alpha/early_op
 import { fetchUniverse } from './historical_replay.js';
 import { scorePolicyAlignment, deriveMarketRegime, OFFICIAL_POLICIES, POLICY_CATALOG_VERSION, POLICY_CATALOG_REVIEWED_AT } from './policy_alignment.js';
 import { rankCoreSelection } from './core_selection.js';
+import { rankPreBreakoutCandidates } from './pre_breakout.js';
 
-const MODEL_VERSION = 'V13-live-four-layer-core-leader-selection-v5';
+const MODEL_VERSION = 'V13-live-four-layer-core-leader-selection-v6-prebreakout';
 const n = v => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
 const clamp = (v, lo=0, hi=100) => Math.max(lo, Math.min(hi, v));
 const avg = xs => { const a=xs.filter(Number.isFinite); return a.length ? a.reduce((x,y)=>x+y,0)/a.length : null; };
@@ -680,6 +681,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const preLimitUpScores=rankedScores.filter(row=>isPreLimitUpCandidate(row,earlyByCode.get(row.code)));
   const eligibleCodes=new Set(preLimitUpScores.map(row=>row.code));
   const coreSelectionResult=rankCoreSelection(rankedScores,{marketRegime,eligibleCodes,maxResults:5});
+  const preBreakoutResult=rankPreBreakoutCandidates(rankedScores,earlyByCode,{maxResults:15,minScore:60});
   const momentumCodes=[...preLimitUpScores].sort((a,b)=>(Number.isFinite(b.features?.r5Pct)?b.features.r5Pct:-Infinity)-(Number.isFinite(a.features?.r5Pct)?a.features.r5Pct:-Infinity)||b.score-a.score).map(r=>r.code);
   const earlyCodes=earlyRows.filter(row=>eligibleCodes.has(row.code)).map(r=>r.code);
   const balancedCodes=interleaveCodes(momentumCodes,earlyCodes,Math.min(30,new Set([...momentumCodes,...earlyCodes]).size));
@@ -760,7 +762,9 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     newsResponseCount:newsSuccessCodes.size,newsResponseCoveragePct:+(newsSuccessCodes.size/Math.max(1,funnel.length)*100).toFixed(2),
     datedNewsCandidateCount:records.filter(r=>Math.max(r.psychology.datedNewsCount??0,r.psychology.stockNewsFallback?.datedNewsCount??0)>0).length,
     datedNewsCoveragePct:+(records.filter(r=>Math.max(r.psychology.datedNewsCount??0,r.psychology.stockNewsFallback?.datedNewsCount??0)>0).length/Math.max(1,funnel.length)*100).toFixed(2),sourceErrors};
-  const diagnosticRankings={overall:balancedBlend,catalystConfirmed,policyConfirmed,combinedOverall:overall,trendTransition:rankedScores.slice(0,20),
+  const diagnosticRankings={overall:balancedBlend,catalystConfirmed,policyConfirmed,combinedOverall:overall,
+    preBreakoutWatch:preBreakoutResult.ranking,preBreakoutAssessed:preBreakoutResult.assessed.slice(0,60),
+    trendTransition:rankedScores.slice(0,20),
     emotionRepair:rankedScores.filter(r=>Number(r.components?.emotionRepair)>=65).sort((a,b)=>Number(b.components.emotionRepair)-Number(a.components.emotionRepair)).slice(0,20),
     oversold:rankedScores.filter(r=>Number(r.components?.oversoldReversal)>=65).sort((a,b)=>Number(b.components.oversoldReversal)-Number(a.components.oversoldReversal)).slice(0,20),
     coreRanking:rankedScores.slice(0,30),technicalOnlyBaseline:coreRankedScores.slice(0,30),
@@ -773,6 +777,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       officialPolicyCount:OFFICIAL_POLICIES.length,companySpecificSubsidyClaim:false,
       catalogStale:Date.now()-Date.parse(POLICY_CATALOG_REVIEWED_AT)>14*86400000},
     selectionSummary:coreSelectionResult.summary,
+    preBreakoutSummary:preBreakoutResult.summary,
     sourcePolicy:{provider:'Eastmoney public quote/history and psychology/theme/news endpoint',pointInTime:'captured-at-source',
       futureDatedBarsExcluded:true,catalystOnlyUsedWhenNewsTimestampVerified:true,dailyBarCompleteAtCapture:dailyBarComplete,
       rankedUniverseFallback:fullUniverseFallback.used?'eastmoney-full-universe-live-quote-fallback':null,
@@ -786,11 +791,17 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       coreSelectionReturnedCount:coreSelectionResult.summary.returnedCount,
       coreSelectionLeaderQualifiedCount:coreSelectionResult.summary.leaderQualifiedCount,
       coreSelectionPolicyFlowQualifiedCount:coreSelectionResult.summary.policyFlowQualifiedCount,
+      preBreakoutAssessedCount:preBreakoutResult.summary.assessedCount,
+      preBreakoutPassedGateCount:preBreakoutResult.summary.passedGateCount,
+      preBreakoutReturnedCount:preBreakoutResult.summary.returnedCount,
+      preBreakoutVerifiedLeaderCount:preBreakoutResult.summary.verifiedLeaderCount,
+      preBreakoutPolicyVerifiedCount:preBreakoutResult.summary.policyVerifiedCount,
       policyMatchCoveragePct:+(records.filter(r=>r.score?.policyAlignment?.evidenceAvailable).length/Math.max(1,records.length)*100).toFixed(2),
       marketRegimeSourceQuality:marketRegime.dataQuality,
       fullUniverseFallback,wideNewsScan:wideNewsDiagnostics},
     candidates:auditRecords,rankings:{
       coreSelection:coreSelectionResult.ranking,
+      preBreakoutWatch:preBreakoutResult.ranking,
       overall,
       catalystConfirmed,
       policyConfirmed,
@@ -809,6 +820,8 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     recommendationStatus:finalSnapshot.recommendationStatus,recommendationsAvailable:finalSnapshot.recommendationsAvailable,
     marketRegime:finalSnapshot.marketRegime,policyFramework:finalSnapshot.policyFramework,quality:finalSnapshot.quality,
     selectionSummary:finalSnapshot.selectionSummary,
+    preBreakoutSummary:finalSnapshot.preBreakoutSummary,
+    preBreakoutWatch:finalSnapshot.rankings.preBreakoutWatch.slice(0,10).map(r=>({rank:r.rank,code:r.code,name:r.name,score:r.score,stage:r.stage,confidence:r.confidence,themeName:r.themeName,leaderVerified:r.leaderVerified,policyVerified:r.policyVerified,components:r.components})),
     coreSelection:finalSnapshot.rankings.coreSelection.slice(0,5).map(r=>({rank:r.rank,code:r.code,name:r.name,selectionScore:r.selectionScore,
       decision:r.selection?.decision,policyScore:r.components?.policyAlignment??null,flowScore:r.components?.flow??null,
       leader:r.leaderEvidence?.label??null,rewardRisk:r.riskReward?.rewardRiskRatio??null})),
