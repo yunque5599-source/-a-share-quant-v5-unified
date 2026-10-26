@@ -505,6 +505,34 @@ export function evaluateWalkForward(candidates, {
     interpretation: 'A strict core-leader return comparison is measurable only when historical point-in-time policy evidence and explicit theme-leadership evidence exist. Current industry labels, price leadership, or later news are not substituted for missing historical evidence.'
   };
   summary.coreSelectionTop5 = coreSelectionTop5;
+  const modelTop10T5 = summary.top10?.model?.t5 ?? {};
+  const baselineTop10T5 = summary.top10?.momentumBaseline?.t5 ?? {};
+  const balancedTop10T5 = summary.top10?.balancedBlend?.t5 ?? {};
+  const promotionReasons = [];
+  if (!coreSelectionMeasurable) promotionReasons.push('strict-core-leader-evaluation-not-measurable');
+  if (eligibleDates.length < 100) promotionReasons.push('fewer-than-100-out-of-sample-signal-dates');
+  if (!Number.isFinite(modelTop10T5.meanCloseReturnPct)
+      || !Number.isFinite(baselineTop10T5.meanCloseReturnPct)) {
+    promotionReasons.push('model-or-momentum-baseline-t5-return-unavailable');
+  } else if (modelTop10T5.meanCloseReturnPct <= baselineTop10T5.meanCloseReturnPct) {
+    promotionReasons.push('primary-model-does-not-beat-momentum-baseline-on-mean-t5-return');
+  }
+  if (Number.isFinite(modelTop10T5.meanWinRatePct) && Number.isFinite(baselineTop10T5.meanWinRatePct)
+      && modelTop10T5.meanWinRatePct < baselineTop10T5.meanWinRatePct) {
+    promotionReasons.push('primary-model-win-rate-below-momentum-baseline');
+  }
+  const promotionGate = {
+    status: promotionReasons.length === 0 ? 'ELIGIBLE_FOR_INDEPENDENT_REVIEW' : 'HOLD_RESEARCH_ONLY',
+    productionAuthorized: false,
+    reasons: [...new Set(promotionReasons)],
+    signalDateCount: eligibleDates.length,
+    minimumRequiredSignalDates: 100,
+    strictCoreLeaderMeasurable: coreSelectionMeasurable,
+    primaryModelTop10T5MeanReturnPct: Number.isFinite(modelTop10T5.meanCloseReturnPct) ? modelTop10T5.meanCloseReturnPct : null,
+    momentumBaselineTop10T5MeanReturnPct: Number.isFinite(baselineTop10T5.meanCloseReturnPct) ? baselineTop10T5.meanCloseReturnPct : null,
+    balancedBlendTop10T5MeanReturnPct: Number.isFinite(balancedTop10T5.meanCloseReturnPct) ? balancedTop10T5.meanCloseReturnPct : null,
+    note: 'This is a research promotion gate, not a buy signal. Passing it only permits independent review; production deployment and live orders require separate authorization.'
+  };
   return {
     model: 'V13-limitup-precursor-walk-forward',
     status: measurable ? 'MEASURABLE' : 'NOT_MEASURABLE',
@@ -528,6 +556,7 @@ export function evaluateWalkForward(candidates, {
     signalDates: eligibleDates,
     summary,
     coreSelectionEvaluation,
+    promotionGate,
     perDate
   };
 }
@@ -557,7 +586,8 @@ async function main(argv) {
     model: report.model, status: report.status, reasons: report.reasons,
     sourceCoveragePct: report.sourceCoveragePct, candidateCount: report.candidateCount,
     signalDateCount: report.signalDateCount, signalDates: report.signalDates,
-    summary: report.summary, coreSelectionEvaluation: report.coreSelectionEvaluation
+    summary: report.summary, coreSelectionEvaluation: report.coreSelectionEvaluation,
+    promotionGate: report.promotionGate
   }, null, 2));
   return report;
 }
