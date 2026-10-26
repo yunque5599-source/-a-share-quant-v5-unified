@@ -37,6 +37,13 @@ export default async function handler(req, res) {
       confidence: Number.isFinite(Number(row?.confidence)) ? Number(row.confidence) : null,
       primaryTheme: row?.psychology?.primaryTheme ?? row?.primaryTheme ?? null,
       catalystRankScore: Number.isFinite(Number(row?.catalystRankScore)) ? Number(row.catalystRankScore) : null,
+      policyScore: Number.isFinite(Number(row?.components?.policyAlignment)) ? Number(row.components.policyAlignment) : null,
+      marketFitScore: Number.isFinite(Number(row?.components?.marketFit)) ? Number(row.components.marketFit) : null,
+      policyThemes: (row?.policyAlignment?.matchedThemes ?? []).slice(0, 3).map(theme => ({
+        label: theme.label, score: theme.score, evidenceType: theme.evidenceType,
+        matchedKeywords: theme.matchedKeywords ?? [], policy: theme.policy ?? null
+      })),
+      policyEvidenceAvailable: row?.policyAlignment?.evidenceAvailable === true,
       catalystEvidence: (row?.catalystEvidence ?? []).slice(0, 2),
       riskFlags: row?.riskFlags ?? [],
       executionEligible: row?.executionEligible === true
@@ -49,6 +56,8 @@ export default async function handler(req, res) {
       executionAllowed: false,
       capturedAt: snapshot?.capturedAt ?? new Date().toISOString(),
       asOf: snapshot?.asOf ?? null,
+      marketRegime: snapshot?.marketRegime ?? null,
+      policyFramework: snapshot?.policyFramework ?? null,
       elapsedMs: Date.now() - startedAt,
       quality: snapshot?.quality ?? {},
       coverage: snapshot?.coverage ?? {},
