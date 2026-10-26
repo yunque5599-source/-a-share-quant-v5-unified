@@ -64,6 +64,10 @@ test('walk-forward ranking does not change when only future outcome bars change'
   assert.equal(first.signalDates[0], signalDate);
   assert.deepEqual(first.perDate[0].modelTop10Codes, second.perDate[0].modelTop10Codes);
   assert.deepEqual(first.perDate[0].momentumTop10Codes, second.perDate[0].momentumTop10Codes);
+  assert.deepEqual(first.perDate[0].preBreakoutTop15Codes, second.perDate[0].preBreakoutTop15Codes);
+  assert.ok(Array.isArray(first.perDate[0].preBreakoutTop15Codes));
+  assert.ok(first.preBreakoutEvaluation);
+  assert.ok(first.promotionGate);
   assert.equal(first.status, 'NOT_MEASURABLE');
   assert.ok(first.reasons.includes('fewer-than-three-complete-forward-evaluation-dates'));
 });
