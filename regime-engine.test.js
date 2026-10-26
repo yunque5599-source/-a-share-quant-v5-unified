@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { adaptiveScore, classifyMarketRegime, sizePosition } from './regime-engine.js';
+import { adaptiveScore, classifyMarketRegime, sizePosition, REGIME_POLICIES } from './regime-engine.js';
 
 const pctRows = (n, up, strong = 0.2, down = 0.1) => Array.from({ length: n }, (_, i) => ({
   pct: i < Math.round(n * up) ? (i < Math.round(n * strong) ? 4 : 0.8) : i >= n - Math.round(n * down) ? -4 : -0.5
@@ -64,4 +64,15 @@ test('position sizing respects risk, lot size and cash', () => {
   assert.ok(p.shares % 100 === 0);
   assert.ok(p.notional <= 2990);
   assert.ok(p.riskPct <= r.riskPerTrade + 1e-9);
+});
+
+test('every regime policy has normalized scoring weights and bounded risk', () => {
+  for (const [state, p] of Object.entries(REGIME_POLICIES)) {
+    const scoreWeightSum = Object.values(p.weights).reduce((a, b) => a + b, 0);
+    const stageWeightSum = Object.values(p.stage1Weights).reduce((a, b) => a + b, 0);
+    assert.ok(Math.abs(scoreWeightSum - 1) < 1e-9, state + ' score weights');
+    assert.ok(Math.abs(stageWeightSum - 1) < 1e-9, state + ' stage weights');
+    assert.ok(p.maxPos >= 0 && p.maxPos <= 0.35, state + ' position cap');
+    assert.ok(p.riskPerTrade >= 0 && p.riskPerTrade <= 0.018, state + ' risk budget');
+  }
 });
