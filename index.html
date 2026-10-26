@@ -408,7 +408,14 @@ async function runPreLimitupWatch(){
       '<div class="note danger">本轮没有股票同时通过市场、政策、趋势、龙头、持续资金流、相对强度和风险收益硬门槛。系统不会凑数；宁可空仓/等待，也不把杂毛股列为核心候选。</div>'+rejectionHtml;
     const preBreakoutRows=qualityOk&&Array.isArray(j.preBreakoutRanking)?j.preBreakoutRanking:[];
     const preBreakoutSummary=j.preBreakoutSummary||{};
-    $('preBreakoutStatus').textContent='启动前观察 '+Number(preBreakoutSummary.returnedCount??preBreakoutRows.length)+' 只 · 已核验龙头 '+Number(preBreakoutSummary.verifiedLeaderCount??0)+' 只 · 政策证据通过 '+Number(preBreakoutSummary.policyVerifiedCount??0)+' 只。全部是观察名单，需等待突破确认。';
+    const sourceQuality=j.quality||{};
+    const flowCoveragePct=Number(sourceQuality.historicalFlowCoveragePct);
+    const themeCoveragePct=Number(sourceQuality.psychologyThemeCoveragePct);
+    const sourceWarnings=[];
+    if(Number(preBreakoutSummary.verifiedLeaderCount??0)===0)sourceWarnings.push('本轮无已核验题材龙头');
+    if(Number.isFinite(flowCoveragePct)&&flowCoveragePct<90)sourceWarnings.push('历史资金覆盖 '+flowCoveragePct.toFixed(0)+'%');
+    if(Number.isFinite(themeCoveragePct)&&themeCoveragePct<70)sourceWarnings.push('题材情绪覆盖 '+themeCoveragePct.toFixed(0)+'%');
+    $('preBreakoutStatus').textContent='启动前观察 '+Number(preBreakoutSummary.returnedCount??preBreakoutRows.length)+' 只 · 已核验龙头 '+Number(preBreakoutSummary.verifiedLeaderCount??0)+' 只 · 政策证据通过 '+Number(preBreakoutSummary.policyVerifiedCount??0)+' 只。需等待突破确认。'+(sourceWarnings.length?' 数据提醒：'+sourceWarnings.join('；')+'；当前名单不能据此认定为龙头。':'');
     $('preBreakoutList').innerHTML=!qualityOk?
       '<div class="note danger">数据质量门槛未通过，启动前名单已隐藏，不能把数据缺失当成机会。</div>':
       preBreakoutRows.length?preBreakoutRows.map(preBreakoutRow).join(''):
