@@ -8,7 +8,8 @@ const {
   normalizeThemeMemberRow,
   isThemeMemberRow,
   isNarrativeTheme,
-  themeStrength
+  themeStrength,
+  summarizeSourceCoverage
 } = universe;
 
 test('concept ranking accepts Eastmoney BK concept-board codes and requires price change', () => {
@@ -70,4 +71,36 @@ test('narrative theme selector rejects valuation, holder-style and momentum clas
   assert.equal(isNarrativeTheme({code:'BK12345',name:'人工智能'}), true);
   assert.equal(isNarrativeTheme({code:'BK12345',name:'机器人概念'}), true);
   assert.equal(themeStrength({changePct:5,mainNetPct:3,upCount:80,downCount:20,flatCount:0}) > 75, true);
+});
+
+
+test('source coverage reports missing concept and quote feeds as degraded', () => {
+  const result = summarizeSourceCoverage({
+    requestedCodes: 20, conceptRows: 0, quoteRows: 0, themeCount: 0,
+    researchThemes: 0, sourceFailures: ['concept-ranking: HTTP 502']
+  });
+  assert.equal(result.degraded, true);
+  assert.equal(result.status, 'DEGRADED_SOURCE_COVERAGE');
+  assert.ok(result.warnings.includes('concept-ranking: HTTP 502'));
+  assert.ok(result.warnings.includes('candidate-quotes-empty'));
+});
+
+test('source coverage degrades when every theme flow request fails', () => {
+  const result = summarizeSourceCoverage({
+    requestedCodes: 10, conceptRows: 80, quoteRows: 10, themeCount: 12,
+    researchThemes: 6, membershipFailures: 0, flowFailures: 6,
+    researchFailures: 0, sourceFailures: []
+  });
+  assert.equal(result.degraded, true);
+  assert.ok(result.warnings.includes('all-theme-flow-requests-failed'));
+});
+
+test('source coverage remains available with populated source families and partial research warnings absent', () => {
+  const result = summarizeSourceCoverage({
+    requestedCodes: 10, conceptRows: 80, quoteRows: 10, themeCount: 12,
+    researchThemes: 6, membershipFailures: 0, flowFailures: 1,
+    researchFailures: 2, sourceFailures: []
+  });
+  assert.equal(result.degraded, false);
+  assert.equal(result.status, 'SOURCE_COVERAGE_AVAILABLE');
 });
