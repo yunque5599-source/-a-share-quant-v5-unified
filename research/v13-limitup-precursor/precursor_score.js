@@ -156,6 +156,7 @@ function deriveFeatures(candidate, options = {}) {
   const sectorFieldsPresent = ['return3Pct', 'return5Pct', 'upRatio', 'limitUpCount', 'leaderScore', 'catalystScore', 'themeHeat']
     .filter(key => finite(sector[key])).length;
   const amount = num(latest.amount, num(candidate.amount));
+  const amount5Avg = mean(bars.slice(-5).map(bar => bar.amount).filter(value => value > 0));
   const turnoverRate = num(latest.turnoverRate, num(candidate.turnoverRate));
   const currentPct = previous?.close > 0 ? (close / previous.close - 1) * 100 : NaN;
   const priorBars = bars.slice(0, -1);
@@ -178,7 +179,7 @@ function deriveFeatures(candidate, options = {}) {
     distHigh20Pct: previousHigh20 > 0 ? (close / previousHigh20 - 1) * 100 : NaN,
     distLow20Pct: previousLow20 > 0 ? (close / previousLow20 - 1) * 100 : NaN,
     volumeExpansion, priorVolumeCompression, closeLocation: clamp(closeLocation, 0, 1),
-    gapPct, atrProxyPct, amount, turnoverRate, mainNet5, mainNet3, previousMainNet3,
+    gapPct, atrProxyPct, amount, amount5Avg, turnoverRate, mainNet5, mainNet3, previousMainNet3,
     flowPositiveShare, mainFlowRatioPct, mainPctLatest, flowCount: flows.length,
     currentMainNetSnapshot:currentMainNet,currentMainPctSnapshot:currentMainPct,currentFlowAvailable,
     recentLimitUp5Count, recentLimitUp10Count, recentStrongUp10Count,
@@ -462,6 +463,7 @@ function scoreCandidate(candidate, options = {}) {
       dataQuality: typeof marketRegime === 'object' ? marketRegime?.dataQuality ?? null : null
     },
     policyAlignment,
+    leaderEvidence: candidate.leaderEvidence ?? null,
     horizonTradingDays: [1, 5], discoveryEligible, executionEligible,
     tradeabilityReason,
     components: {
@@ -477,16 +479,25 @@ function scoreCandidate(candidate, options = {}) {
     },
     riskFlags,
     features: {
+      r1Pct: Number.isFinite(f.r1Pct) ? Number(f.r1Pct.toFixed(2)) : null,
       r3Pct: Number(f.r3Pct.toFixed(2)), r5Pct: Number(f.r5Pct.toFixed(2)),
-      r10Pct: Number(f.r10Pct.toFixed(2)), distHigh20Pct: Number(f.distHigh20Pct.toFixed(2)),
+      r10Pct: Number(f.r10Pct.toFixed(2)), r20Pct: Number.isFinite(f.r20Pct) ? Number(f.r20Pct.toFixed(2)) : null,
+      distHigh20Pct: Number(f.distHigh20Pct.toFixed(2)),
       distLow20Pct: Number(f.distLow20Pct.toFixed(2)),
       closeLocation: Number(f.closeLocation.toFixed(2)),
+      gapPct: Number.isFinite(f.gapPct) ? Number(f.gapPct.toFixed(2)) : null,
+      atrProxyPct: Number.isFinite(f.atrProxyPct) ? Number(f.atrProxyPct.toFixed(2)) : null,
+      barCount: f.bars.length,
+      flowCount: f.flowCount,
+      flowPositiveShare: Number.isFinite(f.flowPositiveShare) ? Number(f.flowPositiveShare.toFixed(2)) : null,
+      amount5Avg: Number.isFinite(f.amount5Avg) ? Number(f.amount5Avg.toFixed(0)) : null,
+      mainNet3: Number(f.mainNet3.toFixed(0)),
+      mainNet5: Number(f.mainNet5.toFixed(0)),
       recentLimitUp5Count: f.recentLimitUp5Count,
       recentLimitUp10Count: f.recentLimitUp10Count,
       recentStrongUp10Count: f.recentStrongUp10Count,
       volumeExpansion: Number.isFinite(f.volumeExpansion) ? Number(f.volumeExpansion.toFixed(2)) : null,
       priorVolumeCompression: Number.isFinite(f.priorVolumeCompression) ? Number(f.priorVolumeCompression.toFixed(2)) : null,
-      mainNet5: Number(f.mainNet5.toFixed(0)),
       mainFlowRatioPct: Number.isFinite(f.mainFlowRatioPct) ? Number(f.mainFlowRatioPct.toFixed(2)) : null,
       turnoverRate: Number.isFinite(f.turnoverRate) ? Number(f.turnoverRate.toFixed(2)) : null,
       amount: Number.isFinite(f.amount) ? f.amount : null
