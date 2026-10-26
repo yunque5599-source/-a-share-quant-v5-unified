@@ -24,7 +24,8 @@ The current map covers AI/computing, robotics/embodied AI, semiconductors and ne
 - Policy matching requires a keyword match in the stock's industry/theme metadata or in a time-verified company-news headline. Stock name alone is not enough.
 - Each match returns its matched terms, official document title/date/source/URL, evidence type, and score. News published after the requested signal cutoff is ignored.
 - The live model derives market regime from available index changes plus the ranked quote sample. When only a ranked sample is available, the result explicitly says so; it must not be described as full-market breadth.
-- Policy weight is **14% in risk-on, 10% in neutral, and 6% in risk-off** conditions. The market-fit overlay weight is 10% in risk-on/neutral and 14% in risk-off. Policy score is capped at 55 when flow or trend confirmation is weak, preventing a policy narrative from overwhelming market evidence.
+- Policy weight is **14% in risk-on, 10% in neutral, and 6% in risk-off** conditions. The market-fit overlay weight is 10% in risk-on/neutral and 14% in risk-off. Policy score is capped at 55 when flow or trend confirmation is weak, preventing a policy narrative from overwhelming market evidence. If the catalog has not been reviewed for more than 14 days, its policy weight falls to 25% of normal until reviewed again.
+- The combined V13 observation list reserves up to six slots for policy-aligned candidates only when policy score >=75, flow score >=55, trend score >=45, market-fit score >=55, overall score >=55, and the pre-limit-up risk gate passes.
 - The V13 observation list displays policy score, market-fit score, matching themes, and links to official source documents. The production V10 executable signal and order permissions remain unchanged until walk-forward tests demonstrate repeatable improvement.
 
 ## Why the design differs from the current one-click screen
