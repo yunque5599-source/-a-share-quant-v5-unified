@@ -1,0 +1,22 @@
+name: V13 Adaptive Regime Engine Tests
+
+on:
+  push:
+    branches: [v13-adaptive-regime-shadow]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Run deterministic regime and sizing tests
+        run: npm test
