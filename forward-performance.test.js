@@ -13,10 +13,10 @@ const bars = [
 
 test('forward returns start strictly after signal date', () => {
   const s = evaluateForwardSample({ date: '2026-10-26', price: 10, regimeState: '牛市主升' }, bars);
-  assert.equal(s.forward.r1, 0.05);
+  assert.ok(Math.abs(s.forward.r1 - 0.05) < 1e-9);
   assert.equal(s.forward.date1, '2026-10-27');
-  assert.equal(s.forward.r3, 0.08);
-  assert.equal(s.forward.r5, 0.1);
+  assert.ok(Math.abs(s.forward.r3 - 0.08) < 1e-9);
+  assert.ok(Math.abs(s.forward.r5 - 0.1) < 1e-9);
 });
 
 test('incomplete horizons remain unscored and current partial bar can be excluded', () => {
