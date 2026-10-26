@@ -190,6 +190,11 @@ export function assessCoreSelectionCandidate(row = {}, options = {}) {
   const eligibleCodes = options.eligibleCodes instanceof Set ? options.eligibleCodes
     : Array.isArray(options.eligibleCodes) ? new Set(options.eligibleCodes.map(String)) : null;
   const code = String(row?.code ?? '');
+  const board = String(row?.board ?? '').toUpperCase();
+  const mainBoard = board === 'SH_MAIN' || board === 'SZ_MAIN'
+    || (!board && /^(?:60|00|001|002|003)\d{4}$/.test(code));
+  gate('execution-eligibility', row?.executionEligible !== false && mainBoard,
+    '当前主选股只保留沪深主板可执行标的；创业板、科创板、北交所及未知板块仅留在诊断榜');
   const preLimitUpPassed = !eligibleCodes || eligibleCodes.has(code);
   gate('pre-limit-up-risk-filter', preLimitUpPassed,
     '未通过前瞻过热过滤（涨幅、近5日涨幅、距20日高点或启动阶段不合适）');
