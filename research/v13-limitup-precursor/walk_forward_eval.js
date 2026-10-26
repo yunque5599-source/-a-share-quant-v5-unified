@@ -5,6 +5,8 @@ import { resolve, dirname } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { boardForCode, scoreCandidate, rankScoredCandidates } from './precursor_score.js';
 import { addHistoricalIndustryContext } from './historical_replay.js';
+import { rankCoreSelection } from './core_selection.js';
+import { deriveMarketRegime, scorePolicyAlignment, POLICY_CATALOG_VERSION, POLICY_CATALOG_REVIEWED_AT } from './policy_alignment.js';
 import { computeEarlyOpportunity } from '../v11-short-alpha/early_opportunity.js';
 
 const HORIZONS = [1, 3, 5];
@@ -54,6 +56,24 @@ function limitThresholdPct(code) {
   if (board === 'CHINEXT' || board === 'STAR') return 19.0;
   if (board === 'BSE') return 28.5;
   return 9.3;
+}
+function isHistoricalCorePreLimitUpCandidate(row = {}, early = null) {
+  const board = boardForCode(row.code);
+  const dailyPct = Number(row.quote?.pct ?? row.currentPct);
+  const r5 = Number(row.features?.r5Pct);
+  const distHigh20 = Number(row.features?.distHigh20Pct);
+  const limitPct = board === 'CHINEXT' || board === 'STAR' ? 20 : board === 'BSE' ? 30 : 10;
+  if (Number.isFinite(dailyPct) && dailyPct >= limitPct * 0.75) return false;
+  if (early?.stage === 'extended') return false;
+  if (Number.isFinite(r5) && r5 > 25) return false;
+  if (Number.isFinite(distHigh20) && distHigh20 > 18) return false;
+  return true;
+}
+function dailyChangePct(stock) {
+  const bars = Array.isArray(stock?.bars) ? stock.bars : [];
+  const latest = bars.at(-1), previous = bars.at(-2);
+  return Number(previous?.close) > 0 && Number(latest?.close) > 0
+    ? (Number(latest.close) / Number(previous.close) - 1) * 100 : null;
 }
 const DATED_BARS_CACHE = new WeakMap();
 function datedBars(stock) {
@@ -204,18 +224,51 @@ export function evaluateWalkForward(candidates, {
       flows: (Array.isArray(stock.flows) ? stock.flows : []).filter(flow => /^\d{4}-\d{2}-\d{2}$/.test(String(flow?.date ?? '')) && flow.date <= signalDate)
     })).filter(stock => stock.bars.length >= 25);
     const withContext = addHistoricalIndustryContext(preCutoff);
+    const marketUniverseRows = withContext.map(stock => {
+      const latest = stock.bars.at(-1);
+      const latestFlow = (Array.isArray(stock.flows) ? stock.flows : []).at(-1);
+      return {
+        code: stock.code, name: stock.name, pct: dailyChangePct(stock),
+        mainNet: Number.isFinite(Number(latestFlow?.mainNet)) ? Number(latestFlow.mainNet) : null,
+        amount: latest?.amount
+      };
+    }).filter(row => Number.isFinite(row.pct));
+    const marketRegime = deriveMarketRegime({
+      universeRows: marketUniverseRows,
+      capturedAt: signalDate + 'T15:00:00+08:00'
+    });
     const candidatesAtDate = withContext.map(stock => {
       const latest = stock.bars.at(-1);
+      const dailyPct = dailyChangePct(stock);
+      // Only explicitly point-in-time sector/theme metadata is allowed to establish policy evidence.
+      // The replay's current industry label is still used for sector-return diagnostics, but not
+      // silently treated as historical policy exposure or proof of theme leadership.
+      const policyAlignment = scorePolicyAlignment({
+        industry: stock.pointInTimeIndustry ?? '',
+        themeNames: stock.pointInTimeThemeNames ?? [],
+        companyNews: stock.companyNews ?? [],
+        asOf: signalDate
+      });
       return {
         ...stock,
         asOf: signalDate,
         isST: Boolean(stock.isST) || /ST|退/i.test(String(stock.name ?? '')),
         amount: latest?.amount,
-        turnoverRate: latest?.turnoverRate
+        turnoverRate: latest?.turnoverRate,
+        currentPct: dailyPct,
+        quote: { ...(stock.quote ?? {}), pct: dailyPct, amount: latest?.amount, turnoverRate: latest?.turnoverRate },
+        policyAlignment,
+        marketRegime,
+        leaderEvidence: stock.pointInTimeLeaderEvidence ?? null,
+        source: {
+          ...(stock.source ?? {}),
+          barCount: stock.bars.length,
+          historicalFlowCount: (Array.isArray(stock.flows) ? stock.flows : []).length
+        }
       };
     });
     const baseScored = candidatesAtDate
-      .map(stock => scoreCandidate(stock, { asOf: signalDate, modelVariant: 'v13-current' }))
+      .map(stock => scoreCandidate(stock, { asOf: signalDate, modelVariant: 'v13-current', marketRegime }))
       .filter(Boolean);
     const ranked = rankScoredCandidates(baseScored, 'v13-current');
     const coreRanked = rankScoredCandidates(baseScored, 'v13-core-only');
@@ -245,6 +298,40 @@ export function evaluateWalkForward(candidates, {
         confidence: Number((opportunity.confidence * 100).toFixed(1))
       };
     }).filter(Boolean).sort((a, b) => b.score - a.score || b.confidence - a.confidence);
+
+    // Evaluate the same strict four-layer selector used by the V13 live observation panel.
+    // Missing point-in-time policy/theme/leader evidence is left missing; no industry-only
+    // proxy is allowed to masquerade as a verified theme leader.
+    const coreBaseScored = candidatesAtDate
+      .map(stock => scoreCandidate(stock, { asOf: signalDate, modelVariant: 'v13-policy-aware', marketRegime }))
+      .filter(Boolean);
+    const earlyByCode = new Map(v12EarlyOpportunityRanked.map(row => [String(row.code), { stage: row.setup }]));
+    const coreEligibleCodes = new Set(coreBaseScored
+      .filter(row => isHistoricalCorePreLimitUpCandidate(row, earlyByCode.get(String(row.code))))
+      .map(row => String(row.code)));
+    const coreSelectionResult = rankCoreSelection(coreBaseScored, {
+      marketRegime, eligibleCodes: coreEligibleCodes, maxResults: 5
+    });
+    const coreSelectionCodes = coreSelectionResult.ranking.map(row => String(row.code));
+    const corePolicyEvidenceCount = candidatesAtDate.filter(stock => stock.policyAlignment?.evidenceAvailable === true).length;
+    const coreLeaderEvidenceCount = candidatesAtDate.filter(stock => Boolean(stock.pointInTimeLeaderEvidence)).length;
+    const corePolicyCatalogAvailable = candidatesAtDate.some(stock => stock.policyAlignment?.catalogAvailableAtCutoff === true);
+    const coreSelectionDiagnostics = {
+      selectorVersion: coreSelectionResult.summary.version,
+      marketRegime: marketRegime.regime,
+      marketRegimeLabel: marketRegime.label,
+      marketDataQuality: marketRegime.dataQuality,
+      policyCatalogVersion: POLICY_CATALOG_VERSION,
+      policyCatalogReviewedAt: POLICY_CATALOG_REVIEWED_AT,
+      policyCatalogAvailableAtCutoff: corePolicyCatalogAvailable,
+      pointInTimePolicyEvidenceCount: corePolicyEvidenceCount,
+      pointInTimeLeaderEvidenceCount: coreLeaderEvidenceCount,
+      assessedCount: coreSelectionResult.summary.assessedCount,
+      preLimitUpEligibleCount: coreEligibleCodes.size,
+      strictEligibleCount: coreSelectionResult.summary.eligibleCount,
+      selectedCount: coreSelectionCodes.length,
+      rejectionCounts: coreSelectionResult.summary.rejectionCounts
+    };
     const modelCodes = ranked.map(row => row.code);
     const coreOnlyCodes = coreRanked.map(row => row.code);
     const earlyTurnCodes = earlyTurnRanked.map(row => row.code);
@@ -269,14 +356,15 @@ export function evaluateWalkForward(candidates, {
       .map(row => row.code);
     const rawByCode = new Map(validHistories.map(stock => [String(stock.code), stock]));
     const outcomeByCode = new Map();
-    for (const code of modelCodes) {
+    for (const code of new Set([...modelCodes, ...coreSelectionCodes])) {
       const raw = rawByCode.get(String(code));
       if (raw) {
         const outcome = evaluateCandidateOutcome(raw, signalDate);
         if (outcome) outcomeByCode.set(String(code), outcome);
       }
     }
-    const universeCodes = modelCodes.filter(code => outcomeByCode.has(String(code)));
+    const universeCodes = [...new Set([...modelCodes, ...coreSelectionCodes])]
+      .filter(code => outcomeByCode.has(String(code)));
     const t5OutcomeCount = modelCodes.filter(code => Number.isFinite(outcomeByCode.get(String(code))?.t5CloseReturnPct)).length;
     const t5OutcomeCoveragePct = modelCodes.length ? Number((t5OutcomeCount / modelCodes.length * 100).toFixed(2)) : 0;
     const day = {
@@ -302,7 +390,10 @@ export function evaluateWalkForward(candidates, {
       momentumTop30Codes: momentumCodes.slice(0, 30),
       balancedBlendTop10Codes,
       balancedBlendTop30Codes,
+      coreSelectionTop5Codes: coreSelectionCodes,
+      coreSelectionDiagnostics,
       model: {},
+      coreSelection: {},
       coreOnly: {},
       earlyTurn: {},
       momentumHybrid: {},
@@ -313,6 +404,7 @@ export function evaluateWalkForward(candidates, {
       oversoldWatch: {},
       momentum: {}
     };
+    day.coreSelection.top5 = metricsForTopK(coreSelectionCodes, 5, universeCodes, outcomeByCode);
     for (const k of DEFAULT_TOP_KS) {
       day.model['top' + k] = metricsForTopK(modelCodes, k, universeCodes, outcomeByCode);
       day.coreOnly['top' + k] = metricsForTopK(coreOnlyCodes, k, universeCodes, outcomeByCode);
@@ -353,6 +445,36 @@ export function evaluateWalkForward(candidates, {
       balancedBlend: aggregateMetrics(perDate, 'balancedBlend', k)
     };
   }
+  const coreSelectionTop5 = aggregateMetrics(perDate, 'coreSelection', 5);
+  const corePolicyEvidenceRows = perDate.reduce((sum, day) => sum + day.coreSelectionDiagnostics.pointInTimePolicyEvidenceCount, 0);
+  const coreLeaderEvidenceRows = perDate.reduce((sum, day) => sum + day.coreSelectionDiagnostics.pointInTimeLeaderEvidenceCount, 0);
+  const coreStrictEligibleCount = perDate.reduce((sum, day) => sum + day.coreSelectionDiagnostics.strictEligibleCount, 0);
+  const coreSelectedCount = perDate.reduce((sum, day) => sum + day.coreSelectionDiagnostics.selectedCount, 0);
+  const coreSelectionReasons = [];
+  if (coveragePct === null) coreSelectionReasons.push('source-coverage-report-missing');
+  else if (coveragePct < 90) coreSelectionReasons.push('historical-bar-coverage-below-90pct');
+  if (eligibleDates.length < 3) coreSelectionReasons.push('fewer-than-three-complete-forward-evaluation-dates');
+  if (minimumT5OutcomeCoveragePct < 80) coreSelectionReasons.push('forward-outcome-coverage-below-80pct');
+  if (corePolicyEvidenceRows === 0) coreSelectionReasons.push('point-in-time-policy-evidence-unavailable');
+  if (coreLeaderEvidenceRows === 0) coreSelectionReasons.push('point-in-time-theme-leader-evidence-unavailable');
+  if (coreStrictEligibleCount === 0) coreSelectionReasons.push('strict-core-selector-has-no-qualified-candidates');
+  const coreSelectionMeasurable = coreSelectionReasons.length === 0;
+  const coreSelectionEvaluation = {
+    status: coreSelectionMeasurable ? 'MEASURABLE' : 'NOT_MEASURABLE',
+    measurable: coreSelectionMeasurable,
+    reasons: [...new Set(coreSelectionReasons)],
+    selectorVersion: 'four-layer-strict-core-leader-selection-v1',
+    policyCatalogVersion: POLICY_CATALOG_VERSION,
+    policyCatalogReviewedAt: POLICY_CATALOG_REVIEWED_AT,
+    signalDateCount: eligibleDates.length,
+    pointInTimePolicyEvidenceRows: corePolicyEvidenceRows,
+    pointInTimeLeaderEvidenceRows: coreLeaderEvidenceRows,
+    strictEligibleCandidateCount: coreStrictEligibleCount,
+    selectedCandidateCount: coreSelectedCount,
+    top5: coreSelectionTop5,
+    interpretation: 'A strict core-leader return comparison is measurable only when historical point-in-time policy evidence and explicit theme-leadership evidence exist. Current industry labels, price leadership, or later news are not substituted for missing historical evidence.'
+  };
+  summary.coreSelectionTop5 = coreSelectionTop5;
   return {
     model: 'V13-limitup-precursor-walk-forward',
     status: measurable ? 'MEASURABLE' : 'NOT_MEASURABLE',
@@ -362,7 +484,9 @@ export function evaluateWalkForward(candidates, {
       features: 'For each signalDate, K-line and fund-flow rows are sliced to dates <= signalDate before scoring; sector context is rebuilt from those pre-signal bars only',
       outcomes: 'Only rows strictly after signalDate are used to calculate T+1/T+3/T+5 close returns, limit-up hits, maximum favorable excursion, and maximum adverse excursion',
       baseline: 'Five-trading-session momentum ranking on the same scored candidate universe',
-      variants: 'Compare legacy blended, core-only, early-turn, momentum-led hybrid, cross-sectional momentum-confirmed ranking, V12 Early Opportunity, and a 50/50 interleaved momentum/early-opportunity shortlist; emotion-repair and oversold scores are separately evaluated as observation lanes',
+      variants: 'Compare legacy blended, core-only, early-turn, momentum-led hybrid, cross-sectional momentum-confirmed ranking, V12 Early Opportunity, a 50/50 interleaved momentum/early-opportunity shortlist, and the strict four-layer core-leader selector; emotion-repair and oversold scores remain separate observation lanes',
+      policyAndLeaderEvidence: 'Historical core selection uses only pointInTimeIndustry, pointInTimeThemeNames, timestamped companyNews, and pointInTimeLeaderEvidence. Current industry metadata remains available for sector-return diagnostics but cannot be treated as historical policy or theme-leader proof.',
+      policyCatalog: 'The current policy taxonomy is unavailable before its recorded review timestamp; historical dates before the catalog review receive no policy-theme match.',
       noTargetTuning: 'The screenshot target labels are not loaded or used by this evaluator'
     },
     sourceCoveragePct: coveragePct,
@@ -373,6 +497,7 @@ export function evaluateWalkForward(candidates, {
     signalDateCount: eligibleDates.length,
     signalDates: eligibleDates,
     summary,
+    coreSelectionEvaluation,
     perDate
   };
 }
@@ -402,7 +527,7 @@ async function main(argv) {
     model: report.model, status: report.status, reasons: report.reasons,
     sourceCoveragePct: report.sourceCoveragePct, candidateCount: report.candidateCount,
     signalDateCount: report.signalDateCount, signalDates: report.signalDates,
-    summary: report.summary
+    summary: report.summary, coreSelectionEvaluation: report.coreSelectionEvaluation
   }, null, 2));
   return report;
 }
