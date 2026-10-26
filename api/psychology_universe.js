@@ -53,6 +53,229 @@ async function fetchParsed(url, timeoutMs = 7000) {
   }
 }
 
+async function fetchText(url, timeoutMs = 7000, referer = 'https://basic.10jqka.com.cn/') {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch(url, {
+      signal:controller.signal,
+      cache:'no-store',
+      headers:{
+        accept:'text/html,application/xhtml+xml,*/*;q=0.8',
+        'user-agent':UA,
+        referer
+      }
+    });
+    if (!response.ok) throw new Error('HTTP ' + response.status);
+    return await response.text();
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+function normalizeThemeName(value) {
+  return String(value ?? '').trim().toLowerCase()
+    .replace(/概念$/u, '')
+    .replace(/[\\s·（）()【】《》,，:：;；、\\-_—/]+/gu, '');
+}
+
+function decodeHtmlText(value) {
+  return String(value ?? '')
+    .replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script>/gi, ' ')
+    .replace(/<style\\b[^>]*>[\\s\\S]*?<\\/style>/gi, ' ')
+    .replace(/<[^>]*>/g, ' ')
+    .replace(/&nbsp;|&#160;|&#xA0;/gi, ' ')
+    .replace(/&amp;/gi, '&')
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;|&apos;/gi, "'")
+    .replace(/&lt;/gi, '<')
+    .replace(/&gt;/gi, '>')
+    .replace(/&#(\\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)))
+    .replace(/\\s+/g, ' ')
+    .trim();
+}
+
+function parseThsStockConcepts(html) {
+  const output = [];
+  const seen = new Set();
+  for (const match of String(html ?? '').matchAll(/<tr\\b[^>]*>([\\s\\S]*?)<\\/tr>/gi)) {
+    const cells = [...match[1].matchAll(/<td\\b[^>]*>([\\s\\S]*?)<\\/td>/gi)]
+      .map(cell => decodeHtmlText(cell[1]));
+    if (cells.length < 2 || !/^\\d{1,3}$/.test(cells[0])) continue;
+    const name = cells[1].replace(/^(?:概念名称|名称)$/u, '').trim();
+    if (!name || name.length > 60 || /概念解析|龙头股|序号/u.test(name)) continue;
+    const key = normalizeThemeName(name);
+    if (!key || seen.has(key)) continue;
+    seen.add(key);
+    output.push({name, normalizedName:key, source:'10jqka'});
+  }
+  return output;
+}
+
+function parseSinaConceptNodes(tree) {
+  const output = new Map();
+  const walk = value => {
+    if (!Array.isArray(value)) return;
+    if (value.length >= 3 && typeof value[0] === 'string' &&
+        typeof value[2] === 'string' && /^(?:gn_|chgn_)/.test(value[2])) {
+      const name = String(value[0]).trim();
+      const normalizedName = normalizeThemeName(name);
+      if (normalizedName && !output.has(normalizedName)) {
+        output.set(normalizedName, {name, code:value[2], normalizedName, source:'sina'});
+      }
+    }
+    for (const child of value) walk(child);
+  };
+  walk(tree);
+  return output;
+}
+
+function parseSinaNodeMembers(rows) {
+  const values = Array.isArray(rows) ? rows : [];
+  return values.map(row => {
+    const code = String(row?.code ?? row?.symbol ?? '').match(/\\d{6}/)?.[0] ?? '';
+    return {
+      code,
+      name:String(row?.name ?? ''),
+      pct:n(row?.changepercent),
+      amountCny:n(row?.amount),
+      price:n(row?.trade),
+      quoteTime:String(row?.ticktime ?? '')
+    };
+  }).filter(row => /^(0|6)\\d{5}$/.test(row.code) && row.pct !== null);
+}
+
+async function fetchThsStockConcepts(code) {
+  const html = await fetchText('https://basic.10jqka.com.cn/' + code + '/concept.html', 6500);
+  const concepts = parseThsStockConcepts(html);
+  if (!concepts.length) throw new Error('10jqka concept page yielded no parseable concept rows');
+  return concepts;
+}
+
+async function fetchSinaConceptNodes() {
+  const tree = await fetchParsed(
+    'https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodes',
+    7000
+  );
+  const nodes = parseSinaConceptNodes(tree);
+  if (!nodes.size) throw new Error('Sina concept node tree yielded no gn_/chgn_ nodes');
+  return nodes;
+}
+
+async function fetchSinaNodeMembers(nodeCode, maxPages = 1) {
+  const pages = await mapLimit(
+    Array.from({length:maxPages}, (_, index) => index + 1),
+    2,
+    async page => {
+      const url = new URL('https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeData');
+      url.search = new URLSearchParams({
+        node:nodeCode, sort:'changepercent', asc:'0',
+        page:String(page), num:'80', _s_r_a:'page'
+      }).toString();
+      const rows = await fetchParsed(url.toString(), 6500);
+      return parseSinaNodeMembers(rows);
+    }
+  );
+  const deduped = new Map();
+  for (const row of pages.flat()) if (!deduped.has(row.code)) deduped.set(row.code, row);
+  return [...deduped.values()];
+}
+
+async function fetchSinaThsConceptFallback(codes, maxThemes = 24, concurrency = 4) {
+  const [nodesResult, membershipsResult] = await Promise.allSettled([
+    fetchSinaConceptNodes(),
+    mapLimit(codes, concurrency, async code => {
+      await sleep(100);
+      try {
+        return {code, concepts:await fetchThsStockConcepts(code)};
+      } catch (error) {
+        return {code, concepts:[], error:error?.message ?? String(error)};
+      }
+    })
+  ]);
+  if (nodesResult.status !== 'fulfilled') {
+    throw new Error('Sina concept node source failed: ' + String(nodesResult.reason?.message ?? nodesResult.reason));
+  }
+  if (membershipsResult.status !== 'fulfilled') {
+    throw new Error('10jqka stock-concept source failed: ' + String(membershipsResult.reason?.message ?? membershipsResult.reason));
+  }
+  const nodes = nodesResult.value;
+  const rawMemberships = membershipsResult.value;
+  const counts = new Map();
+  const mappedByCode = new Map();
+  let membershipFailures = 0;
+  let unmappedConcepts = 0;
+  for (const item of rawMemberships) {
+    if (item.error) membershipFailures += 1;
+    const matched = [];
+    for (const concept of item.concepts) {
+      const node = nodes.get(concept.normalizedName);
+      if (!node) { unmappedConcepts += 1; continue; }
+      matched.push({code:'SINA:' + node.code, name:node.name});
+      counts.set(node.code, (counts.get(node.code) ?? 0) + 1);
+    }
+    mappedByCode.set(item.code, matched);
+  }
+  const rankedNodeCodes = [...counts.entries()]
+    .sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .slice(0, maxThemes)
+    .map(([code]) => code);
+  const themeRows = await mapLimit(rankedNodeCodes, concurrency, async nodeCode => {
+    await sleep(100);
+    try {
+      const members = await fetchSinaNodeMembers(nodeCode, 1);
+      if (!members.length) return null;
+      const returns = members.map(row => row.pct).filter(Number.isFinite);
+      const upCount = returns.filter(value => value > 0).length;
+      const downCount = returns.filter(value => value < 0).length;
+      const flatCount = returns.filter(value => value === 0).length;
+      const averageChange = returns.length
+        ? returns.reduce((sum, value) => sum + value, 0) / returns.length : null;
+      const amountCny = members.reduce((sum, row) => sum + (row.amountCny ?? 0), 0);
+      const leader = [...members].sort((a,b) => (b.pct ?? -Infinity) - (a.pct ?? -Infinity))[0];
+      const node = [...nodes.values()].find(item => item.code === nodeCode);
+      return {
+        code:'SINA:' + nodeCode,
+        name:node?.name ?? nodeCode,
+        changePct:averageChange === null ? null : Number(averageChange.toFixed(4)),
+        amountCny,
+        mainNetCny:null,
+        mainNetPct:null,
+        upCount, downCount, flatCount,
+        memberCount:members.length,
+        leaderCode:leader?.code ?? '',
+        leaderName:leader?.name ?? '',
+        leaderChangePct:leader?.pct ?? null,
+        quoteTimestamp:null,
+        provider:'sina+10jqka',
+        sinaMembers:members.map(row => ({code:row.code,name:row.name,pct:row.pct,amountCny:row.amountCny,turnoverPct:null,mainNetCny:null}))
+      };
+    } catch {
+      return null;
+    }
+  });
+  const concepts = themeRows.filter(Boolean);
+  if (!concepts.length) throw new Error('Sina/10jqka fallback could not validate any matched concept member lists');
+  const conceptMap = new Map(concepts.map(theme => [theme.code, theme]));
+  const memberships = rawMemberships.map(item => ({
+    code:item.code,
+    concepts:(mappedByCode.get(item.code) ?? []).filter(concept => conceptMap.has(concept.code))
+  }));
+  return {
+    concepts,
+    memberships,
+    diagnostics:{
+      conceptSource:'sina-node-aggregate',
+      membershipSource:'10jqka-stock-concepts-mapped-to-sina',
+      membershipFailures,
+      unmappedConcepts,
+      requestedMemberships:codes.length,
+      mappedMemberships:memberships.filter(item => item.concepts.length > 0).length
+    }
+  };
+}
+
 async function fetchFromHosts(hosts, path, params, timeoutMs = 7000) {
   let lastError = null;
   for (const host of hosts) {
