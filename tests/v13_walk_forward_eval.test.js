@@ -118,3 +118,18 @@ test('strict core-leader walk-forward refuses to infer policy or leader evidence
   assert.ok(report.perDate.every(day => day.coreSelectionTop5Codes.length === 0));
   assert.equal(report.perDate[0].coreSelectionDiagnostics.marketDataQuality, 'ranked-universe-proxy');
 });
+
+
+test('walk-forward report keeps the model research-only when strict core evidence and baseline outperformance are missing',()=>{
+  const candidates = [
+    makeHistory('600001', '样本A', 0.025, '计算机设备'),
+    makeHistory('000001', '样本B', 0.015, '计算机设备'),
+    makeHistory('600002', '样本C', -0.005, '医药制造')
+  ];
+  const report = evaluateWalkForward(candidates, { signalDays: 5, sourceCoveragePct: 100 });
+  assert.equal(report.promotionGate.status,'HOLD_RESEARCH_ONLY');
+  assert.equal(report.promotionGate.productionAuthorized,false);
+  assert.ok(report.promotionGate.reasons.includes('strict-core-leader-evaluation-not-measurable'));
+  assert.ok(report.promotionGate.reasons.includes('fewer-than-100-out-of-sample-signal-dates'));
+  assert.ok(report.promotionGate.reasons.includes('primary-model-does-not-beat-momentum-baseline-on-mean-t5-return'));
+});
