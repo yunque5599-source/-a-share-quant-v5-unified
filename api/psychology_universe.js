@@ -76,6 +76,31 @@ function secid(code) {
   return /^(6)/.test(code) ? '1.' + code : '0.' + code;
 }
 
+function summarizeSourceCoverage(diagnostics = {}) {
+  const requested = Number(diagnostics.requestedCodes) || 0;
+  const concepts = Number(diagnostics.conceptRows) || 0;
+  const quotes = Number(diagnostics.quoteRows) || 0;
+  const themes = Number(diagnostics.themeCount) || 0;
+  const researchThemes = Number(diagnostics.researchThemes) || 0;
+  const membershipFailures = Number(diagnostics.membershipFailures) || 0;
+  const flowFailures = Number(diagnostics.flowFailures) || 0;
+  const researchFailures = Number(diagnostics.researchFailures) || 0;
+  const failures = Array.isArray(diagnostics.sourceFailures) ? diagnostics.sourceFailures : [];
+  const warnings = [...failures];
+  if (requested > 0 && concepts === 0) warnings.push('concept-ranking-empty');
+  if (requested > 0 && quotes === 0) warnings.push('candidate-quotes-empty');
+  if (requested > 0 && themes === 0) warnings.push('theme-evidence-empty');
+  if (requested > 0 && membershipFailures >= requested) warnings.push('all-stock-theme-membership-requests-failed');
+  if (researchThemes > 0 && flowFailures >= researchThemes) warnings.push('all-theme-flow-requests-failed');
+  if (researchThemes > 0 && researchFailures >= researchThemes * 2) warnings.push('all-theme-member-and-news-research-failed');
+  const degraded = warnings.length > 0;
+  return {
+    status: degraded ? 'DEGRADED_SOURCE_COVERAGE' : 'SOURCE_COVERAGE_AVAILABLE',
+    degraded,
+    warnings: [...new Set(warnings)]
+  };
+}
+
 function sleep(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
@@ -418,7 +443,8 @@ export const _internal = {
   normalizeThemeMemberRow,
   isThemeMemberRow,
   isNarrativeTheme,
-  themeStrength
+  themeStrength,
+  summarizeSourceCoverage
 };
 
 export default async function handler(req, res) {
@@ -443,6 +469,8 @@ export default async function handler(req, res) {
     researchFailures:0,
     sourceFailures:[],
     sourceDegraded:false,
+    sourceWarnings:[],
+    quoteRows:0,
     selectedThemesPerStock:2,
     maxResearchThemes:24,
     asOfMode:requestedAsOf ? 'caller-supplied' : 'server-capture',
@@ -466,8 +494,14 @@ export default async function handler(req, res) {
     const quotes = quoteResult.status === 'fulfilled' ? quoteResult.value : new Map();
     if (conceptResult.status === 'rejected') diagnostics.sourceFailures.push('concept-ranking: ' + String(conceptResult.reason?.message ?? conceptResult.reason));
     if (quoteResult.status === 'rejected') diagnostics.sourceFailures.push('candidate-quotes: ' + String(quoteResult.reason?.message ?? quoteResult.reason));
-    diagnostics.sourceDegraded = diagnostics.sourceFailures.length > 0 || conceptRows.length === 0 || quotes.size === 0;
+    diagnostics.quoteRows = quotes.size;
     diagnostics.conceptRows = conceptRows.length;
+    const initialCoverage = summarizeSourceCoverage({
+      ...diagnostics, themeCount:0, researchThemes:0,
+      membershipFailures:0, flowFailures:0, researchFailures:0
+    });
+    diagnostics.sourceDegraded = initialCoverage.degraded;
+    diagnostics.sourceWarnings = initialCoverage.warnings;
     const conceptMap = new Map(conceptRows.map(row => [row.code, row]));
 
     const memberships = conceptRows.length ? await mapLimit(codes, membershipConcurrency, async code => {
@@ -558,6 +592,9 @@ export default async function handler(req, res) {
     }
 
     diagnostics.themeCount = allThemes.size;
+    const finalCoverage = summarizeSourceCoverage(diagnostics);
+    diagnostics.sourceDegraded = finalCoverage.degraded;
+    diagnostics.sourceWarnings = finalCoverage.warnings;
     const asOfValues = Object.values(themeBySymbol).flat()
       .map(theme => theme.asOf).filter(Boolean).sort();
 
@@ -567,8 +604,8 @@ export default async function handler(req, res) {
     res.end(JSON.stringify({
       schema:'v12-psychology-source-v1',
       version:'V12 Psychology Market Evidence Phase 3 Behavioral',
-      status:diagnostics.sourceDegraded ? 'DEGRADED_SOURCE_COVERAGE' : 'SOURCE_COVERAGE_AVAILABLE',
-      degraded:diagnostics.sourceDegraded,
+      status:finalCoverage.status,
+      degraded:finalCoverage.degraded,
       asOf:fallbackAsOf,
       data:{
         themeBySymbol,
