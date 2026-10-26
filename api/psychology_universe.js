@@ -291,16 +291,16 @@ async function fetchCandidateQuotes(codes) {
 function parseTencentCandidateQuotes(raw, requestedCodes = []) {
   const requested = new Set(requestedCodes);
   const output = new Map();
-  for (const match of String(raw ?? '').matchAll(/v_(?:sh|sz)(\\d{6})="([^"]*)"/g)) {
+  for (const match of String(raw ?? '').matchAll(/v_(?:sh|sz)(\d{6})="([^"]*)"/g)) {
     const code = match[1];
     if (!requested.has(code)) continue;
     const fields = match[2].split('~');
     const current = n(fields[3]);
     const previousClose = n(fields[4]);
     if (current === null || previousClose === null || previousClose <= 0) continue;
-    const date = fields.find(value => /^\\d{4}\\/\\d{2}\\/\\d{2}$/.test(value));
+    const date = fields.find(value => /^\d{4}\/\d{2}\/\d{2}$/.test(value));
     const timeIndex = date ? fields.indexOf(date) + 1 : -1;
-    const time = timeIndex >= 0 && /^\\d{2}:\\d{2}:\\d{2}$/.test(fields[timeIndex])
+    const time = timeIndex >= 0 && /^\d{2}:\d{2}:\d{2}$/.test(fields[timeIndex])
       ? fields[timeIndex] : null;
     const parsedTimestamp = date && time ? Date.parse(date.replaceAll('/', '-') + 'T' + time + '+08:00') : NaN;
     output.set(code, {
