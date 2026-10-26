@@ -48,6 +48,7 @@ export function assessPreBreakoutCandidate(row = {}, earlyOpportunity = null) {
   const trend = n(c.trend);
   const sector = n(c.sector);
   const marketFit = n(c.marketFit);
+  const sectorScore = avg([sector, marketFit]);
   const policyScore = row.policyAlignment?.evidenceAvailable === true && row.policyAlignment?.catalogStale !== true
     ? n(row.policyAlignment?.score ?? c.policyAlignment) : null;
   const leader = row.leaderEvidence ?? {};
@@ -103,7 +104,6 @@ export function assessPreBreakoutCandidate(row = {}, earlyOpportunity = null) {
     flowObserved ? n(c.flow) : null
   ].filter(value => value !== null);
   const flowScore = avg(flowPieces);
-  const sectorScore = avg([sector, marketFit]);
   const policyComponent = policyScore === null ? 35 : clamp(policyScore);
   const leaderComponent = leaderScore === null ? 35 : clamp(leaderScore);
   const currentMoveSafety = currentPct === null ? 55
