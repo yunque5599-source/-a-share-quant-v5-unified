@@ -1,5 +1,7 @@
 'use strict';
 
+import { regimeAwareScore } from './policy_alignment.js';
+
 // V13 research-only score for finding 1–5 trading-day limit-up precursors.
 // Discovery coverage is deliberately separate from execution eligibility.
 
@@ -397,22 +399,35 @@ function scoreCandidate(candidate, options = {}) {
   const momentumHybrid = momentumHybridScore(f);
   const risk = computeRisk(f, candidate);
   const coreGrossScore = 0.22 * trend + 0.20 * volumePrice + 0.20 * flow + 0.18 * sector + 0.12 * momentum + 0.08 * base;
+  const policyAlignment = candidate.policyAlignment ?? { score: 50, evidenceAvailable: false, matchedThemes: [], interpretation: 'no-verifiable-policy-theme-match' };
+  const policyScore = clamp(num(policyAlignment.score, 50));
+  const policyEvidence = policyAlignment.evidenceAvailable === true;
+  const marketRegime = candidate.marketRegime ?? options.marketRegime ?? { regime: 'neutral' };
+  const regimeScore = regimeAwareScore({
+    coreScore: coreGrossScore, policyScore, policyEvidence, marketRegime,
+    trend, volumePrice, flow, sector, momentum, base
+  });
+  const policyAwareCore = regimeScore.score;
   const modelVariant = options.modelVariant || 'v13-current';
   const grossScore = modelVariant === 'v13-core-only'
     ? coreGrossScore
-    : modelVariant === 'v13-early-turn'
-      ? Math.max(coreGrossScore, earlyTurn)
-      : modelVariant === 'v13-momentum-hybrid'
-        ? momentumHybrid
-        : Math.max(coreGrossScore, repair, oversold);
+    : modelVariant === 'v13-policy-aware'
+      ? policyAwareCore
+      : modelVariant === 'v13-early-turn'
+        ? Math.max(policyAwareCore, earlyTurn)
+        : modelVariant === 'v13-momentum-hybrid'
+          ? momentumHybrid
+          : Math.max(policyAwareCore, repair, oversold);
   const score = clamp(grossScore - risk.penalty);
   const scorePath = modelVariant === 'v13-current'
-    ? grossScore === oversold && oversold > coreGrossScore && oversold > repair
+    ? grossScore === oversold && oversold > policyAwareCore && oversold > repair
       ? 'oversold-reversal'
-      : repair > coreGrossScore && repair >= oversold ? 'emotion-repair' : 'trend-transition'
-    : modelVariant === 'v13-early-turn' && earlyTurn > coreGrossScore
-      ? 'early-turn'
-      : modelVariant === 'v13-momentum-hybrid' ? 'momentum-hybrid' : 'trend-transition';
+      : repair > policyAwareCore && repair >= oversold ? 'emotion-repair' : policyEvidence && policyAwareCore > coreGrossScore + 0.5 ? 'policy-market-aligned' : 'trend-transition'
+    : modelVariant === 'v13-policy-aware'
+      ? policyEvidence && policyAwareCore > coreGrossScore + 0.5 ? 'policy-market-aligned' : 'market-regime-adjusted'
+      : modelVariant === 'v13-early-turn' && earlyTurn > policyAwareCore
+        ? 'early-turn'
+        : modelVariant === 'v13-momentum-hybrid' ? 'momentum-hybrid' : 'trend-transition';
   const confidence = clamp(30
     + (f.bars.length >= 60 ? 20 : f.bars.length >= 40 ? 12 : 5)
     + (f.flowCount >= 5 ? 20 : f.flowCount >= 3 ? 12 : 0)
@@ -430,6 +445,8 @@ function scoreCandidate(candidate, options = {}) {
   const riskFlags = [...risk.flags];
   if (f.flowCount < 3) riskFlags.push('资金流历史不足，资金评分置信度较低');
   if (f.sectorFieldsPresent < 2) riskFlags.push('题材/行业数据不足，板块评分为弱证据');
+  if (!policyEvidence && modelVariant === 'v13-policy-aware') riskFlags.push('未匹配到可验证的国家政策主题，不因政策叙事额外加分');
+  if (marketRegime?.dataQuality === 'ranked-universe-proxy') riskFlags.push('市场环境依据候选池代理估计，需结合指数与全市场涨跌家数核验');
   if (f.bars.length < 40) riskFlags.push('K线样本少于40根');
   return {
     code: String(candidate.code || ''), name: String(candidate.name || candidate.code || ''),
@@ -438,14 +455,23 @@ function scoreCandidate(candidate, options = {}) {
     score: Number(score.toFixed(1)), grossScore: Number(grossScore.toFixed(1)),
     riskPenalty: Number(risk.penalty.toFixed(1)), confidence: Number(confidence.toFixed(1)),
     setup, scorePath,
+    marketRegime: {
+      regime: typeof marketRegime === 'string' ? marketRegime : marketRegime?.regime ?? 'neutral',
+      label: typeof marketRegime === 'object' ? marketRegime?.label ?? null : null,
+      dataQuality: typeof marketRegime === 'object' ? marketRegime?.dataQuality ?? null : null
+    },
+    policyAlignment,
     horizonTradingDays: [1, 5], discoveryEligible, executionEligible,
     tradeabilityReason,
     components: {
       trend: Number(trend.toFixed(1)), volumePrice: Number(volumePrice.toFixed(1)),
       flow: Number(flow.toFixed(1)), sector: Number(sector.toFixed(1)),
       momentum: Number(momentum.toFixed(1)), base: Number(base.toFixed(1)),
-      coreComposite: Number(coreGrossScore.toFixed(1)), earlyTurn: Number(earlyTurn.toFixed(1)),
-      momentumHybrid: Number(momentumHybrid.toFixed(1)),
+      coreComposite: Number(coreGrossScore.toFixed(1)), policyAwareComposite: Number(policyAwareCore.toFixed(1)),
+      marketFit: Number(regimeScore.marketFitScore.toFixed(1)), policyAlignment: Number(policyScore.toFixed(1)),
+      effectivePolicyScore: Number(regimeScore.effectivePolicyScore.toFixed(1)),
+      policyWeight: Number(regimeScore.policyWeight.toFixed(3)), marketWeight: Number(regimeScore.marketWeight.toFixed(3)),
+      earlyTurn: Number(earlyTurn.toFixed(1)), momentumHybrid: Number(momentumHybrid.toFixed(1)),
       emotionRepair: Number(repair.toFixed(1)), oversoldReversal: Number(oversold.toFixed(1))
     },
     riskFlags,
