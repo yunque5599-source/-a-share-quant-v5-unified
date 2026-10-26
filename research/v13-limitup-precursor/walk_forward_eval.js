@@ -316,9 +316,22 @@ export function evaluateWalkForward(candidates, {
     // Evaluate the same strict four-layer selector used by the V13 live observation panel.
     // Missing point-in-time policy/theme/leader evidence is left missing; no industry-only
     // proxy is allowed to masquerade as a verified theme leader.
-    const coreBaseScored = candidatesAtDate
-      .map(stock => scoreCandidate(stock, { asOf: signalDate, modelVariant: 'v13-policy-aware', marketRegime }))
-      .filter(Boolean);
+    // Reuse the shared feature pass; switch only the score path to the policy-aware composite
+    // so the strict selector matches the live model without scoring every history twice.
+    const coreBaseScored = baseScored.map(row => {
+      const policyAwareGross = Number(row.components?.policyAwareComposite ?? row.grossScore);
+      const riskPenalty = Number(row.riskPenalty ?? 0);
+      const score = Math.max(0, Math.min(100, policyAwareGross - riskPenalty));
+      const policyAdjusted = row.policyAlignment?.evidenceAvailable === true
+        && policyAwareGross > Number(row.components?.coreComposite ?? policyAwareGross) + 0.5;
+      return {
+        ...row,
+        modelVariant: 'v13-policy-aware',
+        grossScore: Number(policyAwareGross.toFixed(1)),
+        score: Number(score.toFixed(1)),
+        scorePath: policyAdjusted ? 'policy-market-aligned' : 'market-regime-adjusted'
+      };
+    });
     const earlyByCode = new Map(v12EarlyOpportunityRanked.map(row => [String(row.code), { stage: row.setup }]));
     const coreEligibleCodes = new Set(coreBaseScored
       .filter(row => isHistoricalCorePreLimitUpCandidate(row, earlyByCode.get(String(row.code))))
