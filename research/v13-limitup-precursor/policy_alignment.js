@@ -26,8 +26,9 @@ export const OFFICIAL_POLICIES = [
   {
     id: 'tech-commerce-2026-10-13',
     title: '关于加快推进科技兴商的意见',
-    publishedAt: '2026-10-13',
-    source: '中华人民共和国商务部',
+    issuedAt: '2026-10-13',
+    publishedAt: '2026-10-19',
+    source: '中华人民共和国商务部等9部门',
     url: 'https://www.mofcom.gov.cn/zcfb/zc/art/2026/art_202618c40d1943e9abfed97cef83e671.html',
     priority: 82
   }
