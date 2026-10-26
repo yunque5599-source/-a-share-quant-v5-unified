@@ -10,7 +10,11 @@ const {
   isNarrativeTheme,
   themeStrength,
   summarizeSourceCoverage,
-  parseTencentCandidateQuotes
+  parseTencentCandidateQuotes,
+  normalizeThemeName,
+  parseThsStockConcepts,
+  parseSinaConceptNodes,
+  parseSinaNodeMembers
 } = universe;
 
 test('concept ranking accepts Eastmoney BK concept-board codes and requires price change', () => {
@@ -138,4 +142,55 @@ test('source coverage degrades when quote fallback only covers part of the reque
   });
   assert.equal(result.degraded, true);
   assert.ok(result.warnings.includes('candidate-quotes-partial:7/10'));
+});
+
+
+test('10jqka concept parser extracts numbered table rows and deduplicates normalized names', () => {
+  const html = `
+    <table>
+      <tr><th>序号</th><th>概念名称</th><th>龙头股</th></tr>
+      <tr><td>1</td><td><a href="/gn/detail/code/301496/">白酒概念</a></td><td>贵州茅台</td></tr>
+      <tr><td>2</td><td><a href="/gn/detail/code/300001/">人工智能</a></td><td>示例科技</td></tr>
+      <tr><td>3</td><td><a href="/gn/detail/code/301496/">白酒</a></td><td>贵州茅台</td></tr>
+      <tr><td>4</td><td>概念解析</td><td>说明</td></tr>
+    </table>`;
+  const concepts = parseThsStockConcepts(html);
+  assert.equal(concepts.length, 2);
+  assert.equal(concepts[0].name, '白酒概念');
+  assert.equal(concepts[0].normalizedName, normalizeThemeName('白酒'));
+  assert.equal(concepts[1].name, '人工智能');
+});
+
+test('Sina concept node parser discovers gn and chgn leaves from nested tree', () => {
+  const tree = ['行情中心', [
+    ['A股', [
+      ['概念板块', [
+        ['人工智能', '', 'gn_hwzn'],
+        ['物理AI', '', 'chgn_701381']
+      ]],
+      ['行业', [['计算机', '', 'new_jsj']]]
+    ]]
+  ]];
+  const nodes = parseSinaConceptNodes(tree);
+  assert.equal(nodes.size, 2);
+  assert.equal(nodes.get(normalizeThemeName('人工智能')).code, 'gn_hwzn');
+  assert.equal(nodes.get(normalizeThemeName('物理AI')).code, 'chgn_701381');
+});
+
+test('Sina node member parser validates stock codes and numeric change values', () => {
+  const rows = parseSinaNodeMembers([
+    {symbol:'sh600519', code:'600519', name:'贵州茅台', trade:'1500', changepercent:'2.5', amount:'1000000', ticktime:'15:00:00'},
+    {symbol:'sz000001', code:'000001', name:'平安银行', trade:'10', changepercent:'-1.2', amount:'200000', ticktime:'15:00:00'},
+    {symbol:'bj430001', code:'430001', name:'北交所样本', trade:'5', changepercent:'3', amount:'10000'},
+    {symbol:'sh600000', code:'600000', name:'无效涨幅', trade:'9', changepercent:'-', amount:'10000'}
+  ]);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].code, '600519');
+  assert.equal(rows[0].pct, 2.5);
+  assert.equal(rows[1].pct, -1.2);
+});
+
+test('theme normalization matches concept labels with and without the generic suffix', () => {
+  assert.equal(normalizeThemeName('人工智能 概念'), normalizeThemeName('人工智能'));
+  assert.equal(normalizeThemeName('CPO（共封装光学）'), normalizeThemeName('CPO-共封装光学'));
 });
