@@ -329,7 +329,7 @@ async function runPreLimitupWatch(){
       '<div class="metric"><b>'+earlyNum(q.deepSuccessPct,0)+'%</b><span>深扫覆盖</span></div>'+
       '<div class="metric"><b>'+leaderCount+'</b><span>龙头证据通过</span></div>'+
       '<div class="metric"><b>'+policyFlowCount+'</b><span>政策+资金共振</span></div>';
-    $('preLimitupStatus').textContent='采集 '+(j.capturedAt||'—')+' · 市场环境 '+((j.marketRegime||{}).label||'未知')+'（'+((j.marketRegime||{}).dataQuality||'数据不足')+'） · 评估 '+Number(summary.assessedCount??coverage.funnelCandidates??0)+' 只 / 严格通过 '+coreCount+' 只 · 政策目录 '+((j.policyFramework||{}).catalogVersion||'未加载')+' / 复核 '+((j.policyFramework||{}).reviewedAt||'未知')+(((j.policyFramework||{}).catalogStale)?' · 政策目录超过14天未复核，已降低政策权重':'')+
+    $('preLimitupStatus').textContent='采集 '+(j.capturedAt||'—')+' · 市场环境 '+((j.marketRegime||{}).label||'未知')+'（'+((j.marketRegime||{}).dataQuality||'数据不足')+'） · 评估 '+Number(summary.assessedCount??coverage.funnelCandidates??0)+' 只 · 过热初筛 '+Number(summary.preLimitUpEligibleCount??0)+' 只 / 严格通过 '+coreCount+' 只 · 政策目录 '+((j.policyFramework||{}).catalogVersion||'未加载')+' / 复核 '+((j.policyFramework||{}).reviewedAt||'未知')+(((j.policyFramework||{}).catalogStale)?' · 政策目录超过14天未复核，已降低政策权重':'')+
       (wide.failed?' · 宽新闻扫描失败：不补入未经验证的新闻候选':'')+
       (qualityOk?' · 数据质量门槛通过（研究观察，不是买入指令）':' · 数据质量门槛未通过，本轮不输出核心候选');
     $('preLimitupList').innerHTML=!qualityOk?
