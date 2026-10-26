@@ -41,15 +41,23 @@ export function assessPreBreakoutCandidate(row = {}, earlyOpportunity = null) {
   const mainNet5 = n(f.mainNet5);
   const mainFlowRatioPct = n(f.mainFlowRatioPct);
   const flowCount = n(f.flowCount ?? row.source?.historicalFlowCount);
+  const flowObserved = (flowCount !== null && flowCount > 0) || row.source?.currentFlowSnapshotUsed === true;
+  const mainNetObserved = flowCount !== null && flowCount > 0 ? mainNet5 : n(row.quote?.mainNetCny);
+  const mainFlowRatioObserved = flowCount !== null && flowCount > 0 ? mainFlowRatioPct : null;
   const trend = n(c.trend);
   const sector = n(c.sector);
   const marketFit = n(c.marketFit);
   const policyScore = row.policyAlignment?.evidenceAvailable === true && row.policyAlignment?.catalogStale !== true
     ? n(row.policyAlignment?.score ?? c.policyAlignment) : null;
   const leader = row.leaderEvidence ?? {};
+  const leaderStatus = String(leader.leaderStatus ?? '').toLowerCase();
+  const candidateRank = n(leader.candidateRank);
   const leaderVerified = leader.isLeader === true
-    || (String(leader.leaderStatus ?? '').toLowerCase() === 'leader' && Boolean(leader.themeName));
-  const leaderScore = leaderVerified ? n(leader.score ?? leader.industryLeaderScore) : null;
+    || (Boolean(leader.themeName) && (leaderStatus === 'leader'
+      || (leaderStatus === 'core' && (candidateRank === null || candidateRank <= 3))
+      || (candidateRank !== null && candidateRank <= 2)));
+  const leaderScore = leaderVerified ? n(leader.score ?? leader.industryLeaderScore
+    ?? (leaderStatus === 'leader' ? 88 : leaderStatus === 'core' ? 78 : null)) : null;
   const bars = n(row.source?.barCount ?? f.barCount);
 
   const failedGates = [];
@@ -79,10 +87,10 @@ export function assessPreBreakoutCandidate(row = {}, earlyOpportunity = null) {
   ].filter(value => value !== null);
   const trendScore = avg(trendPieces);
   const flowPieces = [
-    flowPositiveShare === null ? null : clamp(flowPositiveShare * 100),
-    mainNet5 === null ? null : mainNet5 > 0 ? 80 : mainNet5 === 0 ? 45 : 10,
-    mainFlowRatioPct === null ? null : scoreBand(mainFlowRatioPct, 0.15, 2.0, -2.5, 5),
-    n(c.flow)
+    flowCount !== null && flowCount > 0 && flowPositiveShare !== null ? clamp(flowPositiveShare * 100) : null,
+    mainNetObserved === null || !flowObserved ? null : mainNetObserved > 0 ? 80 : mainNetObserved === 0 ? 45 : 10,
+    mainFlowRatioObserved === null ? null : scoreBand(mainFlowRatioObserved, 0.15, 2.0, -2.5, 5),
+    flowObserved ? n(c.flow) : null
   ].filter(value => value !== null);
   const flowScore = avg(flowPieces);
   const sectorScore = avg([sector, marketFit]);
@@ -130,7 +138,8 @@ export function assessPreBreakoutCandidate(row = {}, earlyOpportunity = null) {
       currentPct, r3Pct:r3, r5Pct:r5, r20Pct:r20,
       distHigh20Pct:distHigh, distanceMa20Pct:distMa20,
       range10dPct:range10, volatilityCompressionRatio:compression,
-      flowPositiveShare, mainNet5, mainFlowRatioPct, flowCount, barCount:bars
+      flowPositiveShare, mainNet5:mainNetObserved, mainFlowRatioPct:mainFlowRatioObserved,
+      flowCount, flowObserved, barCount:bars
     },
     passedGates: passed ? ['main-board','history','not-extended','near-resistance','trend-risk-check'] : [],
     failedGates,
