@@ -281,7 +281,14 @@ export function assessCoreSelectionCandidate(row = {}, options = {}) {
 
 export function rankCoreSelection(rows, options = {}) {
   const sourceRows = Array.isArray(rows) ? rows : [];
-  const relativeRanks = percentileRanks(sourceRows, row => row?.features?.r5Pct);
+  const eligibleCodes = options.eligibleCodes instanceof Set ? options.eligibleCodes
+    : Array.isArray(options.eligibleCodes) ? new Set(options.eligibleCodes.map(String)) : null;
+  // Compare relative strength only against candidates that passed the upstream pre-limit-up/overheat filter.
+  // Otherwise already-extended stocks can consume the strongest percentiles and suppress earlier setups.
+  const relativeRankUniverse = eligibleCodes
+    ? sourceRows.filter(row => eligibleCodes.has(String(row?.code ?? '')))
+    : sourceRows;
+  const relativeRanks = percentileRanks(relativeRankUniverse, row => row?.features?.r5Pct);
   const assessed = sourceRows.map(row => assessCoreSelectionCandidate(row, {
     ...options,
     relativeStrengthPercentile: relativeRanks.get(String(row?.code ?? '')) ?? null
