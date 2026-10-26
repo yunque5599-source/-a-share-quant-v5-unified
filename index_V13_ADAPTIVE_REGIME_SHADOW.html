@@ -425,7 +425,58 @@ function updateBudgetUI(){const s=readBudgetSnapshot(),status=$('budgetStatus'),
 function saveBudget(){const s=readBudgetSnapshot();if(!s.valid){updateBudgetUI();return;}try{localStorage.setItem('v13_manual_budget',JSON.stringify({capital:s.capital,cash:s.cash,positions:$('budgetPositions').value,asOf:s.asOf}));}catch{}updateBudgetUI();}
 function loadBudget(){try{const s=JSON.parse(localStorage.getItem('v13_manual_budget')||'null');if(s){$('budgetTotal').value=s.capital||80000;$('budgetCash').value=s.cash??'';$('budgetPositions').value=s.positions||'';}}catch{}updateBudgetUI();}
 function hardFilter(m){const maxPrice=RESEARCH_CAPITAL*.35/100;return m.filter(x=>{const n=x.name.toUpperCase();if(!/^(0|3|6)\d{5}$/.test(x.code))return false;if(/^3/.test(x.code)||/^688/.test(x.code))return false;if(n.includes('ST')||n.includes('退'))return false;if(x.price<2||x.price>maxPrice)return false;if(!Number.isFinite(x.amount)||x.amount<8e7)return false;if(!Number.isFinite(x.mainNet)||!Number.isFinite(x.mainPct))return false;if(!Number.isFinite(x.turn)||x.turn<.7||x.turn>25)return false;if(Number.isFinite(x.mcap)&&x.mcap<2e9)return false;if(x.pct<-4||x.pct>12)return false;return true})}
-function marketRegime(m){let p=(lastMarketMeta.indices||[]).map(x=>+x.pct/100).filter(Number.isFinite),basis='指数代理';if(p.length<2){p=m.map(x=>x.pct/100).filter(Number.isFinite);basis='候选池代理'}const up=p.filter(x=>x>0).length/Math.max(1,p.length),med=median(p),strong=med>.004&&up>=.75,weak=med<-.006||up<=.25;return{label:strong?'强势':weak?'弱势':'中性',up,med,basis,minScore:strong?74:weak?82:77,maxPos:strong?.35:weak?.20:.30}}
+async function loadIndexRegimeHistory(){
+ const defs=[
+  {name:'上证指数',code:'000001',id:'1.000001'},
+  {name:'深证成指',code:'399001',id:'0.399001'},
+  {name:'创业板指',code:'399006',id:'0.399006'},
+  {name:'科创50',code:'000688',id:'1.000688'}
+ ];
+ const settled=await Promise.allSettled(defs.map(async d=>{
+  const j=await apiCall('index_kline',{index:d.code},6500,'no-store',1);
+  let rows=(j?.data?.klines||[]).map(row=>{
+   const a=String(row).split(',');
+   return{date:String(a[0]||''),close:strictNum(a[2]),high:strictNum(a[3]),low:strictNum(a[4])};
+  }).filter(x=>x.date&&Number.isFinite(x.close)&&x.close>0&&Number.isFinite(x.high)&&Number.isFinite(x.low));
+  const today=shanghaiStamp().date;
+  if(marketOpenNow()&&rows.at(-1)?.date===today)rows=rows.slice(0,-1);
+  if(rows.length<22)throw Error('index-kline-insufficient:'+d.code);
+  const last=rows.at(-1),prev=rows.at(-2),five=rows.at(-6),twenty=rows.at(-21);
+  if(!last||!prev||!five||!twenty)throw Error('index-history-window-insufficient:'+d.code);
+  const high20=Math.max(...rows.slice(-20).map(x=>x.high));
+  const recent=rows.slice(-15),trs=[];
+  for(let i=1;i<recent.length;i++){
+   const z=recent[i],p=recent[i-1];
+   trs.push(Math.max(z.high-z.low,Math.abs(z.high-p.close),Math.abs(z.low-p.close)));
+  }
+  const q=(lastMarketMeta.indices||[]).find(x=>String(x.id)===d.id);
+  const pct=Number.isFinite(q?.pct)?q.pct:100*(last.close/prev.close-1);
+  return{name:d.name,code:d.code,id:d.id,pct,dailyReturn:pct/100,
+   ret5:last.close/five.close-1,ret20:last.close/twenty.close-1,
+   drawdown20:last.close/high20-1,atrPct:trs.length?trs.reduce((a,b)=>a+b,0)/trs.length/last.close:null,
+   historyDate:last.date,source:'eastmoney-index-kline'};
+ }));
+ const good=settled.filter(x=>x.status==='fulfilled').map(x=>x.value);
+ captureEvidence('index_regime_history',{requested:defs.length,received:good.length,indices:good.map(x=>({name:x.name,historyDate:x.historyDate,ret5:x.ret5,ret20:x.ret20,drawdown20:x.drawdown20,atrPct:x.atrPct}))});
+ return good;
+}
+function qualifiedUniverseForRegime(){
+ const u=lastUniverseDiscovery,finished=Date.parse(u?.asOf?.collectionFinishedAt||'');
+ if(!u?.qualifiedForDiscovery||!Array.isArray(u.records)||u.records.length<200||!Number.isFinite(finished))return null;
+ if(Date.now()-finished>10*60*1000||u.asOf?.providerDate!==shanghaiStamp().date)return null;
+ return u.records;
+}
+function marketRegime(m,histories=[]){
+ const quotes=lastMarketMeta.indices||[];
+ const indices=(histories||[]).map(x=>{
+  const q=quotes.find(z=>String(z.id)===String(x.id));
+  const pct=Number.isFinite(q?.pct)?q.pct:x.pct;
+  return{...x,pct,dailyReturn:Number.isFinite(q?.pct)?q.pct/100:x.dailyReturn};
+ });
+ const reg=classifyMarketRegime({indices,candidates:m,fullUniverse:qualifiedUniverseForRegime(),now:new Date().toISOString()});
+ return{...reg,label:reg.legacyLabel,basis:reg.basis};
+}
+
 function sectorMap(m){const mp=new Map();for(const x of m){const k=x.industry||'未知';if(!mp.has(k))mp.set(k,[]);mp.get(k).push(x)}const raw=[];for(const[k,a]of mp){const medPct=median(a.map(x=>x.pct))/100,posFlow=a.filter(x=>x.mainNet>0).length/Math.max(1,a.length),upBreadth=a.filter(x=>x.pct>0).length/Math.max(1,a.length),strongBreadth=a.filter(x=>x.pct>=3).length/Math.max(1,a.length),flowSum=a.reduce((z,x)=>z+(Number.isFinite(x.mainNet)?x.mainNet:0),0);raw.push({k,medPct,posFlow,upBreadth,strongBreadth,flowSum,n:a.length})}const strength=raw.map(z=>z.medPct*100),flows=raw.map(z=>z.flowSum);const out=new Map;for(const z of raw){const rel=.45*percentile(strength,z.medPct*100)+.25*(z.posFlow*100)+.20*(z.upBreadth*100)+.10*percentile(flows,z.flowSum);const mainline=clamp(rel+(z.strongBreadth-.15)*35,0,100);out.set(z.k,{...z,mainline})}return out}
 function stage1Score(rows,reg){const sectors=sectorMap(rows),mainP=rows.map(x=>x.mainPct),mainN=rows.map(x=>x.mainNet),amts=rows.map(x=>Math.log10(Math.max(1,x.amount))),p60=rows.map(x=>x.pct60),pcts=rows.map(x=>x.pct);return rows.map(x=>{const s=sectors.get(x.industry)||{medPct:0,posFlow:.5},flow=.55*percentile(mainP,x.mainPct)+.45*percentile(mainN,x.mainNet),liq=percentile(amts,Math.log10(Math.max(1,x.amount))),rs60=percentile(p60,x.pct60),mom=percentile(pcts,x.pct),turnOpt=100-Math.min(100,Math.abs((x.turn||5)-6)*8),sect=clamp(50+s.medPct*1700+(s.posFlow-.5)*45,0,100),rank=clamp(x.rankScore||50,0,100),heat=(x.pct>8?18:0)+(x.turn>18?10:0),score=.30*flow+.14*liq+.10*rs60+.08*mom+.08*turnOpt+.10*sect+.20*rank-heat;return{...x,stage1:score,sectorScore:sect}}).sort((a,b)=>b.stage1-a.stage1)}
 function breakoutStage1Score(rows){const sectors=sectorMap(rows),mainP=rows.map(x=>x.mainPct),mainN=rows.map(x=>x.mainNet),amts=rows.map(x=>Math.log10(Math.max(1,x.amount))),p60=rows.map(x=>x.pct60),pcts=rows.map(x=>x.pct);return rows.filter(x=>x.pct>=4&&x.pct<=10.1&&x.turn>=4&&x.turn<=25&&x.mainNet>0&&x.mainPct>2).map(x=>{const s=sectors.get(x.industry)||{medPct:0,posFlow:.5},flow=.55*percentile(mainP,x.mainPct)+.45*percentile(mainN,x.mainNet),liq=percentile(amts,Math.log10(Math.max(1,x.amount))),rs60=percentile(p60,x.pct60),mom=percentile(pcts,x.pct),turnBreak=clamp(100-Math.abs((x.turn||10)-14)*4,35,100),sect=clamp(50+s.medPct*1700+(s.posFlow-.5)*45,0,100),rank=clamp(x.rankScore||50,0,100),zone=clamp(55+(x.pct-4)*7.5,55,100),penalty=(x.turn>22?(x.turn-22)*2:0)+(x.mainPct<5?6:0)+(x.pct>=9.8&&x.mainPct<8?5:0),shadowStage1=.27*flow+.10*liq+.10*rs60+.12*mom+.10*turnBreak+.12*sect+.12*rank+.07*zone-penalty;return{...x,shadowStage1,shadowFlow:flow,shadowLiq:liq,shadowRs60:rs60,shadowMom:mom,shadowTurn:turnBreak,sectorScore:sect,shadowRank:rank,shadowZone:zone,shadowPenalty:penalty}}).sort((a,b)=>b.shadowStage1-a.shadowStage1)}
