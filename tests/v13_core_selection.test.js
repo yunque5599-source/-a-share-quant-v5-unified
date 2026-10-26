@@ -167,3 +167,17 @@ test('a qualified stock remains observation-only when market breadth coverage is
   assert.equal(result.selection.decision,'OBSERVE_DATA_LIMITED');
   assert.match(result.selection.decisionLabel,/市场数据有限/);
 });
+
+
+test('primary core shortlist rejects non-main-board or explicitly non-executable names',()=>{
+  const row=makeRow({code:'300006',r5Pct:12});
+  row.board='CHINEXT';
+  row.executionEligible=false;
+  const result=rankCoreSelection([row],{
+    marketRegime:row.marketRegime,
+    eligibleCodes:new Set(['300006']),
+    maxResults:5
+  });
+  assert.equal(result.ranking.length,0);
+  assert.ok(result.assessed[0].selection.failedGates.some(g=>g.key==='execution-eligibility'));
+});
