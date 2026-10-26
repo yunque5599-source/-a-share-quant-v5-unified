@@ -44,6 +44,8 @@ test('pre-breakout watch prioritizes a compressed base near resistance with tren
   assert.ok(result.score>=72);
   assert.ok(result.components.resistance>=80);
   assert.equal(result.method,'heuristic-pre-breakout-watch-score-not-a-calibrated-probability');
+  assert.equal(result.triggerChecklist.prior20DayHighBroken,false);
+  assert.equal(result.triggerChecklist.status,'WAIT_FOR_CLOSE_ABOVE_PRIOR_20D_HIGH_WITH_VOLUME_FLOW_AND_SECTOR_CONFIRMATION');
 });
 
 test('pre-breakout ranking labels unverified leader/policy evidence as setup watch, not a confirmed leader',()=>{
@@ -59,8 +61,10 @@ test('pre-breakout ranking labels unverified leader/policy evidence as setup wat
 test('pre-breakout watch rejects an already extended or broken-out price instead of chasing it',()=>{
   const extended=makeRow({currentPct:7.2,r5Pct:18});
   const brokenOut=makeRow({code:'600002',distHigh20Pct:1.2});
+  const alreadyStarted=makeRow({code:'600003',distHigh20Pct:0.2});
   assert.equal(assessPreBreakoutCandidate(extended,early()).passed,false);
   assert.equal(assessPreBreakoutCandidate(brokenOut,early()).passed,false);
+  assert.equal(assessPreBreakoutCandidate(alreadyStarted,early()).passed,false);
 });
 
 test('pre-breakout watch rejects persistent downtrends, non-main-board codes, and low-break risk',()=>{
