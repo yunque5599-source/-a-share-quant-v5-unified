@@ -725,7 +725,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     coreRanking:rankedScores.slice(0,30),technicalOnlyBaseline:coreRankedScores.slice(0,30),
     policyAlignment:rankedScores.filter(r=>r.policyAlignment?.evidenceAvailable).sort((a,b)=>(Number(b.components?.policyAlignment)||0)-(Number(a.components?.policyAlignment)||0)).slice(0,30),
     earlyOpportunity:earlyRows.slice(0,30),catalystWatch,negativeCatalystRisk};
-  const snapshot={schema:'v13-live-policy-market-aligned-snapshot-v1',modelVersion:MODEL_VERSION,
+  const snapshot={schema:'v13-live-psychology-catalyst-snapshot-v1',modelVersion:MODEL_VERSION,
     snapshotId:'v13-'+capturedAt.replace(/[-:.TZ]/g,''),capturedAt,asOf:requestedAsOf,
     marketRegime,policyFramework:{catalogVersion:POLICY_CATALOG_VERSION,reviewedAt:POLICY_CATALOG_REVIEWED_AT,
       officialPolicyCount:3,companySpecificSubsidyClaim:false},
