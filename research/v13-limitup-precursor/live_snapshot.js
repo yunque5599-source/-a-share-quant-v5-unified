@@ -7,8 +7,9 @@ import { boardForCode, isRestrictedListingName, scoreCandidate, rankCandidates }
 import { computeEarlyOpportunity } from '../../research/v11-short-alpha/early_opportunity.js';
 import { fetchUniverse } from './historical_replay.js';
 import { scorePolicyAlignment, deriveMarketRegime, POLICY_CATALOG_VERSION, POLICY_CATALOG_REVIEWED_AT } from './policy_alignment.js';
+import { rankCoreSelection } from './core_selection.js';
 
-const MODEL_VERSION = 'V13-live-policy-market-aligned-research-v3';
+const MODEL_VERSION = 'V13-live-four-layer-core-leader-selection-v4';
 const n = v => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
 const clamp = (v, lo=0, hi=100) => Math.max(lo, Math.min(hi, v));
 const avg = xs => { const a=xs.filter(Number.isFinite); return a.length ? a.reduce((x,y)=>x+y,0)/a.length : null; };
@@ -629,9 +630,21 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     // Use the selected primary theme only; long tail theme tags can be noisy and create false policy matches.
     const themeNames=[String(themePsychology.overlay.primaryTheme??'')].filter(Boolean);
     const policyAlignment=scorePolicyAlignment({industry:String(row.f100??''),themeNames,companyNews:newsItems,asOf:signalCutoff});
+    const industryContext=industryContextByCode.get(code)??{};
+    const leaderEvidence={
+      themeName:themePsychology.overlay.primaryTheme??null,
+      leaderStatus:themePsychology.overlay.leaderStatus??null,
+      candidateRank:n(themePsychology.overlay.candidateRank),
+      industryLeaderScore:n(industryContext.leaderScore),
+      industryMemberCount:n(industryContext.industryMemberCount),
+      themeHeat:n(psychology.sector.themeHeat??themePsychology.overlay.emotionHeat),
+      themeBreadth:n(psychology.sector.upRatio),
+      themeLimitUpCount:n(psychology.sector.limitUpCount),
+      source:themePsychology.overlay.primaryTheme?'theme-psychology-plus-industry-context':'industry-context-only'
+    };
     const candidate={code,name:String(row.f14??code),asOf:requestedAsOf,isST:/(^|\*)ST(?=[\u4e00-\u9fff\d\s]|$)|^退/i.test(String(row.f14??'')),bars,flows,currentFlowSnapshot,
-      sector:{...(industryContextByCode.get(code)??{}),...psychology.sector},
-      policyAlignment,marketRegime,
+      sector:{...industryContext,...psychology.sector},
+      policyAlignment,marketRegime,leaderEvidence,
       amount:bars.at(-1)?.amount??n(row.f6),turnoverRate:bars.at(-1)?.turnoverRate??n(row.f8)};
     modelInputsByCode.set(code,candidate);
     const score=scoreCandidate(candidate,{asOf:requestedAsOf}),dq=deep?.dataQuality??{};
@@ -658,6 +671,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const earlyByCode=new Map(earlyRows.map(r=>[r.code,r]));
   const preLimitUpScores=rankedScores.filter(row=>isPreLimitUpCandidate(row,earlyByCode.get(row.code)));
   const eligibleCodes=new Set(preLimitUpScores.map(row=>row.code));
+  const coreSelectionResult=rankCoreSelection(rankedScores,{marketRegime,eligibleCodes,maxResults:5});
   const momentumCodes=[...preLimitUpScores].sort((a,b)=>(Number.isFinite(b.features?.r5Pct)?b.features.r5Pct:-Infinity)-(Number.isFinite(a.features?.r5Pct)?a.features.r5Pct:-Infinity)||b.score-a.score).map(r=>r.code);
   const earlyCodes=earlyRows.filter(row=>eligibleCodes.has(row.code)).map(r=>r.code);
   const balancedCodes=interleaveCodes(momentumCodes,earlyCodes,Math.min(30,new Set([...momentumCodes,...earlyCodes]).size));
@@ -743,12 +757,14 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     oversold:rankedScores.filter(r=>Number(r.components?.oversoldReversal)>=65).sort((a,b)=>Number(b.components.oversoldReversal)-Number(a.components.oversoldReversal)).slice(0,20),
     coreRanking:rankedScores.slice(0,30),technicalOnlyBaseline:coreRankedScores.slice(0,30),
     policyAlignment:rankedScores.filter(r=>r.policyAlignment?.evidenceAvailable).sort((a,b)=>(Number(b.components?.policyAlignment)||0)-(Number(a.components?.policyAlignment)||0)).slice(0,30),
-    earlyOpportunity:earlyRows.slice(0,30),catalystWatch,negativeCatalystRisk};
+    earlyOpportunity:earlyRows.slice(0,30),catalystWatch,negativeCatalystRisk,
+    coreSelectionAssessed:coreSelectionResult.assessed.slice(0,50)};
   const snapshot={schema:'v13-live-psychology-catalyst-snapshot-v1',modelVersion:MODEL_VERSION,
     snapshotId:'v13-'+capturedAt.replace(/[-:.TZ]/g,''),capturedAt,asOf:requestedAsOf,
     marketRegime,policyFramework:{catalogVersion:POLICY_CATALOG_VERSION,reviewedAt:POLICY_CATALOG_REVIEWED_AT,
       officialPolicyCount:3,companySpecificSubsidyClaim:false,
       catalogStale:Date.now()-Date.parse(POLICY_CATALOG_REVIEWED_AT)>14*86400000},
+    selectionSummary:coreSelectionResult.summary,
     sourcePolicy:{provider:'Eastmoney public quote/history and psychology/theme/news endpoint',pointInTime:'captured-at-source',
       futureDatedBarsExcluded:true,catalystOnlyUsedWhenNewsTimestampVerified:true,dailyBarCompleteAtCapture:dailyBarComplete,
       rankedUniverseFallback:fullUniverseFallback.used?'eastmoney-full-universe-live-quote-fallback':null,
@@ -757,10 +773,16 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       preLimitUpEligibleCount:preLimitUpScores.length,earlyOpportunityCandidates:earlyRows.length,balancedBlendCount:balancedBlend.length,
       policyMatchedCandidateCount:records.filter(r=>r.score?.policyAlignment?.evidenceAvailable).length,
       policyConfirmedCandidateCount:policyConfirmed.length,
+      coreSelectionAssessedCount:coreSelectionResult.summary.assessedCount,
+      coreSelectionEligibleCount:coreSelectionResult.summary.eligibleCount,
+      coreSelectionReturnedCount:coreSelectionResult.summary.returnedCount,
+      coreSelectionLeaderQualifiedCount:coreSelectionResult.summary.leaderQualifiedCount,
+      coreSelectionPolicyFlowQualifiedCount:coreSelectionResult.summary.policyFlowQualifiedCount,
       policyMatchCoveragePct:+(records.filter(r=>r.score?.policyAlignment?.evidenceAvailable).length/Math.max(1,records.length)*100).toFixed(2),
       marketRegimeSourceQuality:marketRegime.dataQuality,
       fullUniverseFallback,wideNewsScan:wideNewsDiagnostics},
     candidates:auditRecords,rankings:{
+      coreSelection:coreSelectionResult.ranking,
       overall,
       catalystConfirmed,
       policyConfirmed,
@@ -778,6 +800,9 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   console.log(JSON.stringify({snapshotId:finalSnapshot.snapshotId,capturedAt,asOf:requestedAsOf,
     recommendationStatus:finalSnapshot.recommendationStatus,recommendationsAvailable:finalSnapshot.recommendationsAvailable,
     marketRegime:finalSnapshot.marketRegime,policyFramework:finalSnapshot.policyFramework,quality:finalSnapshot.quality,
+    coreSelection:finalSnapshot.rankings.coreSelection.slice(0,5).map(r=>({rank:r.rank,code:r.code,name:r.name,selectionScore:r.selectionScore,
+      decision:r.selection?.decision,policyScore:r.components?.policyAlignment??null,flowScore:r.components?.flow??null,
+      leader:r.leaderEvidence?.label??null,rewardRisk:r.riskReward?.rewardRiskRatio??null})),
     top10:finalSnapshot.rankings.overall.slice(0,10).map(r=>({rank:r.rank,code:r.code,name:r.name,score:r.score,setup:r.setup,scorePath:r.scorePath,
       policyScore:r.components?.policyAlignment??null,policyThemes:r.policyAlignment?.matchedThemes?.map(t=>t.label)??[],primaryTheme:r.psychology?.primaryTheme??null}))},null,2));
   return finalSnapshot;
