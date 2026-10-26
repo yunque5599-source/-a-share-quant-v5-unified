@@ -49,14 +49,16 @@ function resolveLeaderEvidence(row) {
           : Math.max(20, 68 - (candidateRank - 3) * 8);
   const hasTheme = Boolean(themeName);
   const directScore = hasTheme ? Math.max(statusScore ?? 0, rankScore ?? 0) : null;
-  const proxyConfirmed = industryLeaderScore !== null && industryLeaderScore >= 85
-    && themeHeat !== null && themeHeat >= 65
-    && themeBreadth !== null && themeBreadth >= 0.55
-    && themeLimitUpCount !== null && themeLimitUpCount >= 1;
+  const proxyConfirmed = industryLeaderScore !== null && industryLeaderScore >= 90
+    && themeHeat !== null && themeHeat >= 70
+    && themeBreadth !== null && themeBreadth >= 0.60
+    && themeLimitUpCount !== null && themeLimitUpCount >= 2;
   const score = directScore !== null && directScore > 0 ? directScore
     : proxyConfirmed ? clamp(0.55 * industryLeaderScore + 0.25 * themeHeat + 0.20 * themeBreadth * 100)
       : industryLeaderScore ?? 35;
-  const explicitLeader = hasTheme && (status === 'leader' || status === 'core' || (candidateRank !== null && candidateRank <= 2));
+  const explicitLeader = hasTheme && (status === 'leader'
+    || (status === 'core' && (candidateRank === null || candidateRank <= 3))
+    || (candidateRank !== null && candidateRank <= 2));
   const isLeader = explicitLeader || proxyConfirmed;
   const label = explicitLeader
     ? (status === 'leader' || candidateRank === 1 ? '题材龙头' : '题材核心/前排')
