@@ -8,6 +8,7 @@ on:
     paths:
       - 'research/v13-limitup-precursor/live_snapshot.js'
       - 'research/v13-limitup-precursor/precursor_score.js'
+      - 'research/v13-limitup-precursor/policy_alignment.js'
       - '.github/workflows/v13-live-snapshot.yml'
   schedule:
     - cron: '15 1 * * 1-5'
