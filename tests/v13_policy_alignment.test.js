@@ -141,3 +141,21 @@ test('short acronym AI does not match unrelated words such as retail', () => {
   assert.equal(result.evidenceAvailable, false);
   assert.equal(result.score, 50);
 });
+
+
+test('generic sector headlines cannot create company policy exposure without a company action', () => {
+  const generic = scorePolicyAlignment({
+    industry: '综合',
+    themeNames: [],
+    companyNews: [{title:'机器人板块今日走强',publishedAt:'2026-10-26 10:00:00'}],
+    asOf: '2026-10-26'
+  });
+  const specific = scorePolicyAlignment({
+    industry: '综合',
+    themeNames: [],
+    companyNews: [{title:'公司机器人业务获得重大订单',publishedAt:'2026-10-26 10:00:00'}],
+    asOf: '2026-10-26'
+  });
+  assert.equal(generic.evidenceAvailable, false);
+  assert.equal(specific.evidenceAvailable, true);
+});
