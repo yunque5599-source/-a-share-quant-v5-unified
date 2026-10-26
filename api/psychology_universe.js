@@ -147,7 +147,7 @@ function parseSinaNodeMembers(rows) {
 }
 
 async function fetchThsStockConcepts(code) {
-  const html = await fetchText('https://basic.10jqka.com.cn/' + code + '/concept.html', 6500);
+  const html = await fetchText('https://basic.10jqka.com.cn/' + code + '/concept.html', 4500);
   const concepts = parseThsStockConcepts(html);
   if (!concepts.length) throw new Error('10jqka concept page yielded no parseable concept rows');
   return concepts;
@@ -164,17 +164,17 @@ async function fetchSinaConceptNodes() {
   return nodes;
 }
 
-async function fetchSinaNodeMembers(nodeCode, maxPages = 1) {
+async function fetchSinaNodeMembers(nodeCode, maxPages = 2) {
   const pages = await mapLimit(
     Array.from({length:maxPages}, (_, index) => index + 1),
     2,
     async page => {
       const url = new URL('https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodeData');
       url.search = new URLSearchParams({
-        node:nodeCode, sort:'changepercent', asc:'0',
+        node:nodeCode, sort:'symbol', asc:'1',
         page:String(page), num:'80', _s_r_a:'page'
       }).toString();
-      const rows = await fetchParsed(url.toString(), 6500, 'https://vip.stock.finance.sina.com.cn/');
+      const rows = await fetchParsed(url.toString(), 4500, 'https://vip.stock.finance.sina.com.cn/');
       return parseSinaNodeMembers(rows);
     }
   );
@@ -220,7 +220,7 @@ async function fetchSinaThsConceptFallback(codes, maxThemes = 24, concurrency = 
   }
   const rankedNodeCodes = [...counts.entries()]
     .sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, maxThemes)
+    .slice(0, Math.min(maxThemes, 12))
     .map(([code]) => code);
   const themeRows = await mapLimit(rankedNodeCodes, concurrency, async nodeCode => {
     await sleep(100);
@@ -250,6 +250,8 @@ async function fetchSinaThsConceptFallback(codes, maxThemes = 24, concurrency = 
         leaderChangePct:leader?.pct ?? null,
         quoteTimestamp:null,
         provider:'sina+10jqka',
+        changePctMethod:'sample-member-average',
+        memberCoverage:'first-two-pages-up-to-160',
         sinaMembers:members.map(row => ({code:row.code,name:row.name,pct:row.pct,amountCny:row.amountCny,turnoverPct:null,mainNetCny:null}))
       };
     } catch {
@@ -272,7 +274,9 @@ async function fetchSinaThsConceptFallback(codes, maxThemes = 24, concurrency = 
       membershipFailures,
       unmappedConcepts,
       requestedMemberships:codes.length,
-      mappedMemberships:memberships.filter(item => item.concepts.length > 0).length
+      mappedMemberships:memberships.filter(item => item.concepts.length > 0).length,
+      boardMemberCoverage:'first-two-pages-up-to-160',
+      boardChangeMethod:'sample-member-average'
     }
   };
 }
@@ -699,6 +703,8 @@ function enrichTheme(base, flowRows, memberRows, newsRows, candidatePct, candida
     source:{
       provider:base.provider ?? 'eastmoney',
       conceptRanking:true,
+      changePctMethod:base.changePctMethod ?? 'provider-board-quote',
+      memberCoverage:base.memberCoverage ?? 'provider-member-list',
       membership:memberRows.length > 0,
       themeMembers:memberRows.length > 0,
       news:true,
@@ -720,7 +726,11 @@ export const _internal = {
   isNarrativeTheme,
   themeStrength,
   summarizeSourceCoverage,
-  parseTencentCandidateQuotes
+  parseTencentCandidateQuotes,
+  normalizeThemeName,
+  parseThsStockConcepts,
+  parseSinaConceptNodes,
+  parseSinaNodeMembers
 };
 
 export default async function handler(req, res) {
