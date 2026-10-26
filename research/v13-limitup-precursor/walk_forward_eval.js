@@ -326,7 +326,7 @@ export function evaluateWalkForward(candidates, {
     });
     const coreSelectionCodes = coreSelectionResult.ranking.map(row => String(row.code));
     const corePolicyEvidenceCount = candidatesAtDate.filter(stock => stock.policyAlignment?.evidenceAvailable === true).length;
-    const coreLeaderEvidenceCount = candidatesAtDate.filter(stock => Boolean(stock.pointInTimeLeaderEvidence)).length;
+    const coreLeaderEvidenceCount = candidatesAtDate.filter(stock => Boolean(stock.leaderEvidence)).length;
     const corePolicyCatalogAvailable = candidatesAtDate.some(stock => stock.policyAlignment?.catalogAvailableAtCutoff === true);
     const coreSelectionDiagnostics = {
       selectorVersion: coreSelectionResult.summary.version,
