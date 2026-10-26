@@ -95,5 +95,7 @@ test('missing flow history is not converted into a positive accumulation signal'
   const result=assessPreBreakoutCandidate(row,early());
   assert.equal(result.metrics.flowObserved,false);
   assert.equal(result.components.capitalAccumulation,null);
+  assert.ok(result.failedGates.includes('sustained-flow-evidence-insufficient'));
+  assert.equal(result.passed,false);
   assert.equal(result.confidence<1,true);
 });
