@@ -785,7 +785,6 @@ export default async function handler(req, res) {
     ]);
     let conceptRows = conceptResult.status === 'fulfilled' ? conceptResult.value : [];
     let memberships = null;
-    let fallbackThemeSource = false;
     let quotes = quoteResult.status === 'fulfilled' ? quoteResult.value : new Map();
     if (conceptResult.status === 'fulfilled' && conceptRows.length > 0) {
       diagnostics.conceptSource = 'eastmoney';
@@ -798,7 +797,6 @@ export default async function handler(req, res) {
         const fallback = await fetchSinaThsConceptFallback(codes, maxResearchThemes, membershipConcurrency);
         conceptRows = fallback.concepts;
         memberships = fallback.memberships;
-        fallbackThemeSource = true;
         diagnostics.conceptSource = fallback.diagnostics.conceptSource;
         diagnostics.membershipSource = fallback.diagnostics.membershipSource;
         diagnostics.membershipFailures += fallback.diagnostics.membershipFailures;
