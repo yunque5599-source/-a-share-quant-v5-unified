@@ -53,4 +53,4 @@ node --check api/market.js
 
 CI also extracts and syntax-checks the V13 page's inline module.
 
-Before considering production use, run point-in-time walk-forward tests with transaction fees, slippage, T+1, price limits, suspensions, gap risk, survivorship controls, and a separate result table for each market state. Do not tune these thresholds on the same period used to report performance. The current CI validates deterministic logic and syntax only; it does **not** establish profitability.
+Before considering production use, run point-in-time walk-forward tests with transaction fees, slippage, T+1, price limits, suspensions, gap risk, survivorship controls, and a separate result table for each market state. Do not tune these thresholds on the same period used to report performance. The forward panel uses only signals recorded in the current browser's local storage and fetches subsequent daily bars to mature 1/3/5-session outcomes. It is not a historical backtest; the sample is incomplete if browser data is cleared or if signals were not recorded. The current CI validates deterministic logic and syntax only; it does **not** establish profitability.
