@@ -76,13 +76,13 @@ async function fetchText(url, timeoutMs = 7000, referer = 'https://basic.10jqka.
 function normalizeThemeName(value) {
   return String(value ?? '').trim().toLowerCase()
     .replace(/概念$/u, '')
-    .replace(/[\\s·（）()【】《》,，:：;；、\\-_—/]+/gu, '');
+    .replace(/[\s\p{P}\p{S}]+/gu, '');
 }
 
 function decodeHtmlText(value) {
   return String(value ?? '')
-    .replace(/<script\\b[^>]*>[\\s\\S]*?<\\/script>/gi, ' ')
-    .replace(/<style\\b[^>]*>[\\s\\S]*?<\\/style>/gi, ' ')
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ')
     .replace(/<[^>]*>/g, ' ')
     .replace(/&nbsp;|&#160;|&#xA0;/gi, ' ')
     .replace(/&amp;/gi, '&')
@@ -90,19 +90,19 @@ function decodeHtmlText(value) {
     .replace(/&#39;|&apos;/gi, "'")
     .replace(/&lt;/gi, '<')
     .replace(/&gt;/gi, '>')
-    .replace(/&#(\\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
+    .replace(/&#(\d+);/g, (_, code) => String.fromCodePoint(Number(code)))
     .replace(/&#x([0-9a-f]+);/gi, (_, code) => String.fromCodePoint(parseInt(code, 16)))
-    .replace(/\\s+/g, ' ')
+    .replace(/\s+/g, ' ')
     .trim();
 }
 
 function parseThsStockConcepts(html) {
   const output = [];
   const seen = new Set();
-  for (const match of String(html ?? '').matchAll(/<tr\\b[^>]*>([\\s\\S]*?)<\\/tr>/gi)) {
-    const cells = [...match[1].matchAll(/<td\\b[^>]*>([\\s\\S]*?)<\\/td>/gi)]
+  for (const match of String(html ?? '').matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)) {
+    const cells = [...match[1].matchAll(/<td\b[^>]*>([\s\S]*?)<\/td>/gi)]
       .map(cell => decodeHtmlText(cell[1]));
-    if (cells.length < 2 || !/^\\d{1,3}$/.test(cells[0])) continue;
+    if (cells.length < 2 || !/^\d{1,3}$/.test(cells[0])) continue;
     const name = cells[1].replace(/^(?:概念名称|名称)$/u, '').trim();
     if (!name || name.length > 60 || /概念解析|龙头股|序号/u.test(name)) continue;
     const key = normalizeThemeName(name);
@@ -134,7 +134,7 @@ function parseSinaConceptNodes(tree) {
 function parseSinaNodeMembers(rows) {
   const values = Array.isArray(rows) ? rows : [];
   return values.map(row => {
-    const code = String(row?.code ?? row?.symbol ?? '').match(/\\d{6}/)?.[0] ?? '';
+    const code = String(row?.code ?? row?.symbol ?? '').match(/\d{6}/)?.[0] ?? '';
     return {
       code,
       name:String(row?.name ?? ''),
@@ -143,7 +143,7 @@ function parseSinaNodeMembers(rows) {
       price:n(row?.trade),
       quoteTime:String(row?.ticktime ?? '')
     };
-  }).filter(row => /^(0|6)\\d{5}$/.test(row.code) && row.pct !== null);
+  }).filter(row => /^(0|6)\d{5}$/.test(row.code) && row.pct !== null);
 }
 
 async function fetchThsStockConcepts(code) {
