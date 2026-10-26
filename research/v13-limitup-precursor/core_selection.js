@@ -190,7 +190,8 @@ export function assessCoreSelectionCandidate(row = {}, options = {}) {
   const eligibleCodes = options.eligibleCodes instanceof Set ? options.eligibleCodes
     : Array.isArray(options.eligibleCodes) ? new Set(options.eligibleCodes.map(String)) : null;
   const code = String(row?.code ?? '');
-  gate('pre-limit-up-risk-filter', !eligibleCodes || eligibleCodes.has(code),
+  const preLimitUpPassed = !eligibleCodes || eligibleCodes.has(code);
+  gate('pre-limit-up-risk-filter', preLimitUpPassed,
     '未通过前瞻过热过滤（涨幅、近5日涨幅、距20日高点或启动阶段不合适）');
   gate('policy-direction', policy.evidenceAvailable === true && policy.catalogStale !== true
     && policyScore !== null && policyScore >= thresholds.policyScore,
@@ -201,9 +202,9 @@ export function assessCoreSelectionCandidate(row = {}, options = {}) {
     '趋势强度不足，未确认短线趋势向上');
   gate('volume-price', volumePriceScore !== null && volumePriceScore >= thresholds.volumePrice,
     '量价结构未确认，缺少有效放量/价格配合');
-  gate('relative-strength', relativeStrengthPercentile !== null
+  gate('relative-strength', !preLimitUpPassed || (relativeStrengthPercentile !== null
     && relativeStrengthPercentile >= thresholds.relativeStrengthPercentile
-    && r5Pct !== null && r5Pct >= 0 && r3Pct !== null && r3Pct >= -1.5,
+    && r5Pct !== null && r5Pct >= 0 && r3Pct !== null && r3Pct >= -1.5),
     '相对强度不在候选池前列，或近3/5日趋势尚未确认');
   gate('theme-leader', leaderEvidence.isLeader,
     '没有可靠的题材龙头/核心前排证据；仅行业涨幅靠前不足以认定龙头');
@@ -299,23 +300,28 @@ export function rankCoreSelection(rows, options = {}) {
     || ((n(b.components?.trend) ?? 0) - (n(a.components?.trend) ?? 0))
   );
   const eligible = ranked.filter(row => row.selection?.eligible === true);
+  const marketRegime = options.marketRegime ?? sourceRows[0]?.marketRegime ?? {};
+  const primaryUniverse = eligibleCodes
+    ? ranked.filter(row => eligibleCodes.has(String(row?.code ?? '')))
+    : ranked;
   const rejectionCounts = {};
-  for (const row of ranked) {
+  for (const row of primaryUniverse) {
     for (const item of row.selection?.failedGates ?? []) rejectionCounts[item.key] = (rejectionCounts[item.key] ?? 0) + 1;
   }
-  const marketRegime = options.marketRegime ?? sourceRows[0]?.marketRegime ?? {};
   const maxResults = Math.max(1, Math.min(10, Number(options.maxResults) || 5));
   const ranking = eligible.slice(0, maxResults).map((row, index) => ({ ...row, rank: index + 1 }));
   const summary = {
     version: 'four-layer-strict-core-leader-selection-v1',
     assessedCount: ranked.length,
+    preLimitUpEligibleCount: primaryUniverse.length,
+    preLimitUpExcludedCount: ranked.length - primaryUniverse.length,
     eligibleCount: eligible.length,
     returnedCount: ranking.length,
-    leaderQualifiedCount: ranked.filter(row => row.selection?.passedGates?.includes('theme-leader')).length,
-    policyQualifiedCount: ranked.filter(row => row.selection?.passedGates?.includes('policy-direction')).length,
-    policyFlowQualifiedCount: ranked.filter(row => row.selection?.passedGates?.includes('policy-direction')
+    leaderQualifiedCount: primaryUniverse.filter(row => row.selection?.passedGates?.includes('theme-leader')).length,
+    policyQualifiedCount: primaryUniverse.filter(row => row.selection?.passedGates?.includes('policy-direction')).length,
+    policyFlowQualifiedCount: primaryUniverse.filter(row => row.selection?.passedGates?.includes('policy-direction')
       && row.selection?.passedGates?.includes('sustained-capital-flow')).length,
-    riskRewardQualifiedCount: ranked.filter(row => row.selection?.passedGates?.includes('risk-reward')).length,
+    riskRewardQualifiedCount: primaryUniverse.filter(row => row.selection?.passedGates?.includes('risk-reward')).length,
     marketRegime: marketRegime?.label ?? '市场环境未知',
     marketRegimeCode: marketRegime?.regime ?? 'neutral',
     marketDataQuality: marketRegime?.dataQuality ?? 'unavailable',
