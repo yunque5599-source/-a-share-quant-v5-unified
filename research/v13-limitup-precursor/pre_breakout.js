@@ -69,6 +69,15 @@ export function assessPreBreakoutCandidate(row = {}, earlyOpportunity = null) {
   if (r20 !== null && r20 < -15) failedGates.push('persistent-downtrend-risk');
   if (distHigh !== null && (distHigh >= 0 || distHigh < -15)) failedGates.push('not-near-breakout-resistance');
   if (distMa20 !== null && distMa20 < -4) failedGates.push('below-medium-term-trend');
+  if (trend === null || trend < 55 || (r5 !== null && r5 < 0) || (r3 !== null && r3 < -1)) {
+    failedGates.push('trend-confirmation-insufficient');
+  }
+  if (flowCount === null || flowCount < 3 || mainNetObserved === null || mainNetObserved <= 0
+      || flowPositiveShare === null || flowPositiveShare < 0.6
+      || (mainFlowRatioObserved !== null && mainFlowRatioObserved <= 0)) {
+    failedGates.push('sustained-flow-evidence-insufficient');
+  }
+  if (sectorScore === null || sectorScore < 55) failedGates.push('sector-strength-unverified-or-weak');
   if (earlyOpportunity?.stage === 'downtrend-risk' || earlyOpportunity?.stage === 'extended') {
     failedGates.push('early-opportunity-risk-stage');
   }
@@ -113,8 +122,11 @@ export function assessPreBreakoutCandidate(row = {}, earlyOpportunity = null) {
   const confidence = Number((evidenceCount / 7 * Math.min(1, (bars ?? 0) / 40)
     * (flowCount !== null && flowCount >= 3 ? 1 : 0.75)).toFixed(2));
   const passed = failedGates.length === 0;
-  const confirmedLeader = leaderVerified && policyScore !== null && policyScore >= 65
-    && flowScore !== null && flowScore >= 55 && sectorScore !== null && sectorScore >= 55;
+  const confirmedLeader = leaderVerified && leaderScore !== null && leaderScore >= 65
+    && policyScore !== null && policyScore >= 65
+    && flowScore !== null && flowScore >= 60 && flowCount !== null && flowCount >= 3
+    && flowPositiveShare !== null && flowPositiveShare >= 0.6
+    && sectorScore !== null && sectorScore >= 60;
   const stage = !passed ? 'REJECTED'
     : score >= 72 && confirmedLeader ? 'PREBREAKOUT_LEADER_WATCH'
       : score >= 65 ? 'PREBREAKOUT_SETUP_WATCH' : 'BASE_FORMING_OBSERVATION';
