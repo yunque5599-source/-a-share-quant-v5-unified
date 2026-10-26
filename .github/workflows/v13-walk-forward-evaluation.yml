@@ -9,6 +9,7 @@ on:
     paths:
       - 'research/v13-limitup-precursor/precursor_score.js'
       - 'research/v13-limitup-precursor/core_selection.js'
+      - 'research/v13-limitup-precursor/pre_breakout.js'
       - 'research/v13-limitup-precursor/policy_alignment.js'
       - 'research/v13-limitup-precursor/walk_forward_eval.js'
       - 'research/v13-limitup-precursor/holdout_audit.js'
