@@ -3,8 +3,8 @@
 // Point-in-time policy taxonomy and market-regime overlay.
 // Policy alignment is thematic exposure, NOT proof of a grant, subsidy, order, or company-specific government support.
 
-export const POLICY_CATALOG_VERSION = 'CN-policy-map-2026-10-26-v1';
-export const POLICY_CATALOG_REVIEWED_AT = '2026-10-26T00:00:00+08:00';
+export const POLICY_CATALOG_VERSION = 'CN-policy-map-2026-10-26-v2';
+export const POLICY_CATALOG_REVIEWED_AT = '2026-10-26T12:05:00+08:00';
 
 export const OFFICIAL_POLICIES = [
   {
@@ -24,6 +24,24 @@ export const OFFICIAL_POLICIES = [
     priority: 96
   },
   {
+    id: 'ai-plus-action-2025-08-26',
+    title: '国务院关于深入实施“人工智能+”行动的意见',
+    issuedAt: '2025-08-21',
+    publishedAt: '2025-08-26',
+    source: '国务院（工业和信息化部转载）',
+    url: 'https://www.miit.gov.cn/xwfb/szyw/art/2025/art_f8bd63905b384841a84e643c1b9455c7.html',
+    priority: 99
+  },
+  {
+    id: 'new-energy-storage-2025-09-12',
+    title: '国家发展改革委 国家能源局关于印发《新型储能规模化建设专项行动方案（2025—2027年）》的通知',
+    issuedAt: '2025-08-27',
+    publishedAt: '2025-09-12',
+    source: '国家发展改革委、国家能源局',
+    url: 'https://www.ndrc.gov.cn/xxgk/zcfb/tz/202509/t20250912_1400425.html',
+    priority: 93
+  },
+  {
     id: 'tech-commerce-2026-10-13',
     title: '关于加快推进科技兴商的意见',
     issuedAt: '2026-10-13',
@@ -35,15 +53,16 @@ export const OFFICIAL_POLICIES = [
 ];
 
 export const POLICY_THEMES = [
-  { id:'ai-computing', label:'人工智能/算力/智能终端', priority:98, policyIds:['tech-industry-integration-2026-10-21','new-quality-productivity-2026-10-09','tech-commerce-2026-10-13'], keywords:['人工智能','AI','算力','算法','大模型','智能终端','智能手机','智能电脑','数据中心','服务器','液冷','云计算','数据要素','智能计算','AIDC'] },
-  { id:'robotics-embodied-ai', label:'机器人/具身智能', priority:97, policyIds:['tech-industry-integration-2026-10-21','new-quality-productivity-2026-10-09'], keywords:['机器人','具身智能','人形机器人','工业机器人','服务机器人','机器视觉','减速器','灵巧手'] },
-  { id:'semiconductors-next-gen-it', label:'新一代信息技术/半导体', priority:96, policyIds:['tech-industry-integration-2026-10-21','new-quality-productivity-2026-10-09'], keywords:['半导体','芯片','集成电路','先进封装','光刻','存储芯片','电子元件','通信设备','新一代信息技术','光模块','高速连接','PCB','算力芯片'] },
+  { id:'ai-computing', label:'人工智能/算力/智能终端', priority:98, policyIds:['tech-industry-integration-2026-10-21','ai-plus-action-2025-08-26','new-quality-productivity-2026-10-09','tech-commerce-2026-10-13'], keywords:['人工智能','AI','算力','算法','大模型','智能终端','智能手机','智能电脑','数据中心','服务器','液冷','云计算','数据要素','智能计算','AIDC'] },
+  { id:'robotics-embodied-ai', label:'机器人/具身智能', priority:97, policyIds:['tech-industry-integration-2026-10-21','ai-plus-action-2025-08-26','new-quality-productivity-2026-10-09'], keywords:['机器人','具身智能','人形机器人','工业机器人','服务机器人','机器视觉','减速器','灵巧手'] },
+  { id:'semiconductors-next-gen-it', label:'新一代信息技术/半导体', priority:96, policyIds:['tech-industry-integration-2026-10-21','ai-plus-action-2025-08-26','new-quality-productivity-2026-10-09'], keywords:['半导体','芯片','集成电路','先进封装','光刻','存储芯片','电子元件','通信设备','新一代信息技术','光模块','高速连接','PCB','算力芯片'] },
   { id:'smart-manufacturing-industrial-digital', label:'智能制造/工业互联网/数字化改造', priority:94, policyIds:['tech-industry-integration-2026-10-21','new-quality-productivity-2026-10-09','tech-commerce-2026-10-13'], keywords:['智能制造','工业互联网','工业软件','数字孪生','自动化设备','数控机床','机器视觉','工业数字化','制造业数字化','设备更新','工业控制','工业母机'] },
-  { id:'new-energy-materials', label:'新能源/新材料', priority:93, policyIds:['tech-industry-integration-2026-10-21','new-quality-productivity-2026-10-09'], keywords:['新能源','储能','光伏','风电','新材料','电池材料','固态电池','钠离子电池','电网设备','特高压','电力设备'] },
+  { id:'new-energy-materials', label:'新能源/新材料', priority:93, policyIds:['tech-industry-integration-2026-10-21','new-quality-productivity-2026-10-09'], keywords:['新能源','光伏','风电','新材料','电池材料','固态电池','钠离子电池','电网设备','特高压','电力设备'] },
+  { id:'energy-storage-grid', label:'新型储能/电网灵活性', priority:98, policyIds:['new-energy-storage-2025-09-12','tech-industry-integration-2026-10-21','new-quality-productivity-2026-10-09'], preferredPolicyId:'new-energy-storage-2025-09-12', keywords:['新型储能','储能','储能系统','储能电站','独立储能','电化学储能','液流电池','压缩空气储能','构网型储能','储能变流器','PCS','电力调峰'] },
   { id:'smart-ev', label:'智能网联新能源汽车', priority:92, policyIds:['tech-industry-integration-2026-10-21','new-quality-productivity-2026-10-09'], keywords:['智能网联汽车','新能源汽车','汽车零部件','自动驾驶','车路云','汽车电子','动力电池','智能座舱'] },
   { id:'biomed-bio-manufacturing', label:'生物医药/生物制造', priority:91, policyIds:['tech-industry-integration-2026-10-21','new-quality-productivity-2026-10-09'], keywords:['生物制造','生物医药','创新药','医疗器械','合成生物','基因技术','生物技术','医药制造','细胞治疗','核酸药物'] },
   { id:'aerospace-low-altitude', label:'航空航天/商业航天/低空经济', priority:91, policyIds:['tech-industry-integration-2026-10-21','new-quality-productivity-2026-10-09'], keywords:['航空航天','商业航天','卫星','卫星互联网','低空经济','无人机','航空装备','航天装备','火箭','eVTOL'] },
-  { id:'future-frontier', label:'量子/氢能核聚变/脑机接口/6G', priority:90, policyIds:['tech-industry-integration-2026-10-21','new-quality-productivity-2026-10-09'], keywords:['量子科技','量子通信','量子计算','氢能','核聚变','脑机接口','第六代移动通信','6G','前沿科技'] },
+  { id:'future-frontier', label:'量子/氢能核聚变/脑机接口/6G', priority:90, policyIds:['tech-industry-integration-2026-10-21','ai-plus-action-2025-08-26','new-quality-productivity-2026-10-09'], keywords:['量子科技','量子通信','量子计算','氢能','核聚变','脑机接口','第六代移动通信','6G','前沿科技'] },
   { id:'high-end-equipment', label:'高端装备/重大技术改造', priority:89, policyIds:['tech-industry-integration-2026-10-21','new-quality-productivity-2026-10-09'], keywords:['高端装备','高端制造','重大技术改造','设备更新','工程机械','轨道交通装备','精密制造'] },
   { id:'tech-commerce-digital', label:'科技兴商/商贸数字化', priority:84, policyIds:['tech-commerce-2026-10-13'], keywords:['科技兴商','商贸数字化','智慧零售','智慧物流','供应链数字化','物联网','区块链','云计算','大数据','数字孪生','商贸智能化'] }
 ];
@@ -148,7 +167,9 @@ export function scorePolicyAlignment({ industry='', themeNames=[], companyNews=[
     });
     const policies = theme.policyIds.map(id => effectivePolicy(id, cutoff)).filter(Boolean);
     if (!policies.length) continue;
-    const policy = policies.sort((a,b) => b.priority-a.priority)[0];
+    const preferredPolicy = theme.preferredPolicyId
+      ? effectivePolicy(theme.preferredPolicyId, cutoff) : null;
+    const policy = preferredPolicy ?? policies.sort((a,b) => b.priority-a.priority)[0];
     const evidenceType = themeMatches.length ? 'sector-theme-match' : industryMatches.length ? 'industry-match' : newsMatches.length ? 'timestamped-company-news-theme-match' : null;
     if (!evidenceType) continue;
     const relevance = themeMatches.length ? 1 : industryMatches.length ? 0.82 : 0.76;
