@@ -6,7 +6,7 @@ import psychologyHandler from '../../api/psychology_universe.js';
 import { boardForCode, isRestrictedListingName, scoreCandidate, rankCandidates } from './precursor_score.js';
 import { computeEarlyOpportunity } from '../../research/v11-short-alpha/early_opportunity.js';
 import { fetchUniverse } from './historical_replay.js';
-import { scorePolicyAlignment, deriveMarketRegime, POLICY_CATALOG_VERSION, POLICY_CATALOG_REVIEWED_AT } from './policy_alignment.js';
+import { scorePolicyAlignment, deriveMarketRegime, OFFICIAL_POLICIES, POLICY_CATALOG_VERSION, POLICY_CATALOG_REVIEWED_AT } from './policy_alignment.js';
 import { rankCoreSelection } from './core_selection.js';
 
 const MODEL_VERSION = 'V13-live-four-layer-core-leader-selection-v5';
@@ -770,7 +770,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const snapshot={schema:'v13-live-psychology-catalyst-snapshot-v1',modelVersion:MODEL_VERSION,
     snapshotId:'v13-'+capturedAt.replace(/[-:.TZ]/g,''),capturedAt,asOf:requestedAsOf,
     marketRegime,policyFramework:{catalogVersion:POLICY_CATALOG_VERSION,reviewedAt:POLICY_CATALOG_REVIEWED_AT,
-      officialPolicyCount:3,companySpecificSubsidyClaim:false,
+      officialPolicyCount:OFFICIAL_POLICIES.length,companySpecificSubsidyClaim:false,
       catalogStale:Date.now()-Date.parse(POLICY_CATALOG_REVIEWED_AT)>14*86400000},
     selectionSummary:coreSelectionResult.summary,
     sourcePolicy:{provider:'Eastmoney public quote/history and psychology/theme/news endpoint',pointInTime:'captured-at-source',
