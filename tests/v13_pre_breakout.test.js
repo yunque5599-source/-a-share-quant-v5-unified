@@ -41,6 +41,7 @@ test('pre-breakout watch prioritizes a compressed base near resistance with tren
   assert.equal(result.stage,'PREBREAKOUT_LEADER_WATCH');
   assert.equal(result.leaderVerified,true);
   assert.equal(result.policyVerified,true);
+  assert.equal(result.evidenceCoverage,result.confidence);
   assert.ok(result.score>=72);
   assert.ok(result.components.resistance>=80);
   assert.equal(result.method,'heuristic-pre-breakout-watch-score-not-a-calibrated-probability');
