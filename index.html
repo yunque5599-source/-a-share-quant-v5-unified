@@ -314,7 +314,7 @@ async function runPreLimitupWatch(){
     }
     const repair=Array.isArray(j.emotionRepair)?j.emotionRepair:[];
     for(const r of repair){if(combined.length>=12)break;const code=String(r.code||'');if(code&&!seen.has(code)){seen.add(code);combined.push(r)}}
-    $('preLimitupStatus').textContent='采集 '+(j.capturedAt||'—')+' · 市场环境 '+((j.marketRegime||{}).label||'未知')+'（'+((j.marketRegime||{}).dataQuality||'数据不足')+'） · 政策目录 '+((j.policyFramework||{}).catalogVersion||'未加载')+' / 复核 '+((j.policyFramework||{}).reviewedAt||'未知')+
+    $('preLimitupStatus').textContent='采集 '+(j.capturedAt||'—')+' · 市场环境 '+((j.marketRegime||{}).label||'未知')+'（'+((j.marketRegime||{}).dataQuality||'数据不足')+'） · 政策目录 '+((j.policyFramework||{}).catalogVersion||'未加载')+' / 复核 '+((j.policyFramework||{}).reviewedAt||'未知')+(((j.policyFramework||{}).catalogStale)?' · 政策目录超过14天未复核，政策权重已降低':'')+
       (wide.failed?' · 宽新闻扫描失败：只保留实际已评分候选':'')+
       (j.qualityGatePassed===true?' · 数据质量门槛通过（仍仅研究观察）':' · 数据质量门槛未通过，仅观察');
     $('preLimitupList').innerHTML=combined.length?combined.map(preLimitupRow).join(''):
