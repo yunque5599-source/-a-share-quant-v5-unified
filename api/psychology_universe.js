@@ -602,7 +602,8 @@ const NON_NARRATIVE_THEME_PATTERNS = [
 
 function isNarrativeTheme(row = {}) {
   const name = String(row.name ?? '');
-  return String(row.code ?? '').startsWith('BK') &&
+  const code = String(row.code ?? '');
+  return (code.startsWith('BK') || code.startsWith('SINA:')) &&
     !NON_NARRATIVE_THEME_PATTERNS.some(pattern => pattern.test(name));
 }
 
@@ -695,9 +696,9 @@ function enrichTheme(base, flowRows, memberRows, newsRows, candidatePct, candida
       imagination:research.researchQuality.imagination
     },
     source:{
-      provider:'eastmoney',
+      provider:base.provider ?? 'eastmoney',
       conceptRanking:true,
-      membership:true,
+      membership:memberRows.length > 0,
       themeMembers:memberRows.length > 0,
       news:true,
       flowHistory:rows.length > 0,
@@ -746,6 +747,8 @@ export default async function handler(req, res) {
     sourceWarnings:[],
     quoteRows:0,
     quoteSource:null,
+    conceptSource:null,
+    membershipSource:null,
     selectedThemesPerStock:2,
     maxResearchThemes:24,
     asOfMode:requestedAsOf ? 'caller-supplied' : 'server-capture',
@@ -765,9 +768,40 @@ export default async function handler(req, res) {
       fetchConceptRanking(liveMode ? 3 : 6),
       fetchCandidateQuotes(codes)
     ]);
-    const conceptRows = conceptResult.status === 'fulfilled' ? conceptResult.value : [];
+    let conceptRows = conceptResult.status === 'fulfilled' ? conceptResult.value : [];
+    let memberships = null;
+    let fallbackThemeSource = false;
     let quotes = quoteResult.status === 'fulfilled' ? quoteResult.value : new Map();
-    if (conceptResult.status === 'rejected') diagnostics.sourceFailures.push('concept-ranking: ' + String(conceptResult.reason?.message ?? conceptResult.reason));
+    if (conceptResult.status === 'fulfilled' && conceptRows.length > 0) {
+      diagnostics.conceptSource = 'eastmoney';
+    } else {
+      const primaryReason = conceptResult.status === 'rejected'
+        ? String(conceptResult.reason?.message ?? conceptResult.reason)
+        : 'empty concept ranking response';
+      diagnostics.sourceFailures.push('concept-ranking-eastmoney: ' + primaryReason);
+      try {
+        const fallback = await fetchSinaThsConceptFallback(codes, maxResearchThemes, membershipConcurrency);
+        conceptRows = fallback.concepts;
+        memberships = fallback.memberships;
+        fallbackThemeSource = true;
+        diagnostics.conceptSource = fallback.diagnostics.conceptSource;
+        diagnostics.membershipSource = fallback.diagnostics.membershipSource;
+        diagnostics.membershipFailures += fallback.diagnostics.membershipFailures;
+        diagnostics.sourceWarnings.push('concept-ranking-fell-back-to-sina-and-10jqka');
+        if (fallback.diagnostics.unmappedConcepts > 0) {
+          diagnostics.sourceWarnings.push('sina-ths-unmapped-concepts:' + fallback.diagnostics.unmappedConcepts);
+        }
+        if (fallback.diagnostics.mappedMemberships < codes.length) {
+          diagnostics.sourceWarnings.push('fallback-membership-partial:' + fallback.diagnostics.mappedMemberships + '/' + codes.length);
+        }
+      } catch (fallbackError) {
+        diagnostics.sourceFailures.push('concept-ranking-fallback-sina-ths: ' + String(fallbackError?.message ?? fallbackError));
+        diagnostics.conceptSource = 'unavailable';
+        diagnostics.membershipSource = 'unavailable';
+      }
+    }
+    let effectiveConceptRows = conceptRows;
+    if (diagnostics.conceptSource === 'eastmoney') diagnostics.membershipSource = 'eastmoney';
     if (quoteResult.status === 'fulfilled') {
       diagnostics.quoteSource = 'eastmoney';
     } else {
@@ -790,15 +824,27 @@ export default async function handler(req, res) {
     diagnostics.sourceWarnings = [...new Set([...diagnostics.sourceWarnings, ...initialCoverage.warnings])];
     const conceptMap = new Map(conceptRows.map(row => [row.code, row]));
 
-    const memberships = conceptRows.length ? await mapLimit(codes, membershipConcurrency, async code => {
-      await sleep(120);
-      try {
-        return {code, concepts:await fetchStockConcepts(code)};
-      } catch (error) {
-        diagnostics.membershipFailures += 1;
-        return {code, concepts:[], error:error?.message ?? String(error)};
-      }
-    }) : codes.map(code => ({code, concepts:[]}));
+    if (!memberships) {
+      memberships = conceptRows.length ? await mapLimit(codes, membershipConcurrency, async code => {
+        await sleep(120);
+        try {
+          return {code, concepts:await fetchStockConcepts(code)};
+        } catch (primaryError) {
+          try {
+            const thsConcepts = await fetchThsStockConcepts(code);
+            const byName = new Map(conceptRows.map(theme => [normalizeThemeName(theme.name), theme]));
+            const concepts = thsConcepts.map(theme => byName.get(theme.normalizedName))
+              .filter(Boolean).map(theme => ({code:theme.code, name:theme.name}));
+            diagnostics.sourceWarnings.push('stock-membership-fell-back-to-10jqka:' + code);
+            if (!concepts.length) diagnostics.membershipFailures += 1;
+            return {code, concepts};
+          } catch (fallbackError) {
+            diagnostics.membershipFailures += 1;
+            return {code, concepts:[], error:String(primaryError?.message ?? primaryError) + '; 10jqka: ' + String(fallbackError?.message ?? fallbackError)};
+          }
+        }
+      }) : codes.map(code => ({code, concepts:[]}));
+    }
 
     const selectedByStock = new Map();
     const uniqueThemeCodes = new Set();
@@ -821,6 +867,11 @@ export default async function handler(req, res) {
 
     const flowMap = new Map();
     await mapLimit([...researchThemeCodes], researchConcurrency, async boardCode => {
+      if (String(boardCode).startsWith('SINA:')) {
+        diagnostics.flowFailures += 1;
+        flowMap.set(boardCode, []);
+        return;
+      }
       await sleep(120);
       try {
         flowMap.set(boardCode, await fetchThemeFlow(boardCode));
@@ -834,8 +885,11 @@ export default async function handler(req, res) {
     const newsMap = new Map();
     await mapLimit(rankedResearchThemes, researchConcurrency, async base => {
       await sleep(120);
+      const membersPromise = String(base.code).startsWith('SINA:')
+        ? Promise.resolve(Array.isArray(base.sinaMembers) ? base.sinaMembers : [])
+        : fetchThemeMembers(base.code);
       const [membersResult, newsResult] = await Promise.allSettled([
-        fetchThemeMembers(base.code),
+        membersPromise,
         fetchThemeNews(base.name)
       ]);
       if (membersResult.status === 'fulfilled') {
