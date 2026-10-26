@@ -89,6 +89,7 @@ function summarizeSourceCoverage(diagnostics = {}) {
   const warnings = [...failures];
   if (requested > 0 && concepts === 0) warnings.push('concept-ranking-empty');
   if (requested > 0 && quotes === 0) warnings.push('candidate-quotes-empty');
+  else if (requested > 0 && quotes < requested) warnings.push('candidate-quotes-partial:' + quotes + '/' + requested);
   if (requested > 0 && themes === 0) warnings.push('theme-evidence-empty');
   if (requested > 0 && membershipFailures >= requested) warnings.push('all-stock-theme-membership-requests-failed');
   if (researchThemes > 0 && flowFailures >= researchThemes) warnings.push('all-theme-flow-requests-failed');
@@ -283,8 +284,57 @@ async function fetchCandidateQuotes(codes) {
   const diff = json?.data?.diff;
   const rows = Array.isArray(diff) ? diff : diff && typeof diff === 'object' ? Object.values(diff) : [];
   return new Map(rows.map(row => [String(row?.f12 ?? ''), {
-    name:String(row?.f14 ?? ''), pct:n(row?.f3), quoteTimestamp:n(row?.f124)
+    name:String(row?.f14 ?? ''), pct:n(row?.f3), quoteTimestamp:n(row?.f124), source:'eastmoney'
   }]));
+}
+
+function parseTencentCandidateQuotes(raw, requestedCodes = []) {
+  const requested = new Set(requestedCodes);
+  const output = new Map();
+  for (const match of String(raw ?? '').matchAll(/v_(?:sh|sz)(\\d{6})="([^"]*)"/g)) {
+    const code = match[1];
+    if (!requested.has(code)) continue;
+    const fields = match[2].split('~');
+    const current = n(fields[3]);
+    const previousClose = n(fields[4]);
+    if (current === null || previousClose === null || previousClose <= 0) continue;
+    const date = fields.find(value => /^\\d{4}\\/\\d{2}\\/\\d{2}$/.test(value));
+    const timeIndex = date ? fields.indexOf(date) + 1 : -1;
+    const time = timeIndex >= 0 && /^\\d{2}:\\d{2}:\\d{2}$/.test(fields[timeIndex])
+      ? fields[timeIndex] : null;
+    const parsedTimestamp = date && time ? Date.parse(date.replaceAll('/', '-') + 'T' + time + '+08:00') : NaN;
+    output.set(code, {
+      name:String(fields[1] ?? ''),
+      pct:Number(((current / previousClose - 1) * 100).toFixed(4)),
+      quoteTimestamp:Number.isFinite(parsedTimestamp) ? Math.floor(parsedTimestamp / 1000) : null,
+      source:'tencent'
+    });
+  }
+  return output;
+}
+
+async function fetchTencentCandidateQuotes(codes, timeoutMs = 7000) {
+  if (!codes.length) return new Map();
+  const symbols = codes.map(code => (/^(6)/.test(code) ? 'sh' : 'sz') + code).join(',');
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    const response = await fetch('https://qt.gtimg.cn/q=' + symbols, {
+      signal:controller.signal,
+      cache:'no-store',
+      headers:{
+        accept:'text/plain,*/*;q=0.8',
+        'user-agent':UA,
+        referer:'https://gu.qq.com/'
+      }
+    });
+    if (!response.ok) throw new Error('Tencent quote HTTP ' + response.status);
+    const result = parseTencentCandidateQuotes(await response.text(), codes);
+    if (!result.size) throw new Error('Tencent quote returned no valid requested symbols');
+    return result;
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function cumulativeReturn(rows) {
@@ -444,7 +494,8 @@ export const _internal = {
   isThemeMemberRow,
   isNarrativeTheme,
   themeStrength,
-  summarizeSourceCoverage
+  summarizeSourceCoverage,
+  parseTencentCandidateQuotes
 };
 
 export default async function handler(req, res) {
@@ -471,6 +522,7 @@ export default async function handler(req, res) {
     sourceDegraded:false,
     sourceWarnings:[],
     quoteRows:0,
+    quoteSource:null,
     selectedThemesPerStock:2,
     maxResearchThemes:24,
     asOfMode:requestedAsOf ? 'caller-supplied' : 'server-capture',
@@ -491,9 +543,20 @@ export default async function handler(req, res) {
       fetchCandidateQuotes(codes)
     ]);
     const conceptRows = conceptResult.status === 'fulfilled' ? conceptResult.value : [];
-    const quotes = quoteResult.status === 'fulfilled' ? quoteResult.value : new Map();
+    let quotes = quoteResult.status === 'fulfilled' ? quoteResult.value : new Map();
     if (conceptResult.status === 'rejected') diagnostics.sourceFailures.push('concept-ranking: ' + String(conceptResult.reason?.message ?? conceptResult.reason));
-    if (quoteResult.status === 'rejected') diagnostics.sourceFailures.push('candidate-quotes: ' + String(quoteResult.reason?.message ?? quoteResult.reason));
+    if (quoteResult.status === 'fulfilled') {
+      diagnostics.quoteSource = 'eastmoney';
+    } else {
+      try {
+        quotes = await fetchTencentCandidateQuotes(codes);
+        diagnostics.quoteSource = 'tencent';
+        diagnostics.sourceWarnings.push('candidate-quotes-fell-back-to-tencent');
+      } catch (fallbackError) {
+        diagnostics.sourceFailures.push('candidate-quotes-eastmoney: ' + String(quoteResult.reason?.message ?? quoteResult.reason));
+        diagnostics.sourceFailures.push('candidate-quotes-tencent: ' + String(fallbackError?.message ?? fallbackError));
+      }
+    }
     diagnostics.quoteRows = quotes.size;
     diagnostics.conceptRows = conceptRows.length;
     const initialCoverage = summarizeSourceCoverage({
