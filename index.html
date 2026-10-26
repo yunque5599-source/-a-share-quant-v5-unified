@@ -354,7 +354,7 @@ async function runPreLimitupWatch(){
     const topRejections=Object.entries(rejectionCounts)
       .filter(([key,count])=>rejectionLabels[key]&&Number(count)>0)
       .sort((a,b)=>Number(b[1])-Number(a[1])).slice(0,5);
-    const rejectionHtml=qualityOk&&!rows.length&&topRejections.length
+    const rejectionHtml=qualityOk&&!rows.length&&(topRejections.length||Number(summary.preLimitUpExcludedCount)>0)
       ?'<div class="small" style="margin-top:8px"><b>本轮主要淘汰原因（诊断，不是候选推荐）：</b>'+
         (Number(summary.preLimitUpExcludedCount)>0?'<div>过热/启动阶段过滤：'+Number(summary.preLimitUpExcludedCount)+' 只</div>':'')+
         topRejections.map(([key,count])=>'<div>'+preEsc(rejectionLabels[key])+'：'+Number(count)+' 只</div>').join('')+
