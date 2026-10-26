@@ -146,7 +146,7 @@ export function classifyMarketRegime({ indices = [], candidates = [], fullUniver
     dataQuality,
     breadthSource,
     asOf: now,
-    basis: \`\${ix.length}个指数\${hasTrend ? '历史趋势' : '当日涨跌'} + \${useFull ? '独立主板广度' : '候选池广度代理'}\`,
+    basis: `${ix.length}个指数${hasTrend ? '历史趋势' : '当日涨跌'} + ${useFull ? '独立主板广度' : '候选池广度代理'}`,
     features: {
       indexCount: ix.length, indexDailyMedian: dailyMedian, indexDailyMean: dailyMean,
       indexUpRatio, trend5, trend20, drawdown20, volatility,
