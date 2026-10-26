@@ -53,7 +53,7 @@ export const OFFICIAL_POLICIES = [
 ];
 
 export const POLICY_THEMES = [
-  { id:'ai-computing', label:'人工智能/算力/智能终端', priority:98, policyIds:['tech-industry-integration-2026-10-21','ai-plus-action-2025-08-26','new-quality-productivity-2026-10-09','tech-commerce-2026-10-13'], keywords:['人工智能','AI','算力','算法','大模型','智能终端','智能手机','智能电脑','数据中心','服务器','液冷','云计算','数据要素','智能计算','AIDC'] },
+  { id:'ai-computing', label:'人工智能/算力/智能终端', priority:98, policyIds:['tech-industry-integration-2026-10-21','ai-plus-action-2025-08-26','new-quality-productivity-2026-10-09','tech-commerce-2026-10-13'], preferredPolicyId:'ai-plus-action-2025-08-26', keywords:['人工智能','AI','算力','算法','大模型','智能终端','智能手机','智能电脑','数据中心','服务器','液冷','云计算','数据要素','智能计算','AIDC'] },
   { id:'robotics-embodied-ai', label:'机器人/具身智能', priority:97, policyIds:['tech-industry-integration-2026-10-21','ai-plus-action-2025-08-26','new-quality-productivity-2026-10-09'], keywords:['机器人','具身智能','人形机器人','工业机器人','服务机器人','机器视觉','减速器','灵巧手'] },
   { id:'semiconductors-next-gen-it', label:'新一代信息技术/半导体', priority:96, policyIds:['tech-industry-integration-2026-10-21','ai-plus-action-2025-08-26','new-quality-productivity-2026-10-09'], keywords:['半导体','芯片','集成电路','先进封装','光刻','存储芯片','电子元件','通信设备','新一代信息技术','光模块','高速连接','PCB','算力芯片'] },
   { id:'smart-manufacturing-industrial-digital', label:'智能制造/工业互联网/数字化改造', priority:94, policyIds:['tech-industry-integration-2026-10-21','new-quality-productivity-2026-10-09','tech-commerce-2026-10-13'], keywords:['智能制造','工业互联网','工业软件','数字孪生','自动化设备','数控机床','机器视觉','工业数字化','制造业数字化','设备更新','工业控制','工业母机'] },
