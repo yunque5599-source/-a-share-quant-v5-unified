@@ -572,8 +572,21 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     if(batch.deep) for(const item of batch.deep.items??[]) deepByCode.set(String(item.code??''),item);
     else sourceErrors.push('deep_batch: '+batch.deepError);
     if(batch.psych){
-      for(const code of batch.codes) psychSuccessCodes.add(code);
       for(const [code,themes] of Object.entries(batch.psych.data?.themeBySymbol??{})) psychByCode.set(code,Array.isArray(themes)?themes:[]);
+      const psychDiagnostics=batch.psych.diagnostics??{};
+      const psychDegraded=batch.psych.degraded===true
+        || batch.psych.status==='DEGRADED_SOURCE_COVERAGE'
+        || Number(psychDiagnostics.conceptRows??0)===0
+        || Number(psychDiagnostics.requestedCodes??batch.codes.length)>0
+          && Number(psychDiagnostics.themeCount??0)===0;
+      if(!psychDegraded) for(const code of batch.codes) psychSuccessCodes.add(code);
+      else sourceErrors.push('psychology_universe_degraded: '+JSON.stringify({
+        status:batch.psych.status??null,
+        sourceFailures:psychDiagnostics.sourceFailures??[],
+        conceptRows:psychDiagnostics.conceptRows??0,
+        themeCount:psychDiagnostics.themeCount??0,
+        researchFailures:psychDiagnostics.researchFailures??0
+      }));
     } else sourceErrors.push('psychology_universe: '+batch.psychError);
   }
   let retryAttemptCount=0,retryRecoveredKlineCount=0,retryRecoveredFlowCount=0;
