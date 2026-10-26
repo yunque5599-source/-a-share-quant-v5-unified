@@ -175,7 +175,11 @@ export function deriveMarketRegime({ indices=[], universeRows=[], capturedAt=nul
   const downRatio = broad.length ? broad.filter(row=>row.pct<0).length/broad.length : null;
   const positiveFlowRatio = broad.filter(row=>row.mainNet!==null).length
     ? broad.filter(row=>row.mainNet!==null&&row.mainNet>0).length/broad.filter(row=>row.mainNet!==null).length : null;
-  const indexMedianPct = indexRows.length ? [...indexRows.map(row=>row.pct)].sort((a,b)=>a-b)[Math.floor((indexRows.length-1)/2)] : null;
+  const sortedIndexPcts = [...indexRows.map(row=>row.pct)].sort((a,b)=>a-b);
+  const indexMedianPct = !sortedIndexPcts.length ? null
+    : sortedIndexPcts.length % 2
+      ? sortedIndexPcts[(sortedIndexPcts.length-1)/2]
+      : (sortedIndexPcts[sortedIndexPcts.length/2-1] + sortedIndexPcts[sortedIndexPcts.length/2]) / 2;
   const referencePct = indexMedianPct ?? medianPct;
   let regime='neutral', label='震荡/分化', riskAppetite='balanced';
   if ((upRatio!==null&&upRatio>=0.58&&referencePct!==null&&referencePct>=0.25) ||
