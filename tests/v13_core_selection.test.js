@@ -181,3 +181,16 @@ test('primary core shortlist rejects non-main-board or explicitly non-executable
   assert.equal(result.ranking.length,0);
   assert.ok(result.assessed[0].selection.failedGates.some(g=>g.key==='execution-eligibility'));
 });
+
+
+test('inconsistent exchange-board metadata is rejected from the primary shortlist',()=>{
+  const row=makeRow({code:'000001',r5Pct:12});
+  row.board='SH_MAIN';
+  const result=rankCoreSelection([row],{
+    marketRegime:row.marketRegime,
+    eligibleCodes:new Set(['000001']),
+    maxResults:5
+  });
+  assert.equal(result.ranking.length,0);
+  assert.ok(result.assessed[0].selection.failedGates.some(g=>g.key==='execution-eligibility'));
+});
