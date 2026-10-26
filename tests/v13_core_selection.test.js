@@ -151,7 +151,11 @@ test('relative strength is ranked inside the pre-limit-up pool, not against alre
   assert.equal(result.ranking[0].code,'600030');
   assert.equal(result.ranking[0].relativeStrengthPercentile,100);
   assert.ok(result.assessed.find(row=>row.code==='600031').selection.failedGates.some(g=>g.key==='relative-strength'));
-  assert.ok(result.assessed.find(row=>row.code==='600032').selection.failedGates.some(g=>g.key==='pre-limit-up-risk-filter'));
+  const overheatedResult=result.assessed.find(row=>row.code==='600032');
+  assert.ok(overheatedResult.selection.failedGates.some(g=>g.key==='pre-limit-up-risk-filter'));
+  assert.ok(!overheatedResult.selection.failedGates.some(g=>g.key==='relative-strength'));
+  assert.equal(result.summary.preLimitUpEligibleCount,2);
+  assert.equal(result.summary.preLimitUpExcludedCount,1);
 });
 
 
