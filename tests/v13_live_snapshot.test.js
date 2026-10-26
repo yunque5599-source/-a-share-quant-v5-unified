@@ -177,7 +177,7 @@ test('live industry fallback ranks sector breadth, limit-up participation and wi
   {f12:'600004',f14:'银行B',f100:'银行',f3:-0.5},
   {f12:'600005',f14:'银行C',f100:'银行',f3:0.1}
  ];
- const context=deriveLiveIndustryContext(rows);
+ const context=deriveLiveIndustryContext([...rows,...rows.slice(0,3)]);
  assert.ok(context.get('300001').themeHeat>context.get('600003').themeHeat);
  assert.equal(context.get('300001').limitUpCount,1);
  assert.ok(context.get('300001').leaderScore>context.get('600001').leaderScore);
