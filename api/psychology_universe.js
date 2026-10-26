@@ -75,8 +75,8 @@ async function fetchText(url, timeoutMs = 7000, referer = 'https://basic.10jqka.
 
 function normalizeThemeName(value) {
   return String(value ?? '').trim().toLowerCase()
-    .replace(/概念$/u, '')
-    .replace(/[\s\p{P}\p{S}]+/gu, '');
+    .replace(/[\s\p{P}\p{S}]+/gu, '')
+    .replace(/概念$/u, '');
 }
 
 function decodeHtmlText(value) {
