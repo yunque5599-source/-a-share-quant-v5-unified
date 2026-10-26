@@ -20,6 +20,8 @@ jobs:
           node-version: 22
       - name: Check API syntax
         run: node --check api/market.js
+      - name: Check engine module syntax
+        run: node --check regime-engine.js && node --check forward-performance.js
       - name: Check adaptive dashboard inline module syntax
         shell: bash
         run: |
