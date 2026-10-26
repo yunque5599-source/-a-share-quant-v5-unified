@@ -60,6 +60,21 @@ function cutoffMs(value) {
   const parsed = Date.parse(raw);
   return Number.isFinite(parsed) ? parsed : Date.now();
 }
+function parseNewsTimestamp(value) {
+  if (typeof value === 'number') {
+    const ms = value < 1e12 ? value * 1000 : value;
+    return Number.isFinite(ms) ? ms : NaN;
+  }
+  const raw = String(value ?? '').trim();
+  if (!raw) return NaN;
+  // Date-only news has no verifiable publication time; treat it as end-of-day China time.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return Date.parse(raw + 'T23:59:59+08:00');
+  // Public Chinese finance feeds often omit the timezone; interpret naive timestamps as China Standard Time.
+  const naive = raw.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?)$/);
+  if (naive) return Date.parse(naive[1] + 'T' + naive[2] + '+08:00');
+  const parsed = Date.parse(raw);
+  return Number.isFinite(parsed) ? parsed : NaN;
+}
 function normalizeText(value) {
   return String(value ?? '').replace(/\s+/g,' ').trim().slice(0,1000);
 }
@@ -84,7 +99,7 @@ export function scorePolicyAlignment({ industry='', themeNames=[], companyNews=[
   const news = (Array.isArray(companyNews) ? companyNews : []).filter(item => {
     const timestamp = item?.publishedAt ?? item?.publishTime ?? item?.date ?? item?.time ?? null;
     if (timestamp === null) return false;
-    const parsed = Date.parse(String(timestamp));
+    const parsed = parseNewsTimestamp(timestamp);
     return Number.isFinite(parsed) && parsed <= cutoff;
   });
   const scoredThemes = [];
