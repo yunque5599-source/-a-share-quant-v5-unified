@@ -75,6 +75,10 @@ function dailyChangePct(stock) {
   return Number(previous?.close) > 0 && Number(latest?.close) > 0
     ? (Number(latest.close) / Number(previous.close) - 1) * 100 : null;
 }
+function evidenceDateAtOrBefore(value, cutoff) {
+  const date = String(value ?? '').slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) && date <= cutoff;
+}
 const DATED_BARS_CACHE = new WeakMap();
 function datedBars(stock) {
   const source = Array.isArray(stock?.bars) ? stock.bars : [];
@@ -243,9 +247,17 @@ export function evaluateWalkForward(candidates, {
       // Only explicitly point-in-time sector/theme metadata is allowed to establish policy evidence.
       // The replay's current industry label is still used for sector-return diagnostics, but not
       // silently treated as historical policy exposure or proof of theme leadership.
+      const metadataAsOf = stock.pointInTimeMetadataAsOf ?? stock.metadataAsOf ?? null;
+      const metadataIsPointInTime = evidenceDateAtOrBefore(metadataAsOf, signalDate);
+      const leaderEvidenceAsOf = stock.pointInTimeLeaderEvidence?.asOf
+        ?? stock.pointInTimeLeaderEvidence?.observedAt
+        ?? metadataAsOf;
+      const leaderEvidence = stock.pointInTimeLeaderEvidence
+        && evidenceDateAtOrBefore(leaderEvidenceAsOf, signalDate)
+        ? stock.pointInTimeLeaderEvidence : null;
       const policyAlignment = scorePolicyAlignment({
-        industry: stock.pointInTimeIndustry ?? '',
-        themeNames: stock.pointInTimeThemeNames ?? [],
+        industry: metadataIsPointInTime ? stock.pointInTimeIndustry ?? '' : '',
+        themeNames: metadataIsPointInTime ? stock.pointInTimeThemeNames ?? [] : [],
         companyNews: stock.companyNews ?? [],
         asOf: signalDate
       });
@@ -259,7 +271,7 @@ export function evaluateWalkForward(candidates, {
         quote: { ...(stock.quote ?? {}), pct: dailyPct, amount: latest?.amount, turnoverRate: latest?.turnoverRate },
         policyAlignment,
         marketRegime,
-        leaderEvidence: stock.pointInTimeLeaderEvidence ?? null,
+        leaderEvidence,
         source: {
           ...(stock.source ?? {}),
           barCount: stock.bars.length,
