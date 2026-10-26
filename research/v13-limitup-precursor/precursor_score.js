@@ -404,7 +404,8 @@ function scoreCandidate(candidate, options = {}) {
   const policyEvidence = policyAlignment.evidenceAvailable === true;
   const marketRegime = candidate.marketRegime ?? options.marketRegime ?? { regime: 'neutral' };
   const regimeScore = regimeAwareScore({
-    coreScore: coreGrossScore, policyScore, policyEvidence, marketRegime,
+    coreScore: coreGrossScore, policyScore, policyEvidence,
+    policyCatalogStale: policyAlignment.catalogStale === true, marketRegime,
     trend, volumePrice, flow, sector, momentum, base
   });
   const policyAwareCore = regimeScore.score;
