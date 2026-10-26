@@ -6,6 +6,27 @@ Rank A-share candidates that may enter a strong 1–5 trading-day move before a 
 
 The V13 scoring layer remains research-only. On this research branch, the page has an optional one-click observation panel backed by `/api/v13_prelimitup`; it does not alter the primary V10 signal, sizing, stops, or order execution. The panel is not deployed to the default branch.
 
+
+## Policy + market-regime overlay (V13 research)
+
+The live observation ranking now uses a curated, source-linked policy taxonomy and a market-regime-aware score overlay. It is intentionally an **evidence-weighted sector alignment score**, not a claim that a specific listed company receives a subsidy, has a government-backed order, or will rise.
+
+### Official policy catalog currently represented
+
+- **2026-10-21 — 关于推动科技创新和产业创新深度融合的意见**, Ministry of Science and Technology official publication: https://www.most.gov.cn/xxgk/xinxifenlei/fdzdgknr/fgzc/gfxwj/gfxwj2026/202610/t20261021_197540.html
+- **2026-10-09 — 关于发展新质生产力的意见**, Ministry of Industry and Information Technology official publication: https://www.miit.gov.cn/xwfb/szyw/art/2026/art_bb063b402f814c2d829cb53688ee84c0.html
+- **2026-10-13 — 关于加快推进科技兴商的意见**, Ministry of Commerce official publication: https://www.mofcom.gov.cn/zcfb/zc/art/2026/art_202618c40d1943e9abfed97cef83e671.html
+
+The current map covers AI/computing, robotics/embodied AI, semiconductors and next-generation IT, industrial digitalization, new energy/materials, smart EVs, biomedicine/bio-manufacturing, aerospace/low-altitude economy, frontier technology (quantum, hydrogen/fusion, BCI, 6G), high-end equipment, and commerce digitization. The catalog is reviewed at 2026-10-26; new official documents must be verified and added before they influence scoring. It is not yet an automatic crawler of every government website, so the UI exposes the catalog version and review timestamp.
+
+### How the score affects selection
+
+- Policy matching requires a keyword match in the stock's industry/theme metadata or in a time-verified company-news headline. Stock name alone is not enough.
+- Each match returns its matched terms, official document title/date/source/URL, evidence type, and score. News published after the requested signal cutoff is ignored.
+- The live model derives market regime from available index changes plus the ranked quote sample. When only a ranked sample is available, the result explicitly says so; it must not be described as full-market breadth.
+- Policy weight is **14% in risk-on, 10% in neutral, and 6% in risk-off** conditions. The market-fit overlay weight is 10% in risk-on/neutral and 14% in risk-off. Policy score is capped at 55 when flow or trend confirmation is weak, preventing a policy narrative from overwhelming market evidence.
+- The V13 observation list displays policy score, market-fit score, matching themes, and links to official source documents. The production V10 executable signal and order permissions remain unchanged until walk-forward tests demonstrate repeatable improvement.
+
 ## Why the design differs from the current one-click screen
 
 - **Discovery coverage is separate from execution permission.** ChiNext names (300/301), STAR names (688/689), and Beijing listings can be scored for research coverage. By default, only Shanghai/Shenzhen main-board codes are marked execution-eligible; this does not suppress a research candidate from the ranked list.
