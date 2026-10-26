@@ -147,7 +147,7 @@ function parseSinaNodeMembers(rows) {
 }
 
 async function fetchThsStockConcepts(code) {
-  const html = await fetchText('https://basic.10jqka.com.cn/' + code + '/concept.html', 4500);
+  const html = await fetchText('https://basic.10jqka.com.cn/' + code + '/concept.html', 3500);
   const concepts = parseThsStockConcepts(html);
   if (!concepts.length) throw new Error('10jqka concept page yielded no parseable concept rows');
   return concepts;
@@ -156,7 +156,7 @@ async function fetchThsStockConcepts(code) {
 async function fetchSinaConceptNodes() {
   const tree = await fetchParsed(
     'https://vip.stock.finance.sina.com.cn/quotes_service/api/json_v2.php/Market_Center.getHQNodes',
-    7000,
+    3500,
     'https://vip.stock.finance.sina.com.cn/'
   );
   const nodes = parseSinaConceptNodes(tree);
@@ -174,7 +174,7 @@ async function fetchSinaNodeMembers(nodeCode, maxPages = 2) {
         node:nodeCode, sort:'symbol', asc:'1',
         page:String(page), num:'80', _s_r_a:'page'
       }).toString();
-      const rows = await fetchParsed(url.toString(), 4500, 'https://vip.stock.finance.sina.com.cn/');
+      const rows = await fetchParsed(url.toString(), 3500, 'https://vip.stock.finance.sina.com.cn/');
       return parseSinaNodeMembers(rows);
     }
   );
@@ -184,9 +184,11 @@ async function fetchSinaNodeMembers(nodeCode, maxPages = 2) {
 }
 
 async function fetchSinaThsConceptFallback(codes, maxThemes = 24, concurrency = 4) {
+  const membershipConcurrency = Math.max(6, Math.min(8, concurrency));
+  const boardConcurrency = Math.max(4, Math.min(6, concurrency));
   const [nodesResult, membershipsResult] = await Promise.allSettled([
     fetchSinaConceptNodes(),
-    mapLimit(codes, concurrency, async code => {
+    mapLimit(codes, membershipConcurrency, async code => {
       await sleep(100);
       try {
         return {code, concepts:await fetchThsStockConcepts(code)};
@@ -220,12 +222,12 @@ async function fetchSinaThsConceptFallback(codes, maxThemes = 24, concurrency = 
   }
   const rankedNodeCodes = [...counts.entries()]
     .sort((a,b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-    .slice(0, Math.min(maxThemes, 12))
+    .slice(0, Math.min(maxThemes, 8))
     .map(([code]) => code);
-  const themeRows = await mapLimit(rankedNodeCodes, concurrency, async nodeCode => {
+  const themeRows = await mapLimit(rankedNodeCodes, boardConcurrency, async nodeCode => {
     await sleep(100);
     try {
-      const members = await fetchSinaNodeMembers(nodeCode, 1);
+      const members = await fetchSinaNodeMembers(nodeCode, 2);
       if (!members.length) return null;
       const returns = members.map(row => row.pct).filter(Number.isFinite);
       const upCount = returns.filter(value => value > 0).length;
@@ -385,7 +387,8 @@ function isConceptBoardRow(row = {}) {
 
 async function fetchConceptRanking(maxPages = 6) {
   const firstSpec = conceptRankingUrl();
-  const first = await fetchFromHosts(PUSH_HOSTS, firstSpec.path, firstSpec.params, 9000);
+  const conceptHosts = PUSH_HOSTS.slice(0, 3);
+  const first = await fetchFromHosts(conceptHosts, firstSpec.path, firstSpec.params, 2500);
   const total = n(first?.data?.total) ?? 0;
   const pageCount = Math.max(1, Math.min(maxPages, Math.ceil(total / 100)));
   const pages = [first];
@@ -395,8 +398,8 @@ async function fetchConceptRanking(maxPages = 6) {
       3,
       async page => {
         await sleep(120);
-        return fetchFromHosts(PUSH_HOSTS, firstSpec.path,
-          {...firstSpec.params, pn:String(page)}, 9000);
+        return fetchFromHosts(conceptHosts, firstSpec.path,
+          {...firstSpec.params, pn:String(page)}, 2500);
       }
     );
     pages.push(...rest);
@@ -410,10 +413,10 @@ async function fetchConceptRanking(maxPages = 6) {
 }
 
 async function fetchStockConcepts(code) {
-  const json = await fetchFromHosts(PUSH_HOSTS, '/api/qt/slist/get', {
+  const json = await fetchFromHosts(PUSH_HOSTS.slice(0, 3), '/api/qt/slist/get', {
     secid:secid(code), spt:'3', pi:'0', pz:'200', po:'1',
     fields:'f12,f14,f3,f128,f140,f141', ut:UT
-  }, 7000);
+  }, 2500);
   const diff = json?.data?.diff;
   const rows = Array.isArray(diff) ? diff : diff && typeof diff === 'object' ? Object.values(diff) : [];
   return rows.map(row => ({
@@ -505,11 +508,11 @@ async function fetchThemeNews(themeName) {
 
 async function fetchCandidateQuotes(codes) {
   if (!codes.length) return new Map();
-  const json = await fetchFromHosts(PUSH_HOSTS, '/api/qt/ulist.np/get', {
+  const json = await fetchFromHosts(PUSH_HOSTS.slice(0, 3), '/api/qt/ulist.np/get', {
     secids:codes.map(secid).join(','),
     fields:'f12,f14,f3,f124',
     fltt:'2', invt:'2', ut:UT
-  }, 7000);
+  }, 2500);
   const diff = json?.data?.diff;
   const rows = Array.isArray(diff) ? diff : diff && typeof diff === 'object' ? Object.values(diff) : [];
   return new Map(rows.map(row => [String(row?.f12 ?? ''), {
@@ -771,7 +774,7 @@ export default async function handler(req, res) {
     const liveMode = url.searchParams.get('mode') === 'live';
     const selectedThemesPerStock = liveMode ? 1 : 2;
     const maxResearchThemes = liveMode ? 10 : 24;
-    const membershipConcurrency = liveMode ? 6 : 4;
+    const membershipConcurrency = 6;
     const researchConcurrency = liveMode ? 6 : 4;
 
     diagnostics.selectedThemesPerStock = selectedThemesPerStock;
