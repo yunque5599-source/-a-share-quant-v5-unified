@@ -273,7 +273,8 @@ function preBreakoutRow(row,index){
     chip('结构',components.baseCompression),
     chip('趋势',components.trendTurn),
     chip('资金',components.capitalAccumulation),
-    chip('板块',components.sectorStrength)
+    chip('板块',components.sectorStrength),
+    chip('行业相对强度代理',components.industryLeaderProxy)
   ].join('');
   const priceText=Number.isFinite(pct)?(pct>0?'+':'')+pct.toFixed(2)+'%':'涨跌幅待核验';
   const distanceText=Number.isFinite(dist)?(dist>0?'+':'')+dist.toFixed(2)+'%':'—';
