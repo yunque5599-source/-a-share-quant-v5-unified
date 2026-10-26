@@ -198,6 +198,12 @@ The wide scan is slow and can be throttled by public data providers. Its batch c
 
 This does not change the production app.
 
+### V13 pre-breakout watch lane (experimental)
+
+The live snapshot now emits a separate `rankings.preBreakoutWatch` lane alongside the stricter four-layer core selection. It targets compressed bases near the prior 20-session high, improving short-term trend, sustained capital-flow evidence, sector strength, and dated policy/theme-leader evidence before the price becomes extended. It rejects non-main-board or inconsistent-board names, insufficient histories, persistent downtrends, prices too far from resistance, and already-extended moves. The lane labels a candidate `PREBREAKOUT_LEADER_WATCH` only when leader and policy evidence are both verified and the flow/sector checks pass; otherwise it can only be a `PREBREAKOUT_SETUP_WATCH`, not a confirmed leader.
+
+The score is a heuristic ranking, **not** a probability of breakout, a buy signal, or evidence of positive expected return. Missing policy/leader data lowers confidence and prevents the confirmed-leader label. A candidate appearing on this watchlist means "monitor for a valid breakout trigger"; it does not mean to buy before confirmation. The initial version is live-observation only and must be evaluated on point-in-time historical snapshots before any weight tuning or promotion.
+
 ## Validation gate before integration
 
 1. Keep the screenshot names as a held-out audit set; do not tune directly on their outcomes.
