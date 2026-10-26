@@ -83,3 +83,13 @@ test('pre-breakout watch never fills the shortlist with failed candidates',()=>{
   assert.equal(result.summary.passedGateCount,0);
   assert.equal(result.summary.emptyListPolicy,'never-fill-watchlist-with-failed-or-extended-candidates');
 });
+
+
+test('missing flow history is not converted into a positive accumulation signal',()=>{
+  const row=makeRow({flowCount:0,mainNet5:0,flowPositiveShare:null,mainFlowRatioPct:null});
+  row.source.historicalFlowCount=0;
+  const result=assessPreBreakoutCandidate(row,early());
+  assert.equal(result.metrics.flowObserved,false);
+  assert.equal(result.components.capitalAccumulation,null);
+  assert.equal(result.confidence<1,true);
+});
