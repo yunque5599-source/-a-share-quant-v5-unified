@@ -583,6 +583,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       else sourceErrors.push('psychology_universe_degraded: '+JSON.stringify({
         status:batch.psych.status??null,
         sourceFailures:psychDiagnostics.sourceFailures??[],
+        sourceWarnings:psychDiagnostics.sourceWarnings??[],
         conceptRows:psychDiagnostics.conceptRows??0,
         themeCount:psychDiagnostics.themeCount??0,
         researchFailures:psychDiagnostics.researchFailures??0
