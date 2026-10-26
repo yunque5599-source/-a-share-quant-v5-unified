@@ -275,7 +275,7 @@ export function assessCoreSelectionCandidate(row = {}, options = {}) {
       failedGates,
       failureReasons: failedGates.map(item => item.reason),
       thresholds,
-      method: 'four-layer-strict-core-leader-selection-v1'
+      method: 'four-layer-strict-core-leader-selection-v2'
     }
   };
 }
@@ -311,7 +311,7 @@ export function rankCoreSelection(rows, options = {}) {
   const maxResults = Math.max(1, Math.min(10, Number(options.maxResults) || 5));
   const ranking = eligible.slice(0, maxResults).map((row, index) => ({ ...row, rank: index + 1 }));
   const summary = {
-    version: 'four-layer-strict-core-leader-selection-v1',
+    version: 'four-layer-strict-core-leader-selection-v2',
     assessedCount: ranked.length,
     preLimitUpEligibleCount: primaryUniverse.length,
     preLimitUpExcludedCount: ranked.length - primaryUniverse.length,
