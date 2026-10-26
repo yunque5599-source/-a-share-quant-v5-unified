@@ -181,8 +181,12 @@ export function deriveMarketRegime({ indices=[], universeRows=[], capturedAt=nul
   if ((upRatio!==null&&upRatio>=0.58&&referencePct!==null&&referencePct>=0.25) ||
       (upRatio!==null&&upRatio>=0.64&&referencePct!==null&&referencePct>-0.1)) {
     regime='risk-on';label='风险偏好回升';riskAppetite='growth-and-momentum';
+  } else if (referencePct!==null&&referencePct<=-0.65&&upRatio!==null&&upRatio>=0.55) {
+    // A weak index alongside positive stock breadth is divergence/rotation, not automatically a broad risk-off market.
+    regime='neutral';label='指数走弱、个股分化';riskAppetite='rotation-and-dispersion';
   } else if ((upRatio!==null&&upRatio<0.42) ||
-      (referencePct!==null&&referencePct<=-0.65) ||
+      (referencePct!==null&&referencePct<=-0.65&&(upRatio===null||upRatio<0.50)) ||
+      (referencePct!==null&&referencePct<=-1.5&&(upRatio===null||upRatio<0.64)) ||
       (upRatio!==null&&upRatio<0.48&&referencePct!==null&&referencePct<-0.25)) {
     regime='risk-off';label='防守/风险偏好下降';riskAppetite='capital-quality-and-liquidity';
   }
