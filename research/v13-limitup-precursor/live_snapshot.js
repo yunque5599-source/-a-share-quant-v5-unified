@@ -69,6 +69,13 @@ export function selectCandidateFunnel(rows, limit=120) {
   add([...valid].sort((a,b)=>val(b,'rankScore')-val(a,'rankScore')),Math.ceil(limit*.42),'consensus-rank');
   add([...valid].sort((a,b)=>val(b,'f3')-val(a,'f3')),Math.ceil(limit*.20),'price-momentum');
   add([...valid].sort((a,b)=>val(b,'f62')-val(a,'f62')),Math.ceil(limit*.18),'capital-inflow');
+  // The strict primary shortlist is limited to executable Shanghai/Shenzhen main-board names.
+  // Reserve explicit funnel capacity for those names so growth-board momentum cannot consume
+  // the entire candidate budget before policy/leader/flow gates are evaluated.
+  const mainBoardValid=valid.filter(row=>['SH_MAIN','SZ_MAIN'].includes(boardForCode(row.f12)));
+  add([...mainBoardValid].sort((a,b)=>val(b,'rankScore')-val(a,'rankScore')),Math.ceil(limit*.18),'main-board-consensus');
+  add([...mainBoardValid].sort((a,b)=>val(b,'f62')-val(a,'f62')),Math.ceil(limit*.10),'main-board-capital-inflow');
+  add([...mainBoardValid].sort((a,b)=>val(b,'f3')-val(a,'f3')),Math.ceil(limit*.10),'main-board-price-momentum');
   add([...valid].sort((a,b)=>val(b,'rankHits')-val(a,'rankHits')),Math.ceil(limit*.10),'cross-rank-consensus');
   add(valid,limit,'ranked-funnel-fill');
   return [...chosen.values()].slice(0,limit).map(r=>({...r,funnelLanes:[...new Set(r.funnelLanes)],board:boardForCode(r.f12)}));
