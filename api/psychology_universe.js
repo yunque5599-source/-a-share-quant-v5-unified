@@ -441,6 +441,8 @@ export default async function handler(req, res) {
     themeCount:0,
     researchThemes:0,
     researchFailures:0,
+    sourceFailures:[],
+    sourceDegraded:false,
     selectedThemesPerStock:2,
     maxResearchThemes:24,
     asOfMode:requestedAsOf ? 'caller-supplied' : 'server-capture',
@@ -456,14 +458,19 @@ export default async function handler(req, res) {
 
     diagnostics.selectedThemesPerStock = selectedThemesPerStock;
     diagnostics.maxResearchThemes = maxResearchThemes;
-    const [conceptRows, quotes] = await Promise.all([
+    const [conceptResult, quoteResult] = await Promise.allSettled([
       fetchConceptRanking(liveMode ? 3 : 6),
       fetchCandidateQuotes(codes)
     ]);
+    const conceptRows = conceptResult.status === 'fulfilled' ? conceptResult.value : [];
+    const quotes = quoteResult.status === 'fulfilled' ? quoteResult.value : new Map();
+    if (conceptResult.status === 'rejected') diagnostics.sourceFailures.push('concept-ranking: ' + String(conceptResult.reason?.message ?? conceptResult.reason));
+    if (quoteResult.status === 'rejected') diagnostics.sourceFailures.push('candidate-quotes: ' + String(quoteResult.reason?.message ?? quoteResult.reason));
+    diagnostics.sourceDegraded = diagnostics.sourceFailures.length > 0 || conceptRows.length === 0 || quotes.size === 0;
     diagnostics.conceptRows = conceptRows.length;
     const conceptMap = new Map(conceptRows.map(row => [row.code, row]));
 
-    const memberships = await mapLimit(codes, membershipConcurrency, async code => {
+    const memberships = conceptRows.length ? await mapLimit(codes, membershipConcurrency, async code => {
       await sleep(120);
       try {
         return {code, concepts:await fetchStockConcepts(code)};
@@ -471,7 +478,7 @@ export default async function handler(req, res) {
         diagnostics.membershipFailures += 1;
         return {code, concepts:[], error:error?.message ?? String(error)};
       }
-    });
+    }) : codes.map(code => ({code, concepts:[]}));
 
     const selectedByStock = new Map();
     const uniqueThemeCodes = new Set();
@@ -560,6 +567,8 @@ export default async function handler(req, res) {
     res.end(JSON.stringify({
       schema:'v12-psychology-source-v1',
       version:'V12 Psychology Market Evidence Phase 3 Behavioral',
+      status:diagnostics.sourceDegraded ? 'DEGRADED_SOURCE_COVERAGE' : 'SOURCE_COVERAGE_AVAILABLE',
+      degraded:diagnostics.sourceDegraded,
       asOf:fallbackAsOf,
       data:{
         themeBySymbol,
