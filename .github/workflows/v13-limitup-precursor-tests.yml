@@ -5,6 +5,7 @@ on:
     paths:
       - 'research/v13-limitup-precursor/**'
       - 'tests/v13_core_selection.test.js'
+      - 'tests/v13_pre_breakout.test.js'
       - 'tests/v13_policy_alignment.test.js'
       - 'api/v13_prelimitup.js'
       - 'index.html'
