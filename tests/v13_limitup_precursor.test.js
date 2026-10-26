@@ -262,4 +262,8 @@ test('policy-aware ranking exposes policy evidence and adapts to market regime w
   assert.ok(Number.isFinite(aware.components.policyAlignment));
   assert.ok(Number.isFinite(aware.components.marketFit));
   assert.ok(aware.score >= core.score);
+  const rankedAware = rankCandidates([candidate], { modelVariant: 'v13-policy-aware' })[0];
+  assert.ok(rankedAware);
+  assert.equal(rankedAware.score, aware.score);
+  assert.equal(rankedAware.scorePath, aware.scorePath);
 });
