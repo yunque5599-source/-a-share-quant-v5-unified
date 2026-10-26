@@ -292,7 +292,7 @@ function preLimitupRow(row,index){
     (theme.matchedKeywords?.length?' · 匹配词：'+preEsc(theme.matchedKeywords.slice(0,4).join('、')):'')+
     (theme.policy?.url?' · <a href="'+preEsc(theme.policy.url)+'" target="_blank" rel="noopener">官方原文</a>':'')+'</div>').join('');
   const selectionHtml='<div class="small" style="margin-top:5px">四层核验：'+passed.length+'项通过 · 龙头证据：'+preEsc(leader.source||'不足')+
-    (Number.isFinite(rs)?' · 相对强度前 '+Math.max(0,100-rs).toFixed(0)+'%':'')+
+    (Number.isFinite(rs)?' · 相对强度前 '+Math.max(1,Math.ceil(100-rs)).toFixed(0)+'%':'')+
     (Number.isFinite(target)?' · 短线空间估计 '+target.toFixed(1)+'%':'')+
     (Number.isFinite(stop)?' · 止损距离参考 '+stop.toFixed(1)+'%':'')+
     (Number.isFinite(rrRatio)?' · 收益风险比 '+rrRatio.toFixed(2):'')+
@@ -342,9 +342,13 @@ async function runPreLimitupWatch(){
       'sustained-capital-flow':'主力资金流不持续',
       'relative-strength':'相对强度不足',
       'market-regime':'当前市场环境不支持',
+      'sector-confirmation':'板块强度/扩散不足',
       'risk-reward':'收益风险比不足',
+      'overnight-risk':'隔夜风险过高',
       'chase-control':'短线过热/追高风险',
-      'overnight-risk':'隔夜风险过高'
+      'liquidity':'流动性不足',
+      'data-confidence':'数据置信度不足',
+      'overall-score':'综合评分未达门槛'
     };
     const rejectionCounts=summary.rejectionCounts&&typeof summary.rejectionCounts==='object'?summary.rejectionCounts:{};
     const topRejections=Object.entries(rejectionCounts)
