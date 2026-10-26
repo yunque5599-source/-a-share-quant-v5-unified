@@ -71,6 +71,35 @@ test('market regime uses index movement and quote breadth and labels limited sam
   assert.equal(result.indexCount,3);
 });
 
+test('index weakness with positive breadth is classified as divergence, not automatic risk-off', () => {
+  const rows = Array.from({length:120},(_,i)=>({
+    f12:String(600000+i).slice(-6), f14:'样本'+i,
+    f3:i<70?1.2:-0.6, f62:i<70?1000000:-1000000
+  }));
+  const result = deriveMarketRegime({
+    indices:[{name:'上证指数',pct:-1.1},{name:'沪深300',pct:-0.9}],
+    universeRows:rows,capturedAt:'2026-10-26T10:00:00+08:00'
+  });
+  assert.equal(result.regime,'neutral');
+  assert.equal(result.label,'指数走弱、个股分化');
+  assert.equal(result.indexMedianPct,-1);
+  assert.ok(result.upRatio>0.55);
+});
+
+test('risk-off classification requires weak breadth or a severe index selloff with breadth deterioration', () => {
+  const rows = Array.from({length:120},(_,i)=>({
+    f12:String(600000+i).slice(-6), f14:'样本'+i,
+    f3:i<35?0.8:-1.2, f62:i<30?1000000:-1000000
+  }));
+  const result = deriveMarketRegime({
+    indices:[{name:'上证指数',pct:-1.2},{name:'沪深300',pct:-1.0}],
+    universeRows:rows,capturedAt:'2026-10-26T10:00:00+08:00'
+  });
+  assert.equal(result.regime,'risk-off');
+  assert.equal(result.label,'防守/风险偏好下降');
+  assert.ok(result.upRatio<0.42);
+});
+
 test('policy score cannot compensate for very weak flow and trend confirmation', () => {
   const result = regimeAwareScore({
     coreScore:42, policyScore:99, policyEvidence:true, marketRegime:'risk-on',
