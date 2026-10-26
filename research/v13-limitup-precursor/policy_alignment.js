@@ -94,6 +94,9 @@ function effectivePolicy(policyId, cutoff) {
 
 export function scorePolicyAlignment({ industry='', themeNames=[], companyNews=[], asOf=null } = {}) {
   const cutoff = cutoffMs(asOf);
+  const catalogReviewedMs = Date.parse(POLICY_CATALOG_REVIEWED_AT);
+  const catalogAgeDays = Number.isFinite(catalogReviewedMs) ? Math.max(0,(cutoff-catalogReviewedMs)/86400000) : 999;
+  const catalogStale = catalogAgeDays > 14;
   const industries = normalizeText(industry);
   const themes = (Array.isArray(themeNames) ? themeNames : [themeNames]).map(normalizeText).filter(Boolean);
   const news = (Array.isArray(companyNews) ? companyNews : []).filter(item => {
@@ -137,6 +140,9 @@ export function scorePolicyAlignment({ industry='', themeNames=[], companyNews=[
     matchedThemes:strongest,
     catalogVersion:POLICY_CATALOG_VERSION,
     catalogReviewedAt:POLICY_CATALOG_REVIEWED_AT,
+    catalogAgeDays:Number(catalogAgeDays.toFixed(1)),
+    catalogStale,
+    catalogWarning:catalogStale?'policy-catalog-review-older-than-14-days':'',
     asOf:String(asOf??''),
     interpretation:scoredThemes.length ? 'sectoral-policy-alignment-not-company-specific-subsidy' : 'no-verifiable-policy-theme-match'
   };
@@ -183,7 +189,7 @@ export function deriveMarketRegime({ indices=[], universeRows=[], capturedAt=nul
   };
 }
 
-export function regimeAwareScore({ coreScore, policyScore=50, policyEvidence=false, marketRegime='neutral', trend=50, volumePrice=50, flow=50, sector=50, momentum=50, base=50 } = {}) {
+export function regimeAwareScore({ coreScore, policyScore=50, policyEvidence=false, policyCatalogStale=false, marketRegime='neutral', trend=50, volumePrice=50, flow=50, sector=50, momentum=50, base=50 } = {}) {
   const regime = typeof marketRegime === 'string' ? marketRegime : marketRegime?.regime ?? 'neutral';
   const core = clamp(n(coreScore) ?? 50);
   const flowScore = clamp(n(flow) ?? 50);
@@ -202,7 +208,8 @@ export function regimeAwareScore({ coreScore, policyScore=50, policyEvidence=fal
   let effectivePolicy=clamp(n(policyScore) ?? 50);
   // Policy narrative alone cannot compensate for weak price/flow confirmation.
   if(flowScore<40 || trendScore<35) effectivePolicy=Math.min(effectivePolicy,55);
-  const effectivePolicyWeight=policyEvidence?policyWeight:policyWeight*0.25;
+  const freshnessMultiplier=policyCatalogStale?0.25:1;
+  const effectivePolicyWeight=policyEvidence?policyWeight*freshnessMultiplier:policyWeight*0.25;
   const adjusted=core*(1-marketWeight-effectivePolicyWeight)+marketFit*marketWeight+effectivePolicy*effectivePolicyWeight;
   return {
     score:Number(clamp(adjusted).toFixed(2)),
@@ -212,6 +219,7 @@ export function regimeAwareScore({ coreScore, policyScore=50, policyEvidence=fal
     effectivePolicyScore:Number(effectivePolicy.toFixed(2)),
     marketWeight:Number(marketWeight.toFixed(3)),
     policyWeight:Number(effectivePolicyWeight.toFixed(3)),
+    policyCatalogStale,
     regime
   };
 }
