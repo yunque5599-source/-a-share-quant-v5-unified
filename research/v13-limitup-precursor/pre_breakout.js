@@ -60,6 +60,13 @@ export function assessPreBreakoutCandidate(row = {}, earlyOpportunity = null) {
       || (candidateRank !== null && candidateRank <= 2)));
   const leaderScore = leaderVerified ? n(leader.score ?? leader.industryLeaderScore
     ?? (leaderStatus === 'leader' ? 88 : leaderStatus === 'core' ? 78 : null)) : null;
+  const industryLeaderScore = n(leader.industryLeaderScore);
+  const industryMemberCount = n(leader.industryMemberCount);
+  // Industry-relative price leadership is a weak proxy only. It can inform ranking,
+  // but never upgrades a candidate to a verified theme leader.
+  const industryLeaderProxyScore = !leaderVerified && industryLeaderScore !== null
+    && industryMemberCount !== null && industryMemberCount >= 5
+      ? clamp(industryLeaderScore) : null;
   const bars = n(row.source?.barCount ?? f.barCount);
 
   const failedGates = [];
@@ -105,7 +112,8 @@ export function assessPreBreakoutCandidate(row = {}, earlyOpportunity = null) {
   ].filter(value => value !== null);
   const flowScore = avg(flowPieces);
   const policyComponent = policyScore === null ? 35 : clamp(policyScore);
-  const leaderComponent = leaderScore === null ? 35 : clamp(leaderScore);
+  const leaderComponent = leaderScore !== null ? clamp(leaderScore)
+    : industryLeaderProxyScore !== null ? industryLeaderProxyScore : 35;
   const currentMoveSafety = currentPct === null ? 55
     : currentPct <= 2.5 ? 100
       : currentPct <= 4 ? 82
@@ -118,7 +126,7 @@ export function assessPreBreakoutCandidate(row = {}, earlyOpportunity = null) {
   ];
   const score = Number(weighted.reduce((sum, [value, weight]) => sum + (value ?? 35) * weight, 0).toFixed(1));
   const evidenceCount = [resistanceScore, baseScore, trendScore, flowScore, sectorScore,
-    policyScore, leaderScore].filter(value => value !== null).length;
+    policyScore, leaderScore ?? industryLeaderProxyScore].filter(value => value !== null).length;
   const confidence = Number((evidenceCount / 7 * Math.min(1, (bars ?? 0) / 40)
     * (flowCount !== null && flowCount >= 3 ? 1 : 0.75)).toFixed(2));
   const passed = failedGates.length === 0;
@@ -145,6 +153,7 @@ export function assessPreBreakoutCandidate(row = {}, earlyOpportunity = null) {
       sectorStrength: sectorScore === null ? null : Number(sectorScore.toFixed(1)),
       policyAlignment: policyScore === null ? null : Number(policyScore.toFixed(1)),
       themeLeader: leaderScore === null ? null : Number(leaderScore.toFixed(1)),
+      industryLeaderProxy: industryLeaderProxyScore === null ? null : Number(industryLeaderProxyScore.toFixed(1)),
       chaseSafety: Number(currentMoveSafety.toFixed(1))
     },
     metrics: {
