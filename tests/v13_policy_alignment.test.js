@@ -191,3 +191,11 @@ test('generic sector headlines cannot create company policy exposure without a c
   assert.equal(generic.evidenceAvailable, false);
   assert.equal(specific.evidenceAvailable, true);
 });
+
+
+test('policy availability uses the public release date rather than the earlier document date',()=>{
+  const commerce = OFFICIAL_POLICIES.find(policy => policy.id === 'tech-commerce-2026-10-13');
+  assert.ok(commerce);
+  assert.equal(commerce.issuedAt,'2026-10-13');
+  assert.equal(commerce.publishedAt,'2026-10-19');
+});
