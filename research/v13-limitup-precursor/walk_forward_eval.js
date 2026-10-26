@@ -6,6 +6,7 @@ import { pathToFileURL } from 'node:url';
 import { boardForCode, scoreCandidate, rankScoredCandidates } from './precursor_score.js';
 import { addHistoricalIndustryContext } from './historical_replay.js';
 import { rankCoreSelection } from './core_selection.js';
+import { rankPreBreakoutCandidates } from './pre_breakout.js';
 import { deriveMarketRegime, scorePolicyAlignment, POLICY_CATALOG_VERSION, POLICY_CATALOG_REVIEWED_AT } from './policy_alignment.js';
 import { computeEarlyOpportunity } from '../v11-short-alpha/early_opportunity.js';
 
@@ -332,7 +333,11 @@ export function evaluateWalkForward(candidates, {
         scorePath: policyAdjusted ? 'policy-market-aligned' : 'market-regime-adjusted'
       };
     });
-    const earlyByCode = new Map(v12EarlyOpportunityRanked.map(row => [String(row.code), { stage: row.setup }]));
+    const earlyByCode = new Map(v12EarlyOpportunityRanked.map(row => [String(row.code), {
+      stage: row.setup,
+      metrics: row.features?.earlyOpportunity?.metrics ?? {},
+      components: row.features?.earlyOpportunity?.components ?? {}
+    }]));
     const coreEligibleCodes = new Set(coreBaseScored
       .filter(row => isHistoricalCorePreLimitUpCandidate(row, earlyByCode.get(String(row.code))))
       .map(row => String(row.code)));
@@ -340,6 +345,16 @@ export function evaluateWalkForward(candidates, {
       marketRegime, eligibleCodes: coreEligibleCodes, maxResults: 5
     });
     const coreSelectionCodes = coreSelectionResult.ranking.map(row => String(row.code));
+    const preBreakoutResult = rankPreBreakoutCandidates(coreBaseScored, earlyByCode, { maxResults: 15, minScore: 60 });
+    const preBreakoutCodes = preBreakoutResult.ranking.map(row => String(row.code));
+    const preBreakoutDiagnostics = {
+      assessedCount: preBreakoutResult.summary.assessedCount,
+      passedGateCount: preBreakoutResult.summary.passedGateCount,
+      returnedCount: preBreakoutResult.summary.returnedCount,
+      verifiedLeaderCount: preBreakoutResult.summary.verifiedLeaderCount,
+      policyVerifiedCount: preBreakoutResult.summary.policyVerifiedCount,
+      unverifiedLeaderCount: preBreakoutResult.summary.unverifiedLeaderCount
+    };
     const corePolicyEvidenceCount = candidatesAtDate.filter(stock =>
       stock.policyAlignment?.evidenceAvailable === true && stock.policyAlignment?.catalogStale !== true).length;
     const coreLeaderEvidenceCount = candidatesAtDate.filter(stock => Boolean(stock.leaderEvidence)).length;
@@ -386,14 +401,14 @@ export function evaluateWalkForward(candidates, {
       .map(row => row.code);
     const rawByCode = new Map(validHistories.map(stock => [String(stock.code), stock]));
     const outcomeByCode = new Map();
-    for (const code of new Set([...modelCodes, ...coreSelectionCodes])) {
+    for (const code of new Set([...modelCodes, ...coreSelectionCodes, ...preBreakoutCodes])) {
       const raw = rawByCode.get(String(code));
       if (raw) {
         const outcome = evaluateCandidateOutcome(raw, signalDate);
         if (outcome) outcomeByCode.set(String(code), outcome);
       }
     }
-    const universeCodes = [...new Set([...modelCodes, ...coreSelectionCodes])]
+    const universeCodes = [...new Set([...modelCodes, ...coreSelectionCodes, ...preBreakoutCodes])]
       .filter(code => outcomeByCode.has(String(code)));
     const t5OutcomeCount = modelCodes.filter(code => Number.isFinite(outcomeByCode.get(String(code))?.t5CloseReturnPct)).length;
     const t5OutcomeCoveragePct = modelCodes.length ? Number((t5OutcomeCount / modelCodes.length * 100).toFixed(2)) : 0;
@@ -422,7 +437,10 @@ export function evaluateWalkForward(candidates, {
       balancedBlendTop30Codes,
       coreSelectionTop5Codes: coreSelectionCodes,
       coreSelectionDiagnostics,
+      preBreakoutTop15Codes: preBreakoutCodes,
+      preBreakoutDiagnostics,
       model: {},
+      preBreakout: {},
       coreSelection: {},
       coreOnly: {},
       earlyTurn: {},
@@ -435,6 +453,8 @@ export function evaluateWalkForward(candidates, {
       momentum: {}
     };
     day.coreSelection.top5 = metricsForTopK(coreSelectionCodes, 5, universeCodes, outcomeByCode);
+    day.preBreakout.top10 = metricsForTopK(preBreakoutCodes, 10, universeCodes, outcomeByCode);
+    day.preBreakout.top15 = metricsForTopK(preBreakoutCodes, 15, universeCodes, outcomeByCode);
     for (const k of DEFAULT_TOP_KS) {
       day.model['top' + k] = metricsForTopK(modelCodes, k, universeCodes, outcomeByCode);
       day.coreOnly['top' + k] = metricsForTopK(coreOnlyCodes, k, universeCodes, outcomeByCode);
@@ -476,6 +496,11 @@ export function evaluateWalkForward(candidates, {
     };
   }
   const coreSelectionTop5 = aggregateMetrics(perDate, 'coreSelection', 5);
+  const preBreakoutTop10 = aggregateMetrics(perDate, 'preBreakout', 10);
+  const preBreakoutTop15 = aggregateMetrics(perDate, 'preBreakout', 15);
+  const preBreakoutReturnedRows = perDate.reduce((sum, day) => sum + day.preBreakoutDiagnostics.returnedCount, 0);
+  const preBreakoutLeaderRows = perDate.reduce((sum, day) => sum + day.preBreakoutDiagnostics.verifiedLeaderCount, 0);
+  const preBreakoutPolicyRows = perDate.reduce((sum, day) => sum + day.preBreakoutDiagnostics.policyVerifiedCount, 0);
   const corePolicyEvidenceRows = perDate.reduce((sum, day) => sum + day.coreSelectionDiagnostics.pointInTimePolicyEvidenceCount, 0);
   const coreLeaderEvidenceRows = perDate.reduce((sum, day) => sum + day.coreSelectionDiagnostics.pointInTimeLeaderEvidenceCount, 0);
   const coreStrictEligibleCount = perDate.reduce((sum, day) => sum + day.coreSelectionDiagnostics.strictEligibleCount, 0);
@@ -505,6 +530,24 @@ export function evaluateWalkForward(candidates, {
     interpretation: 'A strict core-leader return comparison is measurable only when historical point-in-time policy evidence and explicit theme-leadership evidence exist. Current industry labels, price leadership, or later news are not substituted for missing historical evidence.'
   };
   summary.coreSelectionTop5 = coreSelectionTop5;
+  summary.preBreakoutTop10 = preBreakoutTop10;
+  summary.preBreakoutTop15 = preBreakoutTop15;
+  const preBreakoutEvaluation = {
+    status: eligibleDates.length >= 3 && preBreakoutReturnedRows > 0 ? 'MEASURABLE' : 'NOT_MEASURABLE',
+    signalDateCount: eligibleDates.length,
+    returnedCandidateRows: preBreakoutReturnedRows,
+    verifiedLeaderRows: preBreakoutLeaderRows,
+    policyVerifiedRows: preBreakoutPolicyRows,
+    top10: preBreakoutTop10,
+    top15: preBreakoutTop15,
+    reasons: [
+      ...(eligibleDates.length < 3 ? ['fewer-than-three-complete-forward-evaluation-dates'] : []),
+      ...(preBreakoutReturnedRows === 0 ? ['no-pre-breakout-candidates-passed-the-strict-watch-gates'] : []),
+      ...(preBreakoutLeaderRows === 0 ? ['no-verified-point-in-time-leader-evidence-in-pre-breakout-watch'] : []),
+      ...(preBreakoutPolicyRows === 0 ? ['no-verified-point-in-time-policy-evidence-in-pre-breakout-watch'] : [])
+    ],
+    interpretation: 'Measures forward outcomes of pre-breakout watch candidates; it is not a probability model and does not authorize trading.'
+  };
   const modelTop10T5 = summary.top10?.model?.t5 ?? {};
   const baselineTop10T5 = summary.top10?.momentumBaseline?.t5 ?? {};
   const balancedTop10T5 = summary.top10?.balancedBlend?.t5 ?? {};
@@ -556,6 +599,7 @@ export function evaluateWalkForward(candidates, {
     signalDates: eligibleDates,
     summary,
     coreSelectionEvaluation,
+    preBreakoutEvaluation,
     promotionGate,
     perDate
   };
@@ -587,6 +631,7 @@ async function main(argv) {
     sourceCoveragePct: report.sourceCoveragePct, candidateCount: report.candidateCount,
     signalDateCount: report.signalDateCount, signalDates: report.signalDates,
     summary: report.summary, coreSelectionEvaluation: report.coreSelectionEvaluation,
+    preBreakoutEvaluation: report.preBreakoutEvaluation,
     promotionGate: report.promotionGate
   }, null, 2));
   return report;
