@@ -111,3 +111,21 @@ test('naive Chinese publication timestamps are interpreted as China Standard Tim
   assert.equal(afterClose.evidenceAvailable, false);
   assert.equal(beforeClose.evidenceAvailable, true);
 });
+
+
+test('stale policy catalog is explicitly flagged and its score weight is reduced', () => {
+  const stale = scorePolicyAlignment({
+    industry: '计算机设备',
+    themeNames: ['人工智能'],
+    companyNews: [],
+    asOf: '2026-12-01'
+  });
+  assert.equal(stale.catalogStale, true);
+  assert.ok(stale.catalogAgeDays > 14);
+  const adjusted = regimeAwareScore({
+    coreScore:65,policyScore:95,policyEvidence:true,policyCatalogStale:true,marketRegime:'risk-off',
+    trend:70,volumePrice:65,flow:70,sector:85,momentum:80,base:45
+  });
+  assert.equal(adjusted.policyWeight,0.015);
+  assert.equal(adjusted.policyCatalogStale,true);
+});
