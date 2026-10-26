@@ -253,7 +253,8 @@ function preLimitupLabel(path){
 function preLimitupRow(row,index){
   const q=row.quote||{},pctRaw=q.pct,priceRaw=q.price,scoreRaw=row.score;
   const pct=Number(pctRaw),price=Number(priceRaw),score=Number(scoreRaw);
-  const policyScore=Number(row.policyScore),marketFitScore=Number(row.marketFitScore);
+  const policyScore=row.policyScore===null||row.policyScore===undefined||row.policyScore===''?NaN:Number(row.policyScore);
+  const marketFitScore=row.marketFitScore===null||row.marketFitScore===undefined||row.marketFitScore===''?NaN:Number(row.marketFitScore);
   const policyThemes=Array.isArray(row.policyThemes)?row.policyThemes:[];
   const pctText=pctRaw!==null&&pctRaw!==undefined&&pctRaw!==''&&Number.isFinite(pct)?(pct>0?'+':'')+pct.toFixed(2)+'%':'涨跌幅待核验';
   const priceText=priceRaw!==null&&priceRaw!==undefined&&priceRaw!==''&&Number.isFinite(price)&&price>0?price.toFixed(2):'价格待核验';
