@@ -247,7 +247,7 @@ export function assessCoreSelectionCandidate(row = {}, options = {}) {
     + 0.05 * rrScore
     - (riskOff ? 3 : 0)
   );
-  const dataLimited = String(marketRegime?.dataQuality ?? '').includes('ranked-universe-proxy');
+  const dataLimited = !String(marketRegime?.dataQuality ?? '').includes('broad-quote-proxy');
   const decision = !eligible ? 'NO_TRADE'
     : dataLimited ? 'OBSERVE_DATA_LIMITED'
       : riskOff ? 'DEFENSIVE_OBSERVE'
