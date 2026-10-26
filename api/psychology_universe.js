@@ -564,7 +564,7 @@ export default async function handler(req, res) {
       membershipFailures:0, flowFailures:0, researchFailures:0
     });
     diagnostics.sourceDegraded = initialCoverage.degraded;
-    diagnostics.sourceWarnings = initialCoverage.warnings;
+    diagnostics.sourceWarnings = [...new Set([...diagnostics.sourceWarnings, ...initialCoverage.warnings])];
     const conceptMap = new Map(conceptRows.map(row => [row.code, row]));
 
     const memberships = conceptRows.length ? await mapLimit(codes, membershipConcurrency, async code => {
@@ -657,7 +657,7 @@ export default async function handler(req, res) {
     diagnostics.themeCount = allThemes.size;
     const finalCoverage = summarizeSourceCoverage(diagnostics);
     diagnostics.sourceDegraded = finalCoverage.degraded;
-    diagnostics.sourceWarnings = finalCoverage.warnings;
+    diagnostics.sourceWarnings = [...new Set([...diagnostics.sourceWarnings, ...finalCoverage.warnings])];
     const asOfValues = Object.values(themeBySymbol).flat()
       .map(theme => theme.asOf).filter(Boolean).sort();
 
