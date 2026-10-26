@@ -17,8 +17,8 @@ const scoreBand = (value, idealLow, idealHigh, outerLow, outerHigh) => {
 };
 
 function mainBoard(code, board) {
-  const inferred = /^60\\d{4}$/.test(String(code)) ? 'SH_MAIN'
-    : /^00\\d{4}$/.test(String(code)) ? 'SZ_MAIN' : '';
+  const inferred = /^60\d{4}$/.test(String(code)) ? 'SH_MAIN'
+    : /^00\d{4}$/.test(String(code)) ? 'SZ_MAIN' : '';
   return Boolean(inferred) && (!board || board === inferred);
 }
 
