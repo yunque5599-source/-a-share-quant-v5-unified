@@ -100,3 +100,29 @@ test('missing flow history is not converted into a positive accumulation signal'
   assert.equal(result.passed,false);
   assert.equal(result.confidence<1,true);
 });
+
+
+test('industry-relative leadership is a weak ranking proxy and never upgrades an unverified theme leader',()=>{
+  const row=makeRow({leaderVerified:false});
+  row.leaderEvidence={
+    themeName:null,leaderStatus:null,candidateRank:null,score:null,
+    industryLeaderScore:92,industryMemberCount:12,source:'ranked-universe-cross-sectional-proxy'
+  };
+  const result=assessPreBreakoutCandidate(row,early());
+  assert.equal(result.passed,true);
+  assert.equal(result.leaderVerified,false);
+  assert.equal(result.stage,'PREBREAKOUT_SETUP_WATCH');
+  assert.equal(result.components.themeLeader,null);
+  assert.equal(result.components.industryLeaderProxy,92);
+});
+
+test('industry-relative leadership proxy is ignored when peer coverage is too small',()=>{
+  const row=makeRow({leaderVerified:false});
+  row.leaderEvidence={
+    themeName:null,leaderStatus:null,candidateRank:null,score:null,
+    industryLeaderScore:99,industryMemberCount:3,source:'ranked-universe-cross-sectional-proxy'
+  };
+  const result=assessPreBreakoutCandidate(row,early());
+  assert.equal(result.leaderVerified,false);
+  assert.equal(result.components.industryLeaderProxy,null);
+});
