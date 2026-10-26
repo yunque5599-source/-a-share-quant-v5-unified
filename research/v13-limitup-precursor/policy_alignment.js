@@ -118,6 +118,8 @@ export function scorePolicyAlignment({ industry='', themeNames=[], companyNews=[
     const themeMatches = themes.flatMap(name => matchKeywords(name, theme.keywords).map(keyword => ({name, keyword})));
     const newsMatches = news.flatMap(item => {
       const title = normalizeText(item.title ?? item.headline ?? item.name);
+      // A generic sector headline is not company-level exposure; require a business/action signal.
+      if (!/(中标|订单|合同|供货|客户定点|量产|投产|获批|入选|布局|研发|签约|建设|采购|供应链|主营|业务|产品|收入|产能|技术突破|战略合作|正式上线|实现应用|交付)/.test(title)) return [];
       return matchKeywords(title, theme.keywords).map(keyword => ({keyword, title, url:item.url??item.link??null,
         source:item.source??item.media??null, publishedAt:item.publishedAt??item.publishTime??item.date??item.time??null}));
     });
