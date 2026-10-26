@@ -1,4 +1,7 @@
 name: V13 walk-forward evaluation
+concurrency:
+  group: v13-walk-forward-evaluation
+  cancel-in-progress: true
 
 on:
   push:
