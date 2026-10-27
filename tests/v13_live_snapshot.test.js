@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseRows, isDailyBarCompleteAt, mapUniverseRowsToRankCandidates, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isEntryReadyCandidate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, buildWideNewsCandidate, flattenNewsPayload, buildStockNewsFallback, selectWideNewsScanUniverse, summarizePsychologySourceDiagnostics } from '../research/v13-limitup-precursor/live_snapshot.js';
 import { buildNextSessionPlan, evaluateNextSessionEntry } from '../research/v13-limitup-precursor/next_session_plan.js';
+import { buildNextDayActionPlan } from '../research/v13-limitup-precursor/next_day_action_plan.js';
 
 test('parsers exclude future-dated rows and sort history',()=>{
  const bars=parseRows(['2026-10-21,10,10.5,10.6,9.9,200,2100000,0,0,0,4.2','2026-10-19,9,9.2,9.3,8.9,100,920000,0,0,0,2.1','2026-10-22,10.5,11,11.1,10.4,300,3300000,0,0,0,5.1'],'bar','2026-10-21T05:00:00Z');
@@ -373,4 +374,58 @@ test('next-session entry evaluator invalidates a broken setup and blocks degrade
 
   const degraded=evaluateNextSessionEntry(candidate,{sourceDegraded:true});
   assert.equal(degraded.status,'OBSERVE_DATA_LIMITED');
+});
+
+
+test('next-day action plan distinguishes a missed prior-day limit-up signal from a weakened alternative', () => {
+  const previous = {
+    snapshotId:'previous-close',
+    asOf:'2026-10-26T15:00:00+08:00',
+    recommendationsAvailable:true,
+    rankings:{
+      coreSelection:[],
+      overall:[{code:'600558',name:'大西洋',rank:2,score:82,quote:{pct:2.4},entryEligible:true,entryGateReasons:[]}],
+      preBreakoutWatch:[]
+    },
+    candidates:[{code:'600558',name:'大西洋',score:{score:82,entryEligible:true},quote:{pct:2.4}}]
+  };
+  const current = {
+    snapshotId:'current-close',
+    asOf:'2026-10-27T15:00:00+08:00',
+    recommendationsAvailable:true,
+    rankings:{
+      coreSelection:[],
+      overall:[
+        {code:'600558',name:'大西洋',rank:3,score:90,quote:{pct:10.07},entryEligible:false,entryGateReasons:['daily-move-cap']},
+        {code:'000156',name:'华数传媒',rank:1,score:78,quote:{pct:-3.2},entryEligible:false,entryGateReasons:['weak-sector-flow']}
+      ],
+      preBreakoutWatch:[]
+    },
+    candidates:[
+      {code:'600558',name:'大西洋',score:{score:90,entryEligible:false,entryGateReasons:['daily-move-cap']},quote:{pct:10.07}},
+      {code:'000156',name:'华数传媒',score:{score:78,entryEligible:false,entryGateReasons:['weak-sector-flow']},quote:{pct:-3.2}}
+    ]
+  };
+  const plan=buildNextDayActionPlan(current,previous);
+  assert.equal(plan.status,'CURRENT_AND_PRIOR_REVIEW');
+  const atlantic=plan.priorDayFollowThrough.find(row=>row.code==='600558');
+  assert.equal(atlantic.followThrough,'LIMIT_UP_OR_NEAR_LIMIT');
+  assert.equal(atlantic.action,'NO_CHASE');
+  const huashu=plan.currentActions.find(row=>row.code==='000156');
+  assert.equal(huashu.action,'WEAKENED_REASSESS_RISK');
+  assert.equal(huashu.entryEligible,false);
+});
+
+test('next-day action plan does not treat same-session snapshots as previous-day follow-through', () => {
+  const snapshot={
+    snapshotId:'same-session',
+    asOf:'2026-10-27T12:00:00+08:00',
+    recommendationsAvailable:true,
+    rankings:{coreSelection:[],overall:[{code:'600558',name:'大西洋',rank:1,score:80}],preBreakoutWatch:[]},
+    candidates:[]
+  };
+  const plan=buildNextDayActionPlan(snapshot,snapshot);
+  assert.equal(plan.status,'CURRENT_ONLY_NO_PRIOR_SNAPSHOT');
+  assert.equal(plan.priorSnapshotAvailable,false);
+  assert.equal(plan.priorDayFollowThrough.length,0);
 });
