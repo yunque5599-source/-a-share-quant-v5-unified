@@ -307,12 +307,13 @@ function limitUpIgnitionRow(row,index){
     IGNITION_CONTINUATION_WATCH:'动量延续观察',
     IGNITION_MOMENTUM_OBSERVATION:'动量候选观察',
     NEXT_DAY_CONTINUATION_WATCH:'次日动量延续',
+    NEXT_DAY_LIMITUP_CONTINUATION_WATCH:'今日涨停/次日连板观察',
     NEXT_DAY_PREBREAKOUT_WATCH:'次日启动前观察'
   };
-  const pathLabel=row.path==='PREBREAKOUT'?'启动前/压力位路径':row.path==='CONTINUATION'?'动量延续路径':'';
+  const pathLabel=row.path==='LIMITUP_CONTINUATION'?'今日涨停/次日延续路径':row.path==='PREBREAKOUT'?'启动前/压力位路径':row.path==='CONTINUATION'?'动量延续路径':'';
   const chip=(label,value)=>value===null||value===undefined||value===''||!Number.isFinite(Number(value))?'':'<span class="chip">'+preEsc(label)+' '+Number(value).toFixed(0)+'</span>';
   const chips=[
-    '<span class="chip '+(['LIMIT_UP_FOLLOW_THROUGH_WATCH','NEXT_DAY_CONTINUATION_WATCH'].includes(row.stage)?'green':'amber')+'">'+preEsc(stageLabels[row.stage]||row.stage||'观察')+'</span>',
+    '<span class="chip '+(['LIMIT_UP_FOLLOW_THROUGH_WATCH','NEXT_DAY_CONTINUATION_WATCH','NEXT_DAY_LIMITUP_CONTINUATION_WATCH'].includes(row.stage)?'green':'amber')+'">'+preEsc(stageLabels[row.stage]||row.stage||'观察')+'</span>',
     pathLabel?'<span class="chip">'+preEsc(pathLabel)+'</span>':'',
     row.themeName?'<span class="chip">'+preEsc(row.themeName)+'</span>':'',
     '<span class="chip">'+(row.leaderVerified?'龙头证据已核验':'龙头证据待确认')+'</span>',
