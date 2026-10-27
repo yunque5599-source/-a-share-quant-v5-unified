@@ -198,6 +198,16 @@ The wide scan is slow and can be throttled by public data providers. Its batch c
 
 This does not change the production app.
 
+### V13 next-session limit-up ignition lane (experimental)
+
+The live snapshot now emits a separate `rankings.limitUpIgnitionWatch` lane for momentum-continuation candidates. This lane is intentionally distinct from `preBreakoutWatch`: the strict pre-breakout gate rejects a same-day move at or above 6.5%, while the main-board entry gate rejects moves above 7.5%. Those gates are appropriate for avoiding late entries in a compressed-base strategy, but can omit a stock's first strong leg before a next-session continuation. The new lane evaluates board-specific daily-limit bands, 3/5-day momentum, close location, volume expansion, sector strength, flow evidence, and verified leader evidence without promoting a high score to a buy signal.
+
+The candidate funnel also reserves a separate `next-day-ignition-band` lane and includes the supported Beijing-board code families in the diagnostic funnel. The wide news prescreen has a corresponding board-normalized ignition band. These are recall improvements within the existing bounded universe, not an exhaustive scan; a name absent from the upstream ranked universe or deep-scan budget can still be missed.
+
+The UI exposes this lane as **次日涨停延续观察**. It is observation-only, has no calibrated limit-up probability, and requires next-session confirmation of market/sector breadth, volume/flow and price support. It must not encourage chasing a locked limit-up or a materially overextended open. The strict core selection, order permissions, position sizing and production V10 signal are unchanged.
+
+A previous point-in-time replay also found that three of four known limit-up targets were not in the top 30 of the main global rankings at the 2026-10-20 close. This supports treating recall as a measured model weakness rather than fixing it by manually boosting known winners. Evaluate the new lane with chronological walk-forward precision/recall and T+1/T+3/T+5 returns before changing live trading behavior.
+
 ### V13 pre-breakout watch lane (experimental)
 
 The live snapshot now emits a separate `rankings.preBreakoutWatch` lane alongside the stricter four-layer core selection. It targets compressed bases near the prior 20-session high, improving short-term trend, sustained capital-flow evidence, sector strength, and dated policy/theme-leader evidence before the price becomes extended. It rejects non-main-board or inconsistent-board names, insufficient histories, persistent downtrends, prices too far from resistance, and already-extended moves. The lane labels a candidate `PREBREAKOUT_LEADER_WATCH` only when leader and policy evidence are both verified and the flow/sector checks pass; otherwise it can only be a `PREBREAKOUT_SETUP_WATCH`, not a confirmed leader.
