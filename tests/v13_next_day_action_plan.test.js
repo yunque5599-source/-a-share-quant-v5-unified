@@ -5,7 +5,7 @@ import { buildNextDayActionPlan } from '../research/v13-limitup-precursor/next_d
 function snap({id,available=true,rankings={},candidates=[]}={}) {
   return {
     snapshotId:id ?? 'snapshot',
-    capturedAt:'2026-10-27T05:00:00.000Z',
+    capturedAt:id === 'yesterday' ? '2026-10-26T05:00:00.000Z' : '2026-10-27T05:00:00.000Z',
     recommendationsAvailable:available,
     rankings,
     candidates
