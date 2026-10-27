@@ -124,7 +124,7 @@ export function mapUniverseRowsToRankCandidates(rows){
   return output.sort((a,b)=>b.rankScore-a.rankScore||String(a.f12).localeCompare(String(b.f12)));
 }
 export function selectCandidateFunnel(rows, limit=120) {
-  const valid=(Array.isArray(rows)?rows:[]).filter(r=>/^(00|30|60|68)\d{4}$/.test(String(r?.f12??''))&&!isRestrictedListingName(r?.f14));
+  const valid=(Array.isArray(rows)?rows:[]).filter(r=>/^(00|30|60|68|43|83|87|92)\d{4}$/.test(String(r?.f12??''))&&!isRestrictedListingName(r?.f14));
   const chosen=new Map();
   const add=(arr,count,lane)=>{let added=0;for(const r of arr){const code=String(r.f12);if(chosen.has(code)){chosen.get(code).funnelLanes.push(lane);continue;}chosen.set(code,{...r,funnelLanes:[lane]});if(++added>=count)break;}};
   const val=(r,k)=>n(r?.[k])??-Infinity;
