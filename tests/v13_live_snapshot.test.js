@@ -429,3 +429,23 @@ test('next-day action plan does not treat same-session snapshots as previous-day
   assert.equal(plan.priorSnapshotAvailable,false);
   assert.equal(plan.priorDayFollowThrough.length,0);
 });
+
+
+test('candidate funnel reserves a lane for next-day ignition-band movers',()=>{
+ const rows=[
+  {f12:'600558',f14:'大西洋',f3:2.4,f6:80000000,f62:1000000,rankScore:15,rankHits:1},
+  {f12:'002434',f14:'万里扬',f3:6.1,f6:120000000,f62:2000000,rankScore:10,rankHits:1},
+  {f12:'688252',f14:'天德钰',f3:12.2,f6:90000000,f62:3000000,rankScore:8,rankHits:1},
+  ...Array.from({length:160},(_,i)=>({f12:String(600100+i),f14:'普通样本'+i,f3:(i%4)-1,f6:1000000+i,f62:i,rankScore:100-i,rankHits:0}))
+ ];
+ const result=selectCandidateFunnel(rows,60);
+ const atlantic=result.find(row=>row.f12==='600558');
+ const wanliyang=result.find(row=>row.f12==='002434');
+ const tiandeyu=result.find(row=>row.f12==='688252');
+ assert.ok(atlantic);
+ assert.ok(wanliyang);
+ assert.ok(tiandeyu);
+ assert.ok(atlantic.funnelLanes.includes('next-day-ignition-band'));
+ assert.ok(wanliyang.funnelLanes.includes('next-day-ignition-band'));
+ assert.ok(tiandeyu.funnelLanes.includes('next-day-ignition-band'));
+});
