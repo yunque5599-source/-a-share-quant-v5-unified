@@ -19,6 +19,7 @@ on:
     - cron: '30 3 * * 1-5'
     - cron: '15 5 * * 1-5'
     - cron: '45 6 * * 1-5'
+    - cron: '15 7 * * 1-5'
   workflow_dispatch:
     inputs:
       candidate_limit:
@@ -54,7 +55,7 @@ jobs:
           NODE
       - name: Restore latest prior-trading-day snapshot
         id: previous
-        if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.schedule == '15 1 * * 1-5'
+        if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.schedule == '15 1 * * 1-5' || github.event.schedule == '15 7 * * 1-5'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -84,9 +85,9 @@ jobs:
             echo "No prior trading-day snapshot artifact found; follow-through will be marked unavailable."
           fi
       - name: Capture timestamped snapshot
-        if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.schedule == '15 1 * * 1-5'
+        if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.schedule == '15 1 * * 1-5' || github.event.schedule == '15 7 * * 1-5'
         env:
-          WIDE_NEWS_SCAN: ${{ github.event.schedule == '15 1 * * 1-5' || github.event.inputs.wide_news_scan == 'true' }}
+          WIDE_NEWS_SCAN: ${{ github.event.schedule == '15 1 * * 1-5' || github.event.schedule == '15 7 * * 1-5' || github.event.inputs.wide_news_scan == 'true' }}
         run: |
           EXTRA_ARGS=""
           if [ "$WIDE_NEWS_SCAN" = "true" ]; then EXTRA_ARGS="$EXTRA_ARGS --wide-news-scan"; fi
