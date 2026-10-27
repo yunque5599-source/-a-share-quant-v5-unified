@@ -8,16 +8,16 @@ function makeRow({
   volumeExpansion=1.8, closeLocation=0.86,
   recentLimitUp5Count=0, recentLimitUp10Count=1,
   sector=76, marketFit=72, flow=78, flowCount=5,
-  flowPositiveShare=0.8, mainNet5=18000000,
+  flowPositiveShare=0.8, mainNet5=18000000, turnoverRate=4.5,
   leaderStatus='leader', candidateRank=1,
   catalystScore=null, catalystDirection=null
 }={}) {
   return {
     code,name,board,asOf:'2026-10-26',
-    currentPct:pct,quote:{pct},
+    currentPct:pct,quote:{pct,turnoverRate},
     components:{trend:78,volumePrice:82,flow,sector,marketFit},
     features:{
-      r3Pct,r5Pct,r10Pct,distHigh20Pct,volumeExpansion,closeLocation,
+      r3Pct,r5Pct,r10Pct,distHigh20Pct,volumeExpansion,closeLocation,turnoverRate,
       recentLimitUp5Count,recentLimitUp10Count,flowCount,flowPositiveShare,mainNet5
     },
     leaderEvidence:{
@@ -76,4 +76,35 @@ test('negative catalyst is penalized and exposed as a risk flag',()=>{
   const b=assessNextDayLimitUpCandidate(negative);
   assert.ok(b.score<a.score);
   assert.ok(b.riskFlags.some(flag=>flag.includes('负面催化')));
+});
+
+
+test('low-turnover, weak-flow, non-leader names lose rank despite being near resistance',()=>{
+  const strong=assessNextDayLimitUpCandidate(makeRow({
+    code:'002434',name:'强势观察',pct:2.4,turnoverRate:7.2,
+    recentLimitUp5Count:1,recentLimitUp10Count:2,volumeExpansion:2.2
+  }));
+  const bankLike=assessNextDayLimitUpCandidate(makeRow({
+    code:'601166',name:'低爆发性样本',pct:2.0,turnoverRate:0.7,
+    r3Pct:2.2,r5Pct:3.0,r10Pct:5.0,volumeExpansion:1.05,
+    recentLimitUp5Count:0,recentLimitUp10Count:0,
+    flow:30,flowPositiveShare:0.25,mainNet5:-12000000,
+    leaderStatus:'unknown',candidateRank:null,sector:72,marketFit:70
+  }));
+  assert.ok(strong.score > bankLike.score + 15);
+  assert.ok(bankLike.riskFlags.some(flag=>flag.includes('爆发性偏低')));
+  assert.ok(bankLike.riskFlags.some(flag=>flag.includes('缺少已验证龙头')));
+  assert.equal(bankLike.leaderVerified,false);
+  assert.ok(bankLike.confidence < strong.confidence);
+});
+
+test('unverified industry/theme proxy is capped below verified leadership evidence',()=>{
+  const verified=assessNextDayLimitUpCandidate(makeRow({leaderStatus:'leader',candidateRank:1}));
+  const proxy=assessNextDayLimitUpCandidate(makeRow({
+    leaderStatus:'unknown',candidateRank:null,recentLimitUp5Count:0,recentLimitUp10Count:0,
+    turnoverRate:0.9,volumeExpansion:1.1
+  }));
+  assert.equal(verified.leaderVerified,true);
+  assert.equal(proxy.leaderVerified,false);
+  assert.ok(proxy.components.leaderEvidence <= 55);
 });
