@@ -154,7 +154,7 @@ export function shouldAttemptFullUniverseFallback({ranked=null,rawCount=0,ranked
   return Boolean(rankedError)
     || ranked?.data?.degraded===true
     || ranked?.data?.serverStale===true
-    || Number(rawCount)<300;
+    || Number(rawCount)<3000;
 }
 export function selectCandidateFunnel(rows, limit=120) {
   const cap=Math.max(1,Math.min(300,Number(limit)||120));
@@ -248,6 +248,50 @@ export function selectCandidateFunnel(rows, limit=120) {
     }
   }
   return [...chosen.values()].slice(0,cap).map(row=>({...row,funnelLanes:[...new Set(row.funnelLanes)],board:boardForCode(row.f12)}));
+}
+export function auditCandidateFunnel(rows=[], selected=[], limit=120) {
+  const selectedByCode = new Map((Array.isArray(selected) ? selected : []).map(row => [
+    String(row?.f12 ?? ''), row
+  ]));
+  const auditRows = (Array.isArray(rows) ? rows : []).map(row => {
+    const code = String(row?.f12 ?? '');
+    const selectedRow = selectedByCode.get(code);
+    const reasons = [];
+    if (!/^(00|30|60|68|43|83|87|92)\\d{4}$/.test(code)) reasons.push('invalid-or-unsupported-code');
+    if (isRestrictedListingName(row?.f14)) reasons.push('restricted-listing-name');
+    if (!reasons.length && !selectedRow) reasons.push('not-selected-by-funnel-quota');
+    return {
+      code,
+      name:String(row?.f14 ?? code),
+      board:boardForCode(code),
+      selected:Boolean(selectedRow),
+      funnelLanes:selectedRow?.funnelLanes ?? [],
+      rejectionReasons:reasons,
+      evidence:{
+        quote:Number.isFinite(Number(row?.f2)) && Number(row.f2)>0 && Number.isFinite(Number(row?.f3)),
+        capitalFlow:Number.isFinite(Number(row?.f62)) || Number.isFinite(Number(row?.f184)),
+        volume:Number.isFinite(Number(row?.f10)) || Number.isFinite(Number(row?.f5)),
+        rankedHits:Number.isFinite(Number(row?.rankHits)) ? Number(row.rankHits) : null
+      }
+    };
+  });
+  const reasonCounts = {};
+  for (const row of auditRows) for (const reason of row.rejectionReasons) reasonCounts[reason] = (reasonCounts[reason] ?? 0) + 1;
+  const selectedRows = auditRows.filter(row => row.selected);
+  return {
+    schema:'v13-funnel-audit-v1',
+    inputCount:auditRows.length,
+    validCount:auditRows.filter(row => !row.rejectionReasons.includes('invalid-or-unsupported-code') &&
+      !row.rejectionReasons.includes('restricted-listing-name')).length,
+    selectedCount:selectedRows.length,
+    unselectedCount:auditRows.filter(row => !row.selected && row.rejectionReasons.includes('not-selected-by-funnel-quota')).length,
+    configuredLimit:Number(limit) || null,
+    selectionRatePct:auditRows.length ? Number((selectedRows.length / auditRows.length * 100).toFixed(2)) : 0,
+    reasonCounts,
+    laneCounts:Object.fromEntries([...new Set(selectedRows.flatMap(row => row.funnelLanes))]
+      .map(lane => [lane, selectedRows.filter(row => row.funnelLanes.includes(lane)).length])),
+    rows:auditRows
+  };
 }
 export function deriveLiveIndustryContext(rows){
   const groups=new Map(),seenCodes=new Set();
@@ -743,6 +787,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
         policy:'Wide scan failure does not invalidate the normal funnel; no unverified news candidates are added.'};
     }
   }
+  const funnelAudit=auditCandidateFunnel(raw,funnel,candidateLimit);
   const industryContextByCode=deriveLiveIndustryContext([...raw,...funnel]);
   if(funnel.length<50)throw Error('ranked candidate funnel returned fewer than 50 symbols; rankedSourceError='+(rankedSourceError??'none')+'; fullUniverseFallbackError='+(fullUniverseFallback.error??'none'));
   const batches=await mapLimit(chunks(funnel,30),1,async group=>{
@@ -1015,6 +1060,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const quality={rankedSourceDegraded:rankingSourceDegraded,rankedSourceStale:rankingSourceStale,rankedSourceMethod:rankingSourceMethod,
     rankedSourceError,originalRankedSourceDegraded:ranked?.data?.degraded===true,originalRankedSourceMethod:ranked?.data?.method??null,
     rankedCandidateCount:raw.length,funnelCandidateCount:funnel.length,funnelLaneCounts,limitUpContinuationFunnelCount,
+    funnelAuditSummary:{inputCount:funnelAudit.inputCount,validCount:funnelAudit.validCount,selectedCount:funnelAudit.selectedCount,unselectedCount:funnelAudit.unselectedCount,reasonCounts:funnelAudit.reasonCounts,laneCounts:funnelAudit.laneCounts},
     deepSuccessCount:deepGood,deepSuccessPct:+(deepGood/Math.max(1,funnel.length)*100).toFixed(2),
     industryContextCandidateCount:funnel.filter(row=>industryContextByCode.has(String(row.f12))).length,
     industryContextCoveragePct:+(funnel.filter(row=>industryContextByCode.has(String(row.f12))).length/Math.max(1,funnel.length)*100).toFixed(2),
@@ -1090,6 +1136,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       policyMatchCoveragePct:+(records.filter(r=>r.score?.policyAlignment?.evidenceAvailable).length/Math.max(1,records.length)*100).toFixed(2),
       marketRegimeSourceQuality:marketRegime.dataQuality,
       fullUniverseFallback,wideNewsScan:wideNewsDiagnostics},
+    funnelAudit,
     candidates:auditRecords,rankings:{
       coreSelection:coreSelectionResult.ranking,
       preBreakoutWatch:preBreakoutResult.ranking,
