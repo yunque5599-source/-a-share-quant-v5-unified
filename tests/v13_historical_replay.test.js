@@ -103,6 +103,7 @@ test('partial quote-universe page failures are acceptable only above the per-seg
   assert.equal(isUniverseSegmentCoverageSufficient({total:100,rows:Array(95).fill({})},90),true);
   assert.equal(isUniverseSegmentCoverageSufficient({total:100,rows:Array(90).fill({})},90),true);
   assert.equal(isUniverseSegmentCoverageSufficient({total:100,rows:Array(89).fill({})},90),false);
+  assert.equal(isUniverseSegmentCoverageSufficient({total:100,rows:Array.from({length:100},(_,i)=>({f12:String(i%50)}))},90),false);
   assert.equal(isUniverseSegmentCoverageSufficient({total:0,rows:[]},90),false);
   assert.equal(isUniverseSegmentCoverageSufficient(null,90),false);
 });
