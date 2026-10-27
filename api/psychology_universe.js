@@ -408,7 +408,7 @@ function isConceptBoardRow(row = {}) {
 
 async function fetchConceptRanking(maxPages = 6) {
   const firstSpec = conceptRankingUrl();
-  const conceptHosts = PUSH_HOSTS.slice(0, 3);
+  const conceptHosts = PUSH_HOSTS;
   const first = await fetchFromHosts(conceptHosts, firstSpec.path, firstSpec.params, 2500);
   const total = n(first?.data?.total) ?? 0;
   const pageCount = Math.max(1, Math.min(maxPages, Math.ceil(total / 100)));
@@ -431,6 +431,65 @@ async function fetchConceptRanking(maxPages = 6) {
       diff && typeof diff === 'object' ? Object.values(diff) : [];
     return rows.map(normalizeConceptRow).filter(isConceptBoardRow);
   });
+}
+
+const conceptRankingCaptureCache = new Map();
+
+async function fetchConceptRankingForCapture(maxPages = 6, captureKey = '') {
+  const key = String(captureKey ?? '').trim();
+  if (!key) return {rows:await fetchConceptRanking(maxPages),cacheHit:false,cacheAgeMs:0};
+
+  const now = Date.now();
+  for (const [cacheKey, entry] of conceptRankingCaptureCache) {
+    if (entry.expiresAt <= now) conceptRankingCaptureCache.delete(cacheKey);
+  }
+  let entry = conceptRankingCaptureCache.get(key);
+  if (entry && entry.maxPages >= maxPages && entry.expiresAt > now) {
+    const cacheAgeMs = Math.max(0, now - entry.createdAt);
+    if (entry.promise) {
+      try {
+        return {rows:await entry.promise,cacheHit:true,cacheAgeMs};
+      } catch (error) {
+        const cachedError = new Error(String(error?.message ?? error));
+        cachedError.cacheHit = true;
+        cachedError.cacheAgeMs = cacheAgeMs;
+        throw cachedError;
+      }
+    }
+    if (entry.error) {
+      const cachedError = new Error(String(entry.error?.message ?? entry.error));
+      cachedError.cacheHit = true;
+      cachedError.cacheAgeMs = cacheAgeMs;
+      throw cachedError;
+    }
+    if (Array.isArray(entry.rows)) return {rows:entry.rows,cacheHit:true,cacheAgeMs};
+  }
+
+  entry = {
+    maxPages,
+    createdAt:now,
+    expiresAt:now + 5 * 60 * 1000,
+    rows:null,
+    error:null,
+    promise:null
+  };
+  const promise = fetchConceptRanking(maxPages).then(rows => {
+    entry.rows = rows;
+    entry.expiresAt = Date.now() + (rows.length ? 5 * 60 * 1000 : 60 * 1000);
+    return rows;
+  }).catch(error => {
+    entry.error = error;
+    entry.expiresAt = Date.now() + 5 * 60 * 1000;
+    throw error;
+  }).finally(() => {
+    entry.promise = null;
+  });
+  entry.promise = promise;
+  conceptRankingCaptureCache.set(key, entry);
+  while (conceptRankingCaptureCache.size > 20) {
+    conceptRankingCaptureCache.delete(conceptRankingCaptureCache.keys().next().value);
+  }
+  return {rows:await promise,cacheHit:false,cacheAgeMs:0};
 }
 
 async function fetchStockConcepts(code) {
@@ -761,6 +820,7 @@ export const _internal = {
   parseSinaNodeMembers,
   decodeResponseText,
   fetchConceptRanking,
+  fetchConceptRankingForCapture,
   fetchCandidateQuotes,
   fetchTencentCandidateQuotes,
   fetchStockConcepts,
@@ -800,6 +860,8 @@ export default async function handler(req, res) {
     quoteSource:null,
     conceptSource:null,
     membershipSource:null,
+    conceptRankingCacheHit:false,
+    conceptRankingCacheAgeMs:0,
     selectedThemesPerStock:2,
     maxResearchThemes:24,
     asOfMode:requestedAsOf ? 'caller-supplied' : 'server-capture',
@@ -816,10 +878,14 @@ export default async function handler(req, res) {
     diagnostics.selectedThemesPerStock = selectedThemesPerStock;
     diagnostics.maxResearchThemes = maxResearchThemes;
     const [conceptResult, quoteResult] = await Promise.allSettled([
-      fetchConceptRanking(liveMode ? 3 : 6),
+      fetchConceptRankingForCapture(liveMode ? 3 : 6, captureAsOf),
       fetchCandidateQuotes(codes)
     ]);
-    let conceptRows = conceptResult.status === 'fulfilled' ? conceptResult.value : [];
+    let conceptRows = conceptResult.status === 'fulfilled' ? conceptResult.value.rows : [];
+    diagnostics.conceptRankingCacheHit = conceptResult.status === 'fulfilled'
+      ? conceptResult.value.cacheHit === true : conceptResult.reason?.cacheHit === true;
+    diagnostics.conceptRankingCacheAgeMs = conceptResult.status === 'fulfilled'
+      ? Number(conceptResult.value.cacheAgeMs) || 0 : Number(conceptResult.reason?.cacheAgeMs) || 0;
     let memberships = null;
     let quotes = quoteResult.status === 'fulfilled' ? quoteResult.value : new Map();
     if (conceptResult.status === 'fulfilled' && conceptRows.length > 0) {
