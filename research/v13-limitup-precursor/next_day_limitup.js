@@ -61,9 +61,26 @@ function leaderScore(row) {
   const statusScore = ({leader:100,core:88,front:72,follower:42})[status] ?? null;
   const rank = n(evidence.candidateRank);
   const rankScore = rank !== null && rank > 0 ? clamp(100 - (rank - 1) * 15) : null;
-  const industry = n(evidence.industryLeaderScore);
-  const theme = n(evidence.themeHeat);
-  return mean([statusScore, rankScore, industry, theme]);
+  const direct = mean([statusScore, rankScore]);
+  const proxy = mean([n(evidence.industryLeaderScore), n(evidence.themeHeat)]);
+  // An industry-relative proxy is not equivalent to verified theme leadership.
+  if (direct === null) return proxy === null ? null : Math.min(55, proxy);
+  return mean([direct, proxy, proxy]);
+}
+
+function impulsePotentialScore(row, priorLimitUpScore) {
+  const f = row.features ?? {};
+  const turnover = n(f.turnoverRate ?? row.quote?.turnoverRate);
+  const volume = n(f.volumeExpansion);
+  const recent = n(f.recentLimitUp10Count ?? f.recentLimitUp5Count);
+  const turnoverScore = turnover === null ? null
+    : turnover >= 8 ? 100 : turnover >= 5 ? 88 : turnover >= 3 ? 75
+      : turnover >= 1.5 ? 58 : turnover >= 0.8 ? 40 : 24;
+  const volumePotential = volume === null ? null
+    : volume >= 2.5 ? 95 : volume >= 1.8 ? 82 : volume >= 1.3 ? 65 : volume >= 1.0 ? 45 : 28;
+  const priorPotential = recent === null ? priorLimitUpScore
+    : recent >= 2 ? 95 : recent === 1 ? 78 : 34;
+  return mean([turnoverScore, volumePotential, priorPotential]);
 }
 
 function catalystScore(row) {
@@ -146,16 +163,17 @@ export function assessNextDayLimitUpCandidate(row = {}) {
       + Math.min(Math.max((recentLimitUp10 ?? recentLimitUp5) - recentLimitUp5, 0), 3) * 5
       - Math.max(recentLimitUp5 - 3, 0) * 12)
     : recentLimitUp10 !== null ? clamp(45 + Math.min(Math.max(recentLimitUp10, 0), 3) * 9) : null;
+  const impulsePotential = impulsePotentialScore(row, priorLimitUpScore);
 
   const continuation = weightedScore([
-    [continuationMove,0.15],[closeScore,0.10],[volumeScore,0.12],
-    [trend,0.12],[priorLimitUpScore,0.16],[sector,0.12],
-    [flow,0.10],[leader,0.07],[catalyst,0.06]
+    [continuationMove,0.14],[closeScore,0.09],[volumeScore,0.11],
+    [trend,0.11],[priorLimitUpScore,0.16],[sector,0.11],
+    [flow,0.10],[leader,0.06],[catalyst,0.04],[impulsePotential,0.08]
   ]);
   const breakout = weightedScore([
-    [proximityScore,0.18],[volumeScore,0.17],[closeScore,0.12],
-    [trend,0.16],[breakoutMove,0.09],[sector,0.13],
-    [flow,0.10],[leader,0.03],[catalyst,0.02]
+    [proximityScore,0.16],[volumeScore,0.15],[closeScore,0.10],
+    [trend,0.14],[breakoutMove,0.08],[sector,0.11],
+    [flow,0.10],[leader,0.03],[catalyst,0.05],[impulsePotential,0.08]
   ]);
   const chosen = (breakout.score ?? -Infinity) > (continuation.score ?? -Infinity)
     ? {...breakout, path:'PREBREAKOUT'}
@@ -170,7 +188,27 @@ export function assessNextDayLimitUpCandidate(row = {}) {
     riskFlags.push('短线趋势仍偏弱，已施加逆势风险扣分');
   }
   if (flow === null) riskFlags.push('资金流证据缺失，不能确认持续流入');
-  else if (flow < 45) riskFlags.push('资金证据偏弱');
+  else if (flow < 45) {
+    score = Math.max(0, score - 9);
+    riskFlags.push('资金证据偏弱，已施加涨停目标风险扣分');
+  }
+  if (sector !== null && sector < 45) {
+    score = Math.max(0, score - 8);
+    riskFlags.push('板块强度不足，已施加风险扣分');
+  }
+  const hasRecentLimitUp = (recentLimitUp5 ?? 0) > 0 || (recentLimitUp10 ?? 0) > 0;
+  const positiveCatalyst = catalyst !== null && catalystDirection === 'positive' && catalyst >= 65;
+  if (!leaderVerified && !hasRecentLimitUp && !positiveCatalyst) {
+    score = Math.max(0, score - 7);
+    riskFlags.push('缺少已验证龙头、近期涨停或强正面催化，已降低爆发性先验');
+  }
+  const turnover = n(f.turnoverRate ?? row.quote?.turnoverRate);
+  if (!hasRecentLimitUp && !leaderVerified && !positiveCatalyst
+      && turnover !== null && turnover < 1.2
+      && (volumeExpansion === null || volumeExpansion < 1.4)) {
+    score = Math.max(0, score - 10);
+    riskFlags.push('换手和量能扩张均弱，次日涨停爆发性偏低');
+  }
   if (leader === null) riskFlags.push('题材龙头证据不足');
   if (catalyst !== null && catalystDirection === 'negative') {
     score = Math.max(0, score - 8);
@@ -179,9 +217,11 @@ export function assessNextDayLimitUpCandidate(row = {}) {
 
   const evidenceCount = [
     pct,closeLocation,volumeExpansion,trend,proximityScore,priorLimitUpScore,
-    sector,flow,leader,catalyst
+    sector,flow,leader,catalyst,impulsePotential
   ].filter(value => value !== null && Number.isFinite(value)).length;
-  const confidence = clamp(20 + evidenceCount * 7 + Math.min(9, chosen.evidenceWeightPct * 0.09));
+  const confidence = clamp(18 + evidenceCount * 6 + Math.min(8, chosen.evidenceWeightPct * 0.08)
+    - (leaderVerified ? 0 : 7) - (flow !== null && flow < 45 ? 5 : 0)
+    - (!hasRecentLimitUp && !positiveCatalyst ? 4 : 0));
   const minScore = 45;
   const passed = failures.length === 0 && score >= minScore;
   const stage = chosen.path === 'CONTINUATION'
@@ -203,6 +243,7 @@ export function assessNextDayLimitUpCandidate(row = {}) {
       shortTrend:trend===null?null:Number(trend.toFixed(1)),
       priorLimitUpActivity:priorLimitUpScore===null?null:Number(priorLimitUpScore.toFixed(1)),
       resistanceProximity:proximityScore===null?null:Number(proximityScore.toFixed(1)),
+      impulsePotential:impulsePotential===null?null:Number(impulsePotential.toFixed(1)),
       sectorStrength:sector===null?null:Number(sector.toFixed(1)),
       capitalFlow:flow===null?null:Number(flow.toFixed(1)),
       leaderEvidence:leader===null?null:Number(leader.toFixed(1)),
