@@ -212,3 +212,19 @@ The score is a heuristic ranking, **not** a probability of breakout, a buy signa
 4. Keep this model research-only until out-of-sample improvement is repeatable and risk-adjusted.
 
 A high score means worth investigating, not buy now. Execution eligibility and account permission remain separate gates.
+
+
+## Entry readiness versus discovery (v9)
+
+A high discovery score is **not** sufficient to label a stock as an entry candidate. Each scored row now exposes `entryEligible` and `entryGateReasons`, separately from `discoveryEligible` and the board/account-only `executionEligible` field.
+
+The actionable pre-limit-up rankings require all of the following initial guardrails:
+
+- Daily move remains below the entry cap: 7.5% for Shanghai/Shenzhen main board, 15% for ChiNext/STAR, and 22.5% for Beijing Stock Exchange.
+- At least two sector/industry evidence fields are present.
+- At least five historical flow observations exist, at least 60% of observed flow periods are positive, and five-period main flow is positive.
+- Score is at least 60 and data confidence is at least 65.
+
+Rows that fail remain available in the candidate audit trail and `diagnosticRankings.entryGateRejected`, with explicit reasons, but are not promoted into the actionable pre-limit-up, catalyst-confirmed, or policy-confirmed rankings. If no candidate passes, the system should show no entry-ready candidates rather than force a pick.
+
+These are conservative research guardrails motivated by the October 26, 2026 audit: 大西洋 (600558) appeared in the deep-scan candidate pool only after its daily move had reached +10.1%, while 华数传媒 (000156) ranked highly despite weak sector evidence and only 40% positive historical flow periods. The gates are not a calibrated probability or a buy recommendation; their thresholds must still be evaluated in walk-forward tests.
