@@ -32,7 +32,7 @@ function entryMoveCapPct(code) {
 function chinaTradingDate(value) {
   if (!value) return '';
   const raw = String(value);
-  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(raw)) return raw;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw;
   const timestamp = Date.parse(raw);
   if (!Number.isFinite(timestamp)) return '';
   const parts = new Intl.DateTimeFormat('en-CA', {
