@@ -1,0 +1,83 @@
+name: Psychology source smoke
+concurrency:
+  group: psychology-source-smoke-${{ github.ref }}
+  cancel-in-progress: true
+on:
+  push:
+    branches: [research/v13-limitup-precursor]
+    paths:
+      - 'api/psychology_universe.js'
+      - 'research/v11-short-alpha/scripts/psychology_source_smoke.js'
+      - '.github/workflows/psychology-source-smoke.yml'
+  schedule:
+    - cron: '50 0 * * 1-5'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Check source and probe syntax
+        run: |
+          node --check api/psychology_universe.js
+          node --check research/v11-short-alpha/scripts/psychology_source_smoke.js
+      - name: Probe live psychology data sources
+        id: probe
+        run: |
+          node research/v11-short-alpha/scripts/psychology_source_smoke.js --out output/psychology-source-smoke/report.json
+      - name: Print source health summary
+        if: always()
+        run: |
+          if [ ! -s output/psychology-source-smoke/report.json ]; then
+            echo 'No source health report was generated.' | tee -a "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+          node --input-type=module <<'NODE'
+          import fs from 'node:fs';
+          const report = JSON.parse(fs.readFileSync('output/psychology-source-smoke/report.json', 'utf8'));
+          const lines = [
+            '# Psychology source smoke',
+            '',
+            '- Checked at: ' + report.checkedAt,
+            '- Overall status: **' + report.status + '**',
+            '- Core ready: **' + report.coreReady + '**',
+            '- Sample stocks: ' + report.sampleCodes.join(', '),
+            '',
+            '| Source check | Status | Duration (ms) | Details |',
+            '|---|---|---:|---|'
+          ];
+          for (const check of report.checks) {
+            const details = [
+              check.conceptRows !== undefined ? 'concepts=' + check.conceptRows : '',
+              check.quoteRows !== undefined ? 'quotes=' + check.quoteRows : '',
+              check.memberRows !== undefined ? 'members=' + check.memberRows : '',
+              check.historyRows !== undefined ? 'history=' + check.historyRows : '',
+              check.newsRows !== undefined ? 'news=' + check.newsRows : '',
+              check.fallbackThemes !== undefined ? 'fallbackThemes=' + check.fallbackThemes : '',
+              check.mappedMemberships !== undefined ? 'mapped=' + check.mappedMemberships : '',
+              check.error ?? check.reason ?? ''
+            ].filter(Boolean).join('; ').replace(/\|/g, '\\|');
+            lines.push('| ' + check.name + ' | ' + check.status + ' | ' + (check.durationMs ?? '') + ' | ' + details + ' |');
+          }
+          fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, lines.join('\n') + '\n');
+          console.log(JSON.stringify({
+            status:report.status,
+            coreReady:report.coreReady,
+            coreChecks:report.coreChecks,
+            checks:report.checks.map(({name,status,durationMs,error}) => ({name,status,durationMs,error}))
+          }, null, 2));
+          NODE
+      - name: Upload source health report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: psychology-source-smoke-${{ github.run_id }}
+          path: output/psychology-source-smoke/
+          if-no-files-found: warn
+          retention-days: 30
