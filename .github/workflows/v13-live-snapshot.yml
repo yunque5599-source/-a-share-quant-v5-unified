@@ -11,7 +11,6 @@ on:
       - 'research/v13-limitup-precursor/policy_alignment.js'
       - 'research/v13-limitup-precursor/pre_breakout.js'
       - 'research/v13-limitup-precursor/next_day_action_plan.js'
-      - 'research/v13-limitup-precursor/fetch_previous_snapshot.js'
       - 'api/psychology_universe.js'
       - '.github/workflows/v13-live-snapshot.yml'
   schedule:
@@ -67,7 +66,7 @@ jobs:
             if gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "v13-live-snapshot-$run_id" --dir "$temp_dir" >/dev/null 2>&1; then
               snapshot_file="$(find "$temp_dir" -type f -name snapshot.json | head -n 1)"
               if [ -n "$snapshot_file" ]; then
-                snapshot_date="$(node -e 'const fs=require("node:fs");const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));const d=new Date(x.asOf||x.capturedAt);const p=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Shanghai",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(d);const g=t=>p.find(v=>v.type===t)?.value;process.stdout.write(g("year")+"-"+g("month")+"-"+g("day"));' "$snapshot_file")"
+                snapshot_date="$(node -e 'const fs=require("node:fs");const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));if(x.schema!=="v13-live-psychology-catalyst-snapshot-v1"||x.recommendationsAvailable!==true)process.exit(2);const d=new Date(x.asOf||x.capturedAt);const p=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Shanghai",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(d);const g=t=>p.find(v=>v.type===t)?.value;process.stdout.write(g("year")+"-"+g("month")+"-"+g("day"));' "$snapshot_file")"
                 if [[ -n "$snapshot_date" && "$snapshot_date" < "$current_date" ]]; then
                   cp "$snapshot_file" output/previous-snapshot/snapshot.json
                   echo "path=output/previous-snapshot/snapshot.json" >> "$GITHUB_OUTPUT"
@@ -84,12 +83,6 @@ jobs:
             echo "path=" >> "$GITHUB_OUTPUT"
             echo "No prior trading-day snapshot artifact found; follow-through will be marked unavailable."
           fi
-      - name: Fetch previous validated trading-session snapshot
-        if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.schedule == '15 1 * * 1-5'
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          PREVIOUS_SNAPSHOT_OUTPUT: output/previous-snapshot/snapshot.json
-        run: node research/v13-limitup-precursor/fetch_previous_snapshot.js
       - name: Capture timestamped snapshot
         if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.schedule == '15 1 * * 1-5'
         env:
