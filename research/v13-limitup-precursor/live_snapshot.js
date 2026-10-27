@@ -9,6 +9,7 @@ import { fetchUniverse } from './historical_replay.js';
 import { scorePolicyAlignment, deriveMarketRegime, OFFICIAL_POLICIES, POLICY_CATALOG_VERSION, POLICY_CATALOG_REVIEWED_AT } from './policy_alignment.js';
 import { rankCoreSelection } from './core_selection.js';
 import { rankPreBreakoutCandidates } from './pre_breakout.js';
+import { buildNextSessionPlan } from './next_session_plan.js';
 
 const MODEL_VERSION = 'V13-live-four-layer-core-leader-selection-v9-entry-gates';
 const n = v => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
@@ -948,6 +949,25 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       catalystWatch,
       negativeCatalystRisk
     },diagnosticRankings};
+  // Attach an explicit next-session checklist to every candidate lane. A rank is not
+  // an entry signal: core and pre-breakout lanes receive distinct statuses and all
+  // other lanes remain watch-only. These plans never place orders.
+  const attachPlans = (groups) => {
+    for (const [key, rows] of Object.entries(groups ?? {})) {
+      if (!Array.isArray(rows)) continue;
+      groups[key] = rows.map(row => ({
+        ...row,
+        nextSessionPlan: buildNextSessionPlan(row, {
+          signalDate: requestedAsOf,
+          marketRegime,
+          lane: key,
+          sourceDegraded: snapshot.quality?.rankedSourceDegraded === true
+        })
+      }));
+    }
+  };
+  attachPlans(snapshot.rankings);
+  attachPlans(snapshot.diagnosticRankings);
   snapshot.quality=quality;
   const finalSnapshot=applySnapshotQualityGate(snapshot);
   const output=resolve(out||'output/v13-live-snapshots/'+snapshot.snapshotId+'.json');await mkdir(dirname(output),{recursive:true});await writeFile(output,JSON.stringify(finalSnapshot,null,2));
