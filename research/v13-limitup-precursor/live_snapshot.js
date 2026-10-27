@@ -972,6 +972,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   attachPlans(snapshot.diagnosticRankings);
   snapshot.quality=quality;
   const finalSnapshot=applySnapshotQualityGate(snapshot);
+  finalSnapshot.nextDayActionPlan=buildNextDayActionPlan(finalSnapshot,previousSnapshot);
   const output=resolve(out||'output/v13-live-snapshots/'+snapshot.snapshotId+'.json');await mkdir(dirname(output),{recursive:true});await writeFile(output,JSON.stringify(finalSnapshot,null,2));
   console.log(JSON.stringify({snapshotId:finalSnapshot.snapshotId,capturedAt,asOf:requestedAsOf,
     recommendationStatus:finalSnapshot.recommendationStatus,recommendationsAvailable:finalSnapshot.recommendationsAvailable,
