@@ -140,10 +140,10 @@ export async function writeNdjson(filePath, rows) {
   }
 }
 
-async function fetchUniversePage(page, pageSize, segmentFs, segmentKey = 'unknown', {timeoutMs=7000,maxAttempts=4} = {}) {
+async function fetchUniversePage(page, pageSize, segmentFs, segmentKey = 'unknown', {timeoutMs=7000,maxAttempts=4,sortOrder=1} = {}) {
   const buildUrl = host => {
     const p = new URLSearchParams({
-      pn: String(page), pz: String(pageSize), po: '1', np: '1',
+      pn: String(page), pz: String(pageSize), po: String(sortOrder), np: '1',
       fltt: '2', invt: '2', fid: 'f12', fs: segmentFs, fields: MARKET_FIELDS
     });
     return host + '/api/qt/clist/get?' + p;
@@ -153,7 +153,8 @@ async function fetchUniversePage(page, pageSize, segmentFs, segmentKey = 'unknow
     try {
       const result = await fetchFromHosts(buildUrl, MARKET_HOSTS,
         json => Number.isInteger(Number(json?.data?.total)) && !!json?.data?.diff &&
-          (Array.isArray(json.data.diff) || typeof json.data.diff === 'object'), timeoutMs);
+          (Array.isArray(json.data.diff) || typeof json.data.diff === 'object')
+          && rowsOf(json.data.diff).length > 0, timeoutMs);
       return { total: Number(result.json.data.total), rows: rowsOf(result.json.data.diff) };
     } catch (error) {
       lastError = error;
@@ -165,7 +166,11 @@ async function fetchUniversePage(page, pageSize, segmentFs, segmentKey = 'unknow
 
 export function isUniverseSegmentCoverageSufficient(collected, minimumPct = 90) {
   if (!collected || !Number.isFinite(Number(collected.total)) || Number(collected.total) <= 0) return false;
-  const rows = Array.isArray(collected.rows) ? collected.rows.length : Number(collected.collected);
+  let rows = Number(collected.collected);
+  if (Array.isArray(collected.rows)) {
+    const codes = collected.rows.map(row=>String(row?.f12??'')).filter(Boolean);
+    rows = codes.length ? new Set(codes).size : collected.rows.length;
+  }
   return Number.isFinite(rows) && rows >= Number(collected.total) * (Number(minimumPct) / 100);
 }
 
@@ -186,14 +191,24 @@ export async function fetchUniverse({ concurrency = 4, pageSize = 100, priorityC
     providerTotal += first.total;
     segmentRows.set(segment.key, { total: first.total, rows: [...first.rows] });
     const pages = Math.ceil(first.total / pageSize);
-    pageCount += pages;
-    for (let page = 2; page <= pages; page++) tasks.push({ segment, page });
+    // Some market filters return a valid total but cap forward pagination near
+    // 5,000 rows. For oversized segments, combine the forward head and reverse
+    // tail, then deduplicate by symbol before evaluating coverage.
+    const forwardPages = pages > 50 ? 50 : pages;
+    for (let page = 2; page <= forwardPages; page++) tasks.push({segment,page,sortOrder:1});
+    if (pages > 50) {
+      const reversePages = Math.min(pages, Math.ceil(Math.max(0, first.total - 50 * pageSize) / pageSize) + 2);
+      for (let page = 1; page <= reversePages; page++) tasks.push({segment,page,sortOrder:0});
+      pageCount += forwardPages + reversePages;
+    } else {
+      pageCount += pages;
+    }
   }
   const pageResults = await mapLimit(tasks, concurrency,
     async task => {
       try {
         return {segmentKey:task.segment.key,page:task.page,
-          ...(await fetchUniversePage(task.page,pageSize,task.segment.fs,task.segment.key,{timeoutMs,maxAttempts}))};
+          ...(await fetchUniversePage(task.page,pageSize,task.segment.fs,task.segment.key,{timeoutMs,maxAttempts,sortOrder:task.sortOrder??1}))};
       } catch (error) {
         return {segmentKey:task.segment.key,page:task.page,error:String(error?.message??error)};
       }
