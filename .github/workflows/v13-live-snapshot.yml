@@ -11,6 +11,7 @@ on:
       - 'research/v13-limitup-precursor/policy_alignment.js'
       - 'research/v13-limitup-precursor/pre_breakout.js'
       - 'research/v13-limitup-precursor/next_day_action_plan.js'
+      - 'research/v13-limitup-precursor/fetch_previous_snapshot.js'
       - 'api/psychology_universe.js'
       - '.github/workflows/v13-live-snapshot.yml'
   schedule:
@@ -83,6 +84,12 @@ jobs:
             echo "path=" >> "$GITHUB_OUTPUT"
             echo "No prior trading-day snapshot artifact found; follow-through will be marked unavailable."
           fi
+      - name: Fetch previous validated trading-session snapshot
+        if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.schedule == '15 1 * * 1-5'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PREVIOUS_SNAPSHOT_OUTPUT: output/previous-snapshot/snapshot.json
+        run: node research/v13-limitup-precursor/fetch_previous_snapshot.js
       - name: Capture timestamped snapshot
         if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.schedule == '15 1 * * 1-5'
         env:
