@@ -496,7 +496,7 @@ function scoreCandidate(candidate, options = {}) {
     tradeabilityReason,
     components: {
       trend: Number(trend.toFixed(1)), volumePrice: Number(volumePrice.toFixed(1)),
-      flow: Number(flow.toFixed(1)), sector: Number(sector.toFixed(1)),
+      flow: flow === null ? null : Number(flow.toFixed(1)), sector: sector === null ? null : Number(sector.toFixed(1)),
       momentum: Number(momentum.toFixed(1)), base: Number(base.toFixed(1)),
       coreComposite: Number(coreGrossScore.toFixed(1)), policyAwareComposite: Number(policyAwareCore.toFixed(1)),
       marketFit: Number(regimeScore.marketFitScore.toFixed(1)), policyAlignment: Number(policyScore.toFixed(1)),
