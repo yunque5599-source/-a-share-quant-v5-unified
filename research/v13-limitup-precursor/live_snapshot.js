@@ -253,6 +253,8 @@ export function auditCandidateFunnel(rows=[], selected=[], limit=120) {
   const selectedByCode = new Map((Array.isArray(selected) ? selected : []).map(row => [
     String(row?.f12 ?? ''), row
   ]));
+  const finiteValue = value => value !== null && value !== undefined && value !== '' &&
+    Number.isFinite(Number(value));
   const auditRows = (Array.isArray(rows) ? rows : []).map(row => {
     const code = String(row?.f12 ?? '');
     const selectedRow = selectedByCode.get(code);
@@ -268,10 +270,10 @@ export function auditCandidateFunnel(rows=[], selected=[], limit=120) {
       funnelLanes:selectedRow?.funnelLanes ?? [],
       rejectionReasons:reasons,
       evidence:{
-        quote:Number.isFinite(Number(row?.f2)) && Number(row.f2)>0 && Number.isFinite(Number(row?.f3)),
-        capitalFlow:Number.isFinite(Number(row?.f62)) || Number.isFinite(Number(row?.f184)),
-        volume:Number.isFinite(Number(row?.f10)) || Number.isFinite(Number(row?.f5)),
-        rankedHits:Number.isFinite(Number(row?.rankHits)) ? Number(row.rankHits) : null
+        quote:finiteValue(row?.f2) && Number(row.f2)>0 && finiteValue(row?.f3),
+        capitalFlow:finiteValue(row?.f62) || finiteValue(row?.f184),
+        volume:finiteValue(row?.f10) || finiteValue(row?.f5),
+        rankedHits:finiteValue(row?.rankHits) ? Number(row.rankHits) : null
       }
     };
   });
