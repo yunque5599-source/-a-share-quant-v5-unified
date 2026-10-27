@@ -10,10 +10,11 @@ import { scorePolicyAlignment, deriveMarketRegime, OFFICIAL_POLICIES, POLICY_CAT
 import { rankCoreSelection } from './core_selection.js';
 import { rankPreBreakoutCandidates } from './pre_breakout.js';
 import { rankLimitUpIgnitionCandidates } from './limitup_ignition.js';
+import { rankNextDayLimitUpCandidates } from './next_day_limitup.js';
 import { buildNextDayActionPlan } from './next_day_action_plan.js';
 import { buildNextSessionPlan } from './next_session_plan.js';
 
-const MODEL_VERSION = 'V13-live-four-layer-core-leader-selection-v11-next-day-limitup-watch';
+const MODEL_VERSION = 'V13-live-next-day-limitup-dual-path-v12';
 const n = v => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
 const clamp = (v, lo=0, hi=100) => Math.max(lo, Math.min(hi, v));
 const avg = xs => { const a=xs.filter(Number.isFinite); return a.length ? a.reduce((x,y)=>x+y,0)/a.length : null; };
@@ -141,14 +142,33 @@ export function selectCandidateFunnel(rows, limit=120) {
     const distanceB=Math.abs(val(b,'f3')/limitB-0.60);
     return distanceA-distanceB||val(b,'f6')-val(a,'f6');
   });
+  const prebreakoutRows=valid.filter(row=>{
+    const board=boardForCode(row.f12),pct=val(row,'f3');
+    const limit=board==='CHINEXT'||board==='STAR'?20:board==='BSE'?30:10;
+    const volumeRatio=val(row,'f10'),mainFlow=val(row,'f62'),rankHits=val(row,'rankHits');
+    return ['SH_MAIN','SZ_MAIN','CHINEXT','STAR','BSE'].includes(board)
+      &&pct>=-1.5&&pct<limit*0.45
+      &&((volumeRatio>=1.15)||(mainFlow>0)||(rankHits>=2));
+  }).sort((a,b)=>{
+    const proxy=row=>{
+      const volume=val(row,'f10'),flow=val(row,'f62'),rankScore=val(row,'rankScore'),hits=val(row,'rankHits'),pct=val(row,'f3');
+      return Math.min(4,Math.max(0,volume))*10
+        +(rankScore===-Infinity?0:rankScore*0.25)
+        +(hits===-Infinity?0:hits*4)
+        +(flow>0?8:0)
+        +Math.max(0,Math.min(8,pct))*1.5;
+    };
+    return proxy(b)-proxy(a);
+  });
   const lanes=[
-    {name:'consensus-rank',weight:0.28,rows:[...valid].sort((a,b)=>val(b,'rankScore')-val(a,'rankScore'))},
-    {name:'price-momentum',weight:0.12,rows:[...valid].sort((a,b)=>val(b,'f3')-val(a,'f3'))},
-    {name:'capital-inflow',weight:0.12,rows:[...valid].sort((a,b)=>val(b,'f62')-val(a,'f62'))},
-    {name:'main-board-consensus',weight:0.12,rows:[...mainBoardValid].sort((a,b)=>val(b,'rankScore')-val(a,'rankScore'))},
-    {name:'main-board-capital-inflow',weight:0.08,rows:[...mainBoardValid].sort((a,b)=>val(b,'f62')-val(a,'f62'))},
-    {name:'main-board-price-momentum',weight:0.08,rows:[...mainBoardValid].sort((a,b)=>val(b,'f3')-val(a,'f3'))},
-    {name:'next-day-ignition-band',weight:0.14,rows:ignitionRows},
+    {name:'consensus-rank',weight:0.24,rows:[...valid].sort((a,b)=>val(b,'rankScore')-val(a,'rankScore'))},
+    {name:'price-momentum',weight:0.10,rows:[...valid].sort((a,b)=>val(b,'f3')-val(a,'f3'))},
+    {name:'capital-inflow',weight:0.10,rows:[...valid].sort((a,b)=>val(b,'f62')-val(a,'f62'))},
+    {name:'main-board-consensus',weight:0.10,rows:[...mainBoardValid].sort((a,b)=>val(b,'rankScore')-val(a,'rankScore'))},
+    {name:'main-board-capital-inflow',weight:0.07,rows:[...mainBoardValid].sort((a,b)=>val(b,'f62')-val(a,'f62'))},
+    {name:'main-board-price-momentum',weight:0.07,rows:[...mainBoardValid].sort((a,b)=>val(b,'f3')-val(a,'f3'))},
+    {name:'next-day-ignition-band',weight:0.18,rows:ignitionRows},
+    {name:'prebreakout-volume-expansion',weight:0.08,rows:prebreakoutRows},
     {name:'cross-rank-consensus',weight:0.06,rows:[...valid].sort((a,b)=>val(b,'rankHits')-val(a,'rankHits'))}
   ];
   const quotas=lanes.map(lane=>Math.floor(cap*lane.weight));
@@ -867,6 +887,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const coreSelectionResult=rankCoreSelection(rankedScores,{marketRegime,eligibleCodes,maxResults:5});
   const preBreakoutResult=rankPreBreakoutCandidates(rankedScores,earlyByCode,{maxResults:15,minScore:60});
   const limitUpIgnitionResult=rankLimitUpIgnitionCandidates(rankedScores,{maxResults:20,minScore:52});
+  const nextDayLimitUpResult=rankNextDayLimitUpCandidates(rankedScores,{maxResults:30,minScore:45});
   const momentumCodes=[...preLimitUpScores].sort((a,b)=>(Number.isFinite(b.features?.r5Pct)?b.features.r5Pct:-Infinity)-(Number.isFinite(a.features?.r5Pct)?a.features.r5Pct:-Infinity)||b.score-a.score).map(r=>r.code);
   const earlyCodes=earlyRows.filter(row=>eligibleCodes.has(row.code)).map(r=>r.code);
   const balancedCodes=interleaveCodes(momentumCodes,earlyCodes,Math.min(30,new Set([...momentumCodes,...earlyCodes]).size));
@@ -950,6 +971,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const diagnosticRankings={overall:balancedBlend,catalystConfirmed,policyConfirmed,combinedOverall:overall,
     preBreakoutWatch:preBreakoutResult.ranking,preBreakoutAssessed:preBreakoutResult.assessed.slice(0,60),
     limitUpIgnitionWatch:limitUpIgnitionResult.ranking,limitUpIgnitionAssessed:limitUpIgnitionResult.assessed.slice(0,80),
+    nextDayLimitUpAssessed:nextDayLimitUpResult.assessed.slice(0,120),
     entryGateRejected:rankedScores.filter(row=>!isEntryReadyCandidate(row)).sort((a,b)=>b.score-a.score).slice(0,50),
     trendTransition:rankedScores.slice(0,20),
     emotionRepair:rankedScores.filter(r=>Number(r.components?.emotionRepair)>=65).sort((a,b)=>Number(b.components.emotionRepair)-Number(a.components.emotionRepair)).slice(0,20),
@@ -992,7 +1014,11 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       limitUpIgnitionPassedGateCount:limitUpIgnitionResult.summary.passedGateCount,
       limitUpIgnitionReturnedCount:limitUpIgnitionResult.summary.returnedCount,
       limitUpIgnitionLeaderWatchCount:limitUpIgnitionResult.summary.verifiedLeaderCount,
-      nextDayLimitUpWatchCount:limitUpIgnitionResult.summary.returnedCount,
+      nextDayLimitUpWatchCount:nextDayLimitUpResult.summary.returnedCount,
+      nextDayLimitUpAssessedCount:nextDayLimitUpResult.summary.assessedCount,
+      nextDayLimitUpPassedGateCount:nextDayLimitUpResult.summary.passedGateCount,
+      nextDayLimitUpContinuationCount:nextDayLimitUpResult.summary.continuationCount,
+      nextDayLimitUpPrebreakoutCount:nextDayLimitUpResult.summary.prebreakoutCount,
       policyMatchCoveragePct:+(records.filter(r=>r.score?.policyAlignment?.evidenceAvailable).length/Math.max(1,records.length)*100).toFixed(2),
       marketRegimeSourceQuality:marketRegime.dataQuality,
       fullUniverseFallback,wideNewsScan:wideNewsDiagnostics},
@@ -1000,7 +1026,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       coreSelection:coreSelectionResult.ranking,
       preBreakoutWatch:preBreakoutResult.ranking,
       limitUpIgnitionWatch:limitUpIgnitionResult.ranking,
-      nextDayLimitUpWatch:limitUpIgnitionResult.ranking.map(row=>({...row})),
+      nextDayLimitUpWatch:nextDayLimitUpResult.ranking,
       overall,
       catalystConfirmed,
       policyConfirmed,
@@ -1043,7 +1069,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     nextDayActionPlan:{status:finalSnapshot.nextDayActionPlan.status,summary:finalSnapshot.nextDayActionPlan.summary,
       currentActions:finalSnapshot.nextDayActionPlan.currentActions.slice(0,8).map(r=>({rank:r.rank,code:r.code,name:r.name,score:r.score,action:r.action,label:r.label,currentPct:r.currentPct,reason:r.reason})),
       priorDayFollowThrough:finalSnapshot.nextDayActionPlan.priorDayFollowThrough.slice(0,12)},
-    nextDayLimitUpWatch:finalSnapshot.rankings.nextDayLimitUpWatch.slice(0,10).map(r=>({rank:r.rank,code:r.code,name:r.name,score:r.score,stage:r.stage,confidence:r.confidence,currentPct:r.currentPct,priorLimitUpActivity:r.components?.priorLimitUpActivity??null,leaderVerified:r.leaderVerified,riskFlags:r.riskFlags})),
+    nextDayLimitUpWatch:finalSnapshot.rankings.nextDayLimitUpWatch.slice(0,10).map(r=>({rank:r.rank,code:r.code,name:r.name,score:r.score,path:r.path,stage:r.stage,confidence:r.confidence,currentPct:r.currentPct,priorLimitUpActivity:r.components?.priorLimitUpActivity??null,resistanceProximity:r.components?.resistanceProximity??null,leaderVerified:r.evidence?.leaderScore!==null,riskFlags:r.riskFlags})),
     preBreakoutWatch:finalSnapshot.rankings.preBreakoutWatch.slice(0,10).map(r=>({rank:r.rank,code:r.code,name:r.name,score:r.score,stage:r.stage,confidence:r.confidence,themeName:r.themeName,leaderVerified:r.leaderVerified,policyVerified:r.policyVerified,components:r.components})),
     coreSelection:finalSnapshot.rankings.coreSelection.slice(0,5).map(r=>({rank:r.rank,code:r.code,name:r.name,selectionScore:r.selectionScore,
       decision:r.selection?.decision,policyScore:r.components?.policyAlignment??null,flowScore:r.components?.flow??null,
