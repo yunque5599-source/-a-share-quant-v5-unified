@@ -877,7 +877,7 @@ export default async function handler(req, res) {
     const selectedThemesPerStock = liveMode ? 1 : 2;
     const maxResearchThemes = liveMode ? 10 : 24;
     const membershipConcurrency = 6;
-    const researchConcurrency = liveMode ? 6 : 4;
+    const researchConcurrency = 4;
 
     diagnostics.selectedThemesPerStock = selectedThemesPerStock;
     diagnostics.maxResearchThemes = maxResearchThemes;
@@ -936,12 +936,6 @@ export default async function handler(req, res) {
     }
     diagnostics.quoteRows = quotes.size;
     diagnostics.conceptRows = conceptRows.length;
-    const initialCoverage = summarizeSourceCoverage({
-      ...diagnostics, themeCount:0, researchThemes:0,
-      membershipFailures:0, flowFailures:0, researchFailures:0
-    });
-    diagnostics.sourceDegraded = initialCoverage.degraded;
-    diagnostics.sourceWarnings = [...new Set([...diagnostics.sourceWarnings, ...initialCoverage.warnings])];
     const conceptMap = new Map(conceptRows.map(row => [row.code, row]));
 
     if (!memberships) {
