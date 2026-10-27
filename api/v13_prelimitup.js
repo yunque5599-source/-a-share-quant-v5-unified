@@ -26,6 +26,7 @@ export default async function handler(req, res) {
     const emotionRepair = Array.isArray(snapshot?.rankings?.emotionRepair) ? snapshot.rankings.emotionRepair : [];
     const oversold = Array.isArray(snapshot?.rankings?.oversold) ? snapshot.rankings.oversold : [];
     const preBreakout = Array.isArray(snapshot?.rankings?.preBreakoutWatch) ? snapshot.rankings.preBreakoutWatch : [];
+    const limitUpIgnition = Array.isArray(snapshot?.rankings?.limitUpIgnitionWatch) ? snapshot.rankings.limitUpIgnitionWatch : [];
     const actionPlan = snapshot?.nextDayActionPlan ?? {};
     const actionByCode = new Map((Array.isArray(actionPlan.currentActions) ? actionPlan.currentActions : [])
       .map(item => [String(item?.code ?? ''), item]));
@@ -90,6 +91,24 @@ export default async function handler(req, res) {
       passedGates: row?.passedGates ?? [],
       failedGates: row?.failedGates ?? []
     }));
+    const compactLimitUpIgnition = limitUpIgnition.slice(0, 15).map((row, index) => ({
+      rank: Number(row?.rank) || index + 1,
+      code: String(row?.code ?? ''),
+      name: String(row?.name ?? row?.code ?? ''),
+      board: row?.board ?? null,
+      currentPct: Number.isFinite(Number(row?.currentPct)) ? Number(row.currentPct) : null,
+      score: Number.isFinite(Number(row?.score)) ? Number(row.score) : null,
+      confidence: Number.isFinite(Number(row?.confidence)) ? Number(row.confidence) : null,
+      stage: row?.stage ?? null,
+      leaderVerified: row?.leaderVerified === true,
+      themeName: row?.themeName ?? null,
+      components: row?.components ?? {},
+      evidence: row?.evidence ?? {},
+      riskFlags: Array.isArray(row?.riskFlags) ? row.riskFlags.slice(0, 5) : [],
+      action: row?.action ?? 'WATCH_NEXT_SESSION_CONFIRMATION',
+      nextSessionChecklist: Array.isArray(row?.nextSessionChecklist) ? row.nextSessionChecklist : [],
+      method: row?.method ?? 'heuristic-continuation-ranking-not-a-calibrated-limit-up-probability'
+    }));
     return json(res, 200, {
       schema: 'v13-prelimitup-watch-v1',
       status: snapshot?.recommendationsAvailable ? 'OBSERVATION_READY' : 'OBSERVATION_ONLY_QUALITY_GATE',
@@ -105,6 +124,9 @@ export default async function handler(req, res) {
       coverage: snapshot?.coverage ?? {},
       selectionSummary: snapshot?.selectionSummary ?? {},
       preBreakoutSummary: snapshot?.preBreakoutSummary ?? {},
+      limitUpIgnitionSummary: snapshot?.limitUpIgnitionSummary ?? {},
+      limitUpIgnitionRanking: compactLimitUpIgnition,
+      limitUpIgnitionPolicy: 'Momentum-continuation watch only; not a calibrated probability or buy signal. Confirm next-session sector breadth, order-book/volume support and risk before any decision; do not chase a locked limit-up.',
       nextDayActionPlan: {
         status: actionPlan.status ?? 'CURRENT_ONLY_NO_PRIOR_SNAPSHOT',
         summary: actionPlan.summary ?? {},
