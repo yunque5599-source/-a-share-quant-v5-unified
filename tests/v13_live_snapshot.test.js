@@ -274,13 +274,14 @@ test('psychology source diagnostics aggregate providers and preserve degraded ba
    conceptRankingCacheHit:false,conceptRankingCacheAgeMs:0,
    requestedCodes:2,conceptRows:100,quoteRows:2,themeCount:4,researchThemes:3,
    membershipFailures:0,flowFailures:0,researchFailures:1,themeMemberFailures:0,themeNewsFailures:1,
-   sourceFailures:[],sourceWarnings:[]},
+   themeRequestFailureSamples:[],sourceFailures:[],sourceWarnings:[]},
   {batchIndex:2,codes:['600519'],status:'DEGRADED_SOURCE_COVERAGE',degraded:true,
    conceptSource:'sina-node-aggregate',membershipSource:'10jqka-stock-concepts-mapped-to-sina',quoteSource:'tencent',
    selectedThemesPerStock:1,maxResearchThemes:10,
    conceptRankingCacheHit:true,conceptRankingCacheAgeMs:1500,
    requestedCodes:1,conceptRows:5,quoteRows:1,themeCount:2,researchThemes:2,
    membershipFailures:1,flowFailures:2,researchFailures:1,themeMemberFailures:1,themeNewsFailures:0,
+   themeRequestFailureSamples:[{source:'theme-members',themeCode:'BK123',error:'HTTP 502'}],
    sourceFailures:['concept-ranking-eastmoney: unavailable'],sourceWarnings:['sampled board constituents']}
  ]);
  assert.equal(summary.batchCount,2);
@@ -301,5 +302,6 @@ test('psychology source diagnostics aggregate providers and preserve degraded ba
  assert.equal(summary.batches[1].selectedThemesPerStock,1);
  assert.equal(summary.batches[1].maxResearchThemes,10);
  assert.deepEqual(summary.batches[1].sourceWarnings,['sampled board constituents']);
+ assert.deepEqual(summary.batches[1].themeRequestFailureSamples,[{source:'theme-members',themeCode:'BK123',error:'HTTP 502'}]);
 });
 
