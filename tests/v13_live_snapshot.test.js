@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { parseRows, isDailyBarCompleteAt, mapUniverseRowsToRankCandidates, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isEntryReadyCandidate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, buildWideNewsCandidate, flattenNewsPayload, buildStockNewsFallback, selectWideNewsScanUniverse, summarizePsychologySourceDiagnostics } from '../research/v13-limitup-precursor/live_snapshot.js';
+import { buildNextSessionPlan, evaluateNextSessionEntry } from '../research/v13-limitup-precursor/next_session_plan.js';
 
 test('parsers exclude future-dated rows and sort history',()=>{
  const bars=parseRows(['2026-10-21,10,10.5,10.6,9.9,200,2100000,0,0,0,4.2','2026-10-19,9,9.2,9.3,8.9,100,920000,0,0,0,2.1','2026-10-22,10.5,11,11.1,10.4,300,3300000,0,0,0,5.1'],'bar','2026-10-21T05:00:00Z');
@@ -311,3 +312,65 @@ test('psychology source diagnostics aggregate providers and preserve degraded ba
  assert.deepEqual(summary.batches[1].themeRequestFailureSamples,[{source:'theme-members',themeCode:'BK123',error:'HTTP 502'}]);
 });
 
+
+
+test('next-session plan distinguishes core candidates from watch-only ranks and rejects chasing near limit-up', () => {
+  const core = buildNextSessionPlan({
+    code:'600558',name:'大西洋',board:'SH_MAIN',asOf:'2026-10-26',score:84,
+    quote:{pct:3.2},selection:{eligible:true,decision:'CORE_WATCH'}
+  },{signalDate:'2026-10-26',lane:'coreSelection'});
+  assert.equal(core.status,'WAIT_NEXT_SESSION_CONFIRMATION');
+  assert.equal(core.riskRules.automaticOrderPlacement,false);
+  assert.equal(core.entryRules.preferredOpeningGapPct.max,3);
+
+  const extended = buildNextSessionPlan({
+    code:'600558',name:'大西洋',board:'SH_MAIN',quote:{pct:9.8},
+    selection:{eligible:true,decision:'CORE_WATCH'}
+  },{lane:'coreSelection'});
+  assert.equal(extended.status,'NO_CHASE_EXTENDED');
+
+  const generalRank = buildNextSessionPlan({
+    code:'000156',name:'华数传媒',board:'SZ_MAIN',quote:{pct:1.2},score:77
+  },{lane:'overall'});
+  assert.equal(generalRank.status,'RANKING_WATCH_ONLY');
+});
+
+test('next-session entry evaluator refuses a limit-up chase and high opening gap', () => {
+  const candidate={code:'600558',name:'大西洋',board:'SH_MAIN',selection:{eligible:true,decision:'CORE_WATCH'}};
+  const limitUp=evaluateNextSessionEntry(candidate,{
+    openingGapPct:9.5,currentPct:10,limitUpLocked:true,priceHoldsVwap:true,
+    breakoutOrRetestConfirmed:true,themeAndFlowConfirmed:true
+  });
+  assert.equal(limitUp.status,'NO_CHASE_LIMIT_UP');
+
+  const gap=evaluateNextSessionEntry(candidate,{
+    openingGapPct:5.4,currentPct:5.8,quoteValid:true,themeDataValid:true,
+    priceHoldsVwap:true,breakoutOrRetestConfirmed:true,themeAndFlowConfirmed:true
+  });
+  assert.equal(gap.status,'NO_CHASE_GAP_TOO_HIGH');
+});
+
+test('next-session entry evaluator waits for confirmation and requires all core conditions', () => {
+  const candidate={code:'600558',name:'大西洋',board:'SH_MAIN',selection:{eligible:true,decision:'CORE_WATCH'}};
+  const waiting=evaluateNextSessionEntry(candidate,{
+    openingGapPct:1.2,currentPct:2.1,quoteValid:true,themeDataValid:true,
+    priceHoldsVwap:true,breakoutOrRetestConfirmed:false,themeAndFlowConfirmed:true
+  });
+  assert.equal(waiting.status,'WAIT_FOR_CONFIRMATION');
+
+  const confirmed=evaluateNextSessionEntry(candidate,{
+    openingGapPct:1.2,currentPct:2.1,quoteValid:true,themeDataValid:true,
+    priceHoldsVwap:true,breakoutOrRetestConfirmed:true,themeAndFlowConfirmed:true
+  });
+  assert.equal(confirmed.status,'SETUP_CONFIRMED_FOR_REVIEW');
+  assert.equal(confirmed.automaticOrderPlacement,false);
+});
+
+test('next-session entry evaluator invalidates a broken setup and blocks degraded sources', () => {
+  const candidate={code:'000156',name:'华数传媒',board:'SZ_MAIN',selection:{eligible:true,decision:'CORE_WATCH'}};
+  const invalid=evaluateNextSessionEntry(candidate,{previousLowBroken:true});
+  assert.equal(invalid.status,'INVALIDATED');
+
+  const degraded=evaluateNextSessionEntry(candidate,{sourceDegraded:true});
+  assert.equal(degraded.status,'OBSERVE_DATA_LIMITED');
+});
