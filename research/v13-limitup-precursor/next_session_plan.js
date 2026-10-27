@@ -10,11 +10,11 @@ function boardOf(row = {}) {
   const board = String(row.board ?? '').toUpperCase();
   if (['SH_MAIN','SZ_MAIN','CHINEXT','STAR','BSE'].includes(board)) return board;
   const code = String(row.code ?? '');
+  if (/^68[89]\d{3}$/.test(code)) return 'STAR';
   if (/^6\d{5}$/.test(code)) return 'SH_MAIN';
-  if (/^(00|001|002|003)\d{4}$/.test(code)) return 'SZ_MAIN';
-  if (/^(30|301)\d{4}$/.test(code)) return 'CHINEXT';
-  if (/^(688|689)\d{3}$/.test(code)) return 'STAR';
-  if (/^(4|8|92)\d{5}$/.test(code)) return 'BSE';
+  if (/^00\d{4}$/.test(code)) return 'SZ_MAIN';
+  if (/^3\d{5}$/.test(code)) return 'CHINEXT';
+  if (/^(?:[48]\d{5}|92\d{4})$/.test(code)) return 'BSE';
   return 'UNKNOWN';
 }
 
