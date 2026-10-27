@@ -15,7 +15,8 @@ const {
   parseThsStockConcepts,
   parseSinaConceptNodes,
   parseSinaNodeMembers,
-  decodeResponseText
+  decodeResponseText,
+  fetchConceptRankingForCapture
 } = universe;
 
 test('concept ranking accepts Eastmoney BK concept-board codes and requires price change', () => {
@@ -224,4 +225,27 @@ test('text response decoder handles GBK-encoded Chinese and valid UTF-8', () => 
   const utf8 = new TextEncoder().encode('人工智能');
   assert.equal(decodeResponseText(utf8, 'text/html; charset=utf-8'), '人工智能');
   assert.equal(decodeResponseText(legacyGbk.buffer, 'text/html; charset=utf-8'), '银行');
+});
+
+
+test('concept ranking cache reuses the same capture timestamp across candidate batches', async () => {
+  const originalFetch = globalThis.fetch;
+  let requestCount = 0;
+  globalThis.fetch = async () => {
+    requestCount += 1;
+    return new Response(JSON.stringify({
+      data:{total:1,diff:[{f12:'BK12345',f14:'人工智能',f3:'2.5'}]}
+    }), {status:200,headers:{'content-type':'application/json'}});
+  };
+  try {
+    const first = await fetchConceptRankingForCapture(1, 'unit-test-capture-2026-10-27T00:00:00Z');
+    const second = await fetchConceptRankingForCapture(1, 'unit-test-capture-2026-10-27T00:00:00Z');
+    assert.equal(first.rows.length, 1);
+    assert.equal(first.cacheHit, false);
+    assert.equal(second.rows.length, 1);
+    assert.equal(second.cacheHit, true);
+    assert.equal(requestCount, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
 });
