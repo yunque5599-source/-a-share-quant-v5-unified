@@ -47,12 +47,20 @@ function flowScore(row) {
   const evidence = [];
   if (flowCount !== null && flowCount > 0 && share !== null) evidence.push(clamp(share * 100));
   if (flowCount !== null && flowCount > 0 && mainNet5 !== null) evidence.push(mainNet5 > 0 ? 82 : mainNet5 === 0 ? 48 : 12);
-  if (n(components.flow) !== null) evidence.push(n(components.flow));
+  const flowStatus = String(row.evidence?.flow?.status ?? '');
+  if ((flowCount !== null && flowCount > 0) || flowStatus === 'quote-snapshot-only') {
+    if (n(components.flow) !== null) evidence.push(n(components.flow));
+  }
   return mean(evidence);
 }
 
 function sectorScore(row) {
-  return mean([n(row.components?.sector), n(row.components?.marketFit), n(row.features?.industryUpRatio) === null ? null : clamp(n(row.features.industryUpRatio) * 100)]);
+  const fields = n(row.features?.sectorFieldsPresent);
+  if (fields === 0) return null;
+  const component = n(row.components?.sector);
+  const industry = n(row.features?.industryUpRatio);
+  const marketFit = n(row.components?.marketFit);
+  return mean([component, industry === null ? null : clamp(industry * 100), fields === null ? marketFit : null]);
 }
 
 function leaderScore(row) {

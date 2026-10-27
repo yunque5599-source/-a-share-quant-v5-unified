@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRows, isDailyBarCompleteAt, mapUniverseRowsToRankCandidates, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isEntryReadyCandidate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, buildWideNewsCandidate, flattenNewsPayload, buildStockNewsFallback, selectWideNewsScanUniverse, summarizePsychologySourceDiagnostics, markNextDayRankingReadiness, shouldAttemptFullUniverseFallback } from '../research/v13-limitup-precursor/live_snapshot.js';
+import { parseRows, isDailyBarCompleteAt, mapUniverseRowsToRankCandidates, selectCandidateFunnel, auditCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isEntryReadyCandidate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, buildWideNewsCandidate, flattenNewsPayload, buildStockNewsFallback, selectWideNewsScanUniverse, summarizePsychologySourceDiagnostics, markNextDayRankingReadiness, shouldAttemptFullUniverseFallback } from '../research/v13-limitup-precursor/live_snapshot.js';
 import { buildNextSessionPlan, evaluateNextSessionEntry } from '../research/v13-limitup-precursor/next_session_plan.js';
 import { buildNextDayActionPlan } from '../research/v13-limitup-precursor/next_day_action_plan.js';
 
@@ -18,6 +18,21 @@ test('funnel diversifies consensus, momentum and capital-flow candidates and exc
  assert.ok(result.some(x=>x.funnelLanes.includes('price-momentum')));assert.ok(result.some(x=>x.funnelLanes.includes('capital-inflow')));
 });
 
+test('healthy ranked pools trigger independent full-universe discovery and retain omission reasons',()=>{
+ assert.equal(shouldAttemptFullUniverseFallback({rawCount:374,ranked:{data:{method:'full-universe-ranked-preselection-fast-v2'}}}),true);
+ const rows=[
+   {f12:'600001',f14:'入选',f2:10,f3:2,f62:1000,rankScore:90,rankHits:3},
+   {f12:'600002',f14:'漏选',f2:10,f3:1,f62:null,rankScore:10,rankHits:0},
+   {f12:'600003',f14:'*ST风险',f2:10,f3:3,rankScore:99}
+ ];
+ const selected=selectCandidateFunnel(rows,1);
+ const audit=auditCandidateFunnel(rows,selected,1);
+ assert.equal(audit.inputCount,3);
+ assert.equal(audit.selectedCount,1);
+ assert.equal(audit.reasonCounts['not-selected-by-funnel-quota'],1);
+ assert.equal(audit.reasonCounts['restricted-listing-name'],1);
+ assert.equal(audit.rows.find(row=>row.code==='600002').evidence.capitalFlow,false);
+});
 test('candidate funnel reserves a separate lane for current limit-up continuation stocks',()=>{
  const rows=Array.from({length:240},(_,i)=>({f12:String(600000+i),f14:'普通样本'+i,rankScore:120-i/3,rankHits:i%3,f3:(i%8)-2,f62:i*1000,f6:10000000,f10:1.1}));
  rows.push({f12:'600901',f14:'主板涨停',rankScore:8,rankHits:0,f3:10.07,f62:1000,f6:80000000,f10:3.2});
@@ -541,6 +556,6 @@ test('ranked-candidates HTTP failure still triggers the independent full-univers
  assert.equal(shouldAttemptFullUniverseFallback({ranked:null,rawCount:0,rankedError:'ranked_candidates HTTP 502'}),true);
  assert.equal(shouldAttemptFullUniverseFallback({ranked:{data:{degraded:true,candidates:[]}},rawCount:0}),true);
  assert.equal(shouldAttemptFullUniverseFallback({ranked:{data:{serverStale:true,candidates:Array(500).fill({})}},rawCount:500}),true);
- assert.equal(shouldAttemptFullUniverseFallback({ranked:{data:{candidates:Array(500).fill({})}},rawCount:500}),false);
+ assert.equal(shouldAttemptFullUniverseFallback({ranked:{data:{candidates:Array(500).fill({})}},rawCount:500}),true);
  assert.equal(shouldAttemptFullUniverseFallback({ranked:{data:{candidates:Array(120).fill({})}},rawCount:120}),true);
 });

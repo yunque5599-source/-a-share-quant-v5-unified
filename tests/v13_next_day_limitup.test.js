@@ -31,6 +31,14 @@ function makeRow({
   };
 }
 
+test('missing flow and sector evidence is not treated as neutral next-day evidence',()=>{
+ const row=makeRow({flowCount:0,flow:null,sector:null});
+ row.features.sectorFieldsPresent=0;
+ const result=assessNextDayLimitUpCandidate(row);
+ assert.equal(result.components.capitalFlow,null);
+ assert.equal(result.components.sectorStrength,null);
+ assert.ok(result.riskFlags.some(flag=>flag.includes('资金流证据缺失')));
+});
 test('dual-path rank includes a low-daily-return near-resistance setup that ignition-only gate rejects',()=>{
   const row=makeRow({pct:1.0,distHigh20Pct:-1.8,volumeExpansion:2.1,recentLimitUp5Count:0});
   const result=assessNextDayLimitUpCandidate(row);

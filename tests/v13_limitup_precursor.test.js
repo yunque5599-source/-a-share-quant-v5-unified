@@ -91,6 +91,10 @@ test('missing sector or flow data keeps discovery alive but blocks entry eligibi
   assert.ok(result.confidence < 75);
   assert.ok(result.riskFlags.some(flag => flag.includes('资金流历史不足')));
   assert.equal(result.entryEligible, false);
+  assert.equal(result.components.flow, null);
+  assert.equal(result.components.sector, null);
+  assert.equal(result.evidence.flow.status, 'missing');
+  assert.equal(result.evidence.sector.status, 'missing');
   assert.ok(result.entryGateReasons.includes('sector-evidence-insufficient'));
   assert.ok(result.entryGateReasons.includes('sustained-flow-confirmation-insufficient'));
 });
