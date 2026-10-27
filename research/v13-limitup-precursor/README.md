@@ -279,3 +279,30 @@ The October 20 held-out audit also exposed a recall failure: only one of three t
 ### Validation status
 
 The complete V13 automated test suite passed on the latest code commit `8ca01eebd51c7a643dfdc15ea29787752db20aef` (https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40457604480). The live capture workflow and the separate historical walk-forward evaluation are still running; no new historical replay result has yet established that the new ranking beats the prior baselines. The next acceptance criterion is to compare the next-day classifier against raw momentum and the existing ignition heuristic on untouched chronological dates, using T+1 limit-up precision/recall, top-10/top-30 capture, T+1 return, and adverse excursion. Do not promote the new ranking to executable trading logic until that test is measurable and repeatably better.
+
+
+## Next-day limit-up miss analysis and dual-path repair (2026-10-27 follow-up)
+
+### Root causes found in the current architecture
+
+1. **The live next-day lane was not independent.** Before this repair, `rankings.nextDayLimitUpWatch` was copied directly from `limitUpIgnitionWatch`. The offline supervised evaluator has a `limitUpWithin1` target, but the live snapshot does not load a trained model artifact. Therefore, the UI name suggested a next-day-specific objective while the serving rank was still the ignition heuristic.
+2. **The ignition gate under-covered pre-breakout names.** The ignition lane requires a same-day move of at least 1.5% on 10% boards or 3% on 20% boards. This is useful for continuation detection but excludes a quiet close near resistance when volume expands and a catalyst/sector setup is forming.
+3. **The deep-scan funnel could miss those names before scoring.** The live capture deeply enriches a capped subset of the ranked universe (default 120). If a candidate is absent from that subset, later scoring lanes cannot recover it. The previous funnel had a reserved continuation lane but no dedicated low-move/volume-expansion lane.
+4. **The global core score optimizes a different trade-off.** Flow persistence, policy evidence, and verified leader status can help reduce false positives, but exact T+1 limit-up recall is a different objective from a defensive 1–5 day core-leader list. The 60-date report shows the existing balanced blend's top-10 T+5 limit-up precision at 21.27%, while raw five-session momentum reached 38.39% at the cost of materially worse adverse excursion (-11.92% versus -6.56%). Those are T+5 metrics, not next-day hit rates.
+
+### Code repair
+
+- Added `next_day_limitup.js`, a separate observation rank with two paths:
+  - `CONTINUATION`: stronger same-day move, closing strength, volume expansion, recent limit-up activity, short trend and sector/flow support.
+  - `PREBREAKOUT`: lower same-day move, proximity to the prior 20-session high, volume expansion, trend and sector/catalyst evidence.
+- The two paths use only features already available at the signal cutoff. Missing evidence is excluded from the weighted denominator and lowers the evidence-coverage figure; it is not silently converted into a positive signal. Negative catalyst evidence adds a risk penalty.
+- `rankings.nextDayLimitUpWatch` now uses the dedicated dual-path rank instead of aliasing the ignition ranking. The existing `limitUpIgnitionWatch` remains available for comparison.
+- Rebalanced the same 120-candidate deep-scan funnel: the ignition band now reserves 18%, and a new `prebreakout-volume-expansion` lane reserves 8%. This reallocates slots from general/main-board ranking lanes without increasing the default runtime budget.
+- Added a distinct `leaderVerified` flag so an industry/theme proxy score is not presented as a verified leader.
+- Added regression coverage for low-move near-resistance setups, continuation setups with recent limit-up history, negative catalyst penalties, already-locked limits, restricted listings, and pre-breakout funnel reservation.
+
+### Acceptance criteria still outstanding
+
+The latest V13 CI run must pass after the final integration commit. More importantly, a new chronological walk-forward run must compare the new dedicated lane against the prior ignition lane, raw momentum and the supervised next-day classifier on untouched signal dates. Report top-10/top-30 T+1 limit-up precision and recall, number of universe limit-ups captured, T+1 close return, adverse excursion, board-wise results, and source-coverage rates. The existing 60-date T+5 table and the held-out October 21 screenshot audit do **not** prove that this repair improves next-day hit rate.
+
+This remains a research-only watchlist. It is not a calibrated probability, a buy instruction, or an authorization to trade; do not tune weights to force the known screenshot names to rank highly.
