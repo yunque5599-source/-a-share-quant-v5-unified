@@ -29,6 +29,19 @@ function entryMoveCapPct(code) {
   return 7.5;
 }
 
+function chinaTradingDate(value) {
+  if (!value) return '';
+  const raw = String(value);
+  if (/^\\d{4}-\\d{2}-\\d{2}$/.test(raw)) return raw;
+  const timestamp = Date.parse(raw);
+  if (!Number.isFinite(timestamp)) return '';
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone:'Asia/Shanghai', year:'numeric', month:'2-digit', day:'2-digit'
+  }).formatToParts(new Date(timestamp));
+  const part = type => parts.find(item => item.type === type)?.value ?? '';
+  return part('year') + '-' + part('month') + '-' + part('day');
+}
+
 function firstUniqueRows(groups, maxRows = 30) {
   const seen = new Set();
   const result = [];
@@ -180,8 +193,11 @@ export function buildNextDayActionPlan(currentSnapshot = {}, previousSnapshot = 
     ...assessAction(row, sourceAvailable)
   }));
 
+  const currentTradingDate = chinaTradingDate(currentSnapshot.asOf ?? currentSnapshot.capturedAt);
+  const previousTradingDate = chinaTradingDate(previousSnapshot?.asOf ?? previousSnapshot?.capturedAt);
   const priorSnapshotAvailable = Boolean(previousSnapshot)
-    && previousSnapshot.recommendationsAvailable === true;
+    && previousSnapshot.recommendationsAvailable === true
+    && Boolean(currentTradingDate && previousTradingDate && previousTradingDate < currentTradingDate);
   const priorRows = priorSnapshotAvailable
     ? firstUniqueRows(snapshotRankGroups(previousSnapshot, true), 25)
     : [];
@@ -218,7 +234,8 @@ export function buildNextDayActionPlan(currentSnapshot = {}, previousSnapshot = 
       '候选排名不等于买入信号。',
       '今日接近涨停的股票只记录信号兑现，不生成追高动作。',
       '未进入今日候选池不代表股票下跌或昨日信号失效。',
-      '只有提供前一交易日且通过质量门槛的快照，才能评估昨日候选的后续表现。'
+      '只有提供前一交易日且通过质量门槛的快照，才能评估昨日候选的后续表现。',
+      '同一交易日内的多个快照不会被误当成隔日跟踪记录。'
     ]
   };
 }
