@@ -5,6 +5,7 @@ on:
     paths:
       - 'research/v13-limitup-precursor/**'
       - 'tests/v13_next_day_action_plan.test.js'
+      - 'research/v13-limitup-precursor/fetch_previous_snapshot.js'
       - 'tests/v13_core_selection.test.js'
       - 'tests/v13_pre_breakout.test.js'
       - 'tests/v13_policy_alignment.test.js'
@@ -49,6 +50,7 @@ jobs:
           node --check research/v13-limitup-precursor/core_selection.js
           node --check research/v13-limitup-precursor/pre_breakout.js
           node --check research/v13-limitup-precursor/next_day_action_plan.js
+          node --check research/v13-limitup-precursor/fetch_previous_snapshot.js
           node -e "const fs=require('node:fs');const h=fs.readFileSync('index.html','utf8');const m=h.match(/<script>([\\s\\S]*?)<\\/script>/);if(!m)throw Error('inline script not found');fs.writeFileSync('/tmp/index-inline.js',m[1]);"
           node --check /tmp/index-inline.js
       - name: Run V13 research tests
