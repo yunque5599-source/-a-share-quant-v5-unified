@@ -71,7 +71,10 @@ test('theme member normalization rejects malformed codes and missing change', ()
 });
 
 test('narrative theme selector rejects valuation, holder-style and momentum classification boards', () => {
-  for (const name of ['百元股','低市净率','机构重仓','昨日涨停','高股息']) {
+  for (const name of [
+    '百元股','低市净率','机构重仓','昨日涨停','高股息',
+    '东方财富热股','题材股','人气股','热门板块','市场热点','主力资金'
+  ]) {
     assert.equal(isNarrativeTheme({code:'BK12345',name}), false, name);
   }
   assert.equal(isNarrativeTheme({code:'BK12345',name:'人工智能'}), true);
