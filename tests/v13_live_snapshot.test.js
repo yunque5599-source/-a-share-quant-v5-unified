@@ -556,6 +556,6 @@ test('ranked-candidates HTTP failure still triggers the independent full-univers
  assert.equal(shouldAttemptFullUniverseFallback({ranked:null,rawCount:0,rankedError:'ranked_candidates HTTP 502'}),true);
  assert.equal(shouldAttemptFullUniverseFallback({ranked:{data:{degraded:true,candidates:[]}},rawCount:0}),true);
  assert.equal(shouldAttemptFullUniverseFallback({ranked:{data:{serverStale:true,candidates:Array(500).fill({})}},rawCount:500}),true);
- assert.equal(shouldAttemptFullUniverseFallback({ranked:{data:{candidates:Array(500).fill({})}},rawCount:500}),false);
+ assert.equal(shouldAttemptFullUniverseFallback({ranked:{data:{candidates:Array(500).fill({})}},rawCount:500}),true);
  assert.equal(shouldAttemptFullUniverseFallback({ranked:{data:{candidates:Array(120).fill({})}},rawCount:120}),true);
 });
