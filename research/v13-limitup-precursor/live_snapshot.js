@@ -39,6 +39,8 @@ export function summarizePsychologySourceDiagnostics(rows=[]) {
       membershipFailures:sum('membershipFailures'),
       flowFailures:sum('flowFailures'),
       researchFailures:sum('researchFailures'),
+      themeMemberFailures:sum('themeMemberFailures'),
+      themeNewsFailures:sum('themeNewsFailures'),
       conceptRankingCacheHitCount:items.filter(item=>item?.conceptRankingCacheHit===true).length
     },
     batches:items.map(item=>({
@@ -62,6 +64,8 @@ export function summarizePsychologySourceDiagnostics(rows=[]) {
       membershipFailures:Number(item.membershipFailures)||0,
       flowFailures:Number(item.flowFailures)||0,
       researchFailures:Number(item.researchFailures)||0,
+      themeMemberFailures:Number(item.themeMemberFailures)||0,
+      themeNewsFailures:Number(item.themeNewsFailures)||0,
       sourceFailures:Array.isArray(item.sourceFailures)?item.sourceFailures.slice(0,5):[],
       sourceWarnings:Array.isArray(item.sourceWarnings)?item.sourceWarnings.slice(0,10):[]
     }))
@@ -652,6 +656,8 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
         membershipFailures:Number(psychDiagnostics.membershipFailures)||0,
         flowFailures:Number(psychDiagnostics.flowFailures)||0,
         researchFailures:Number(psychDiagnostics.researchFailures)||0,
+        themeMemberFailures:Number(psychDiagnostics.themeMemberFailures)||0,
+        themeNewsFailures:Number(psychDiagnostics.themeNewsFailures)||0,
         sourceFailures:Array.isArray(psychDiagnostics.sourceFailures)?psychDiagnostics.sourceFailures:[],
         sourceWarnings:Array.isArray(psychDiagnostics.sourceWarnings)?psychDiagnostics.sourceWarnings:[]
       });
@@ -685,6 +691,8 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
         membershipFailures:batch.codes.length,
         flowFailures:0,
         researchFailures:0,
+        themeMemberFailures:0,
+        themeNewsFailures:0,
         sourceFailures:[String(batch.psychError??'unknown psychology endpoint failure')],
         sourceWarnings:[]
       });
