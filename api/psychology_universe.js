@@ -53,6 +53,27 @@ async function fetchParsed(url, timeoutMs = 7000, referer = 'https://quote.eastm
   }
 }
 
+function decodeResponseText(buffer, contentType = '') {
+  const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
+  const declared = String(contentType).match(/charset\\s*=\\s*["']?([^\\s;"']+)/i)?.[1]?.toLowerCase();
+  const encodings = [...new Set([declared, 'utf-8', 'gbk'].filter(Boolean))];
+  let bestText = '';
+  let bestReplacementCount = Infinity;
+  for (const encoding of encodings) {
+    try {
+      const decoded = new TextDecoder(encoding).decode(bytes);
+      const replacementCount = (decoded.match(/\\uFFFD/g) ?? []).length;
+      if (replacementCount < bestReplacementCount) {
+        bestText = decoded;
+        bestReplacementCount = replacementCount;
+      }
+      if (replacementCount === 0) return decoded;
+    } catch {}
+  }
+  if (bestText) return bestText;
+  return new TextDecoder().decode(bytes);
+}
+
 async function fetchText(url, timeoutMs = 7000, referer = 'https://basic.10jqka.com.cn/') {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -67,7 +88,7 @@ async function fetchText(url, timeoutMs = 7000, referer = 'https://basic.10jqka.
       }
     });
     if (!response.ok) throw new Error('HTTP ' + response.status);
-    return await response.text();
+    return decodeResponseText(await response.arrayBuffer(), response.headers.get('content-type') ?? '');
   } finally {
     clearTimeout(timer);
   }
@@ -735,6 +756,7 @@ export const _internal = {
   parseThsStockConcepts,
   parseSinaConceptNodes,
   parseSinaNodeMembers,
+  decodeResponseText,
   fetchConceptRanking,
   fetchCandidateQuotes,
   fetchTencentCandidateQuotes,
