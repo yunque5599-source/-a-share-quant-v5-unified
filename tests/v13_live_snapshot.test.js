@@ -232,8 +232,8 @@ test('live early-opportunity scoring treats the current session candle as partia
 
 test('degraded ranked feed can be replaced by a full-universe live quote candidate set',()=>{
  const mapped=mapUniverseRowsToRankCandidates([
-  {code:'600001',name:'正常A',industry:'传媒',board:'SH_MAIN',price:10,pct:2.5,amount:100000000,turnoverRate:4,mainNet:5000000,mainPct:5},
-  {code:'300001',name:'正常B',industry:'传媒',board:'CHINEXT',price:12,pct:19.8,amount:200000000,turnoverRate:15,mainNet:30000000,mainPct:15},
+  {code:'600001',name:'正常A',industry:'传媒',board:'SH_MAIN',price:10,pct:2.5,amount:100000000,turnoverRate:4,volumeRatio:1.6,mainNet:5000000,mainPct:5},
+  {code:'300001',name:'正常B',industry:'传媒',board:'CHINEXT',price:12,pct:19.8,amount:200000000,turnoverRate:15,volumeRatio:2.4,mainNet:30000000,mainPct:15},
   {code:'000556',name:'PT南洋',industry:'其他',price:1,pct:5,amount:10000000,turnoverRate:2,mainNet:0,mainPct:0},
   {code:'600002',name:'*ST风险',industry:'其他',price:2,pct:4,amount:10000000,turnoverRate:2,mainNet:0,mainPct:0},
   {code:'600003',name:'缺价格',industry:'其他',price:null,pct:4,amount:10000000,turnoverRate:2,mainNet:0,mainPct:0}
@@ -244,6 +244,8 @@ test('degraded ranked feed can be replaced by a full-universe live quote candida
  assert.equal(normal.f100,'传媒');
  assert.equal(normal.f3,2.5);
  assert.equal(normal.f62,5000000);
+  assert.equal(normal.f10,1.6);
+  assert.equal(highMomentum.f10,2.4);
  assert.ok(mapped.every(row=>Number.isFinite(row.rankScore)));
  assert.ok(highMomentum.rankScore>normal.rankScore);
  assert.equal(mapped[0].f12,'300001');
