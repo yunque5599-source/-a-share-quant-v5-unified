@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { parseKlineRows, parseFlowRows, addHistoricalIndustryContext, assessReplayQuality, isTrueLimitUpOutcome, writeNdjson } from '../research/v13-limitup-precursor/historical_replay.js';
+import { parseKlineRows, parseFlowRows, addHistoricalIndustryContext, assessReplayQuality, isTrueLimitUpOutcome, writeNdjson, isUniverseSegmentCoverageSufficient } from '../research/v13-limitup-precursor/historical_replay.js';
 
 test('historical K-line parser excludes bars after the signal cutoff and sorts by date', () => {
   const rows = [
@@ -96,4 +96,13 @@ test('candidate NDJSON writer emits parseable records without one giant array st
   } finally {
     await rm(dir, { recursive: true, force: true });
   }
+});
+
+
+test('partial quote-universe page failures are acceptable only above the per-segment coverage floor',()=>{
+  assert.equal(isUniverseSegmentCoverageSufficient({total:100,rows:Array(95).fill({})},90),true);
+  assert.equal(isUniverseSegmentCoverageSufficient({total:100,rows:Array(90).fill({})},90),true);
+  assert.equal(isUniverseSegmentCoverageSufficient({total:100,rows:Array(89).fill({})},90),false);
+  assert.equal(isUniverseSegmentCoverageSufficient({total:0,rows:[]},90),false);
+  assert.equal(isUniverseSegmentCoverageSufficient(null,90),false);
 });
