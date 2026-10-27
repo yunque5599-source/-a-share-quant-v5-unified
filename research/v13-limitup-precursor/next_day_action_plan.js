@@ -17,8 +17,8 @@ function boardForCode(code) {
 
 function priceLimitPct(code) {
   const board = boardForCode(code);
-  if (board === 'CHINEXT' || board === 'STAR') return 19.3;
-  if (board === 'BSE') return 29.3;
+  if (board === 'CHINEXT' || board === 'STAR') return 19.0;
+  if (board === 'BSE') return 28.5;
   return 9.3;
 }
 
