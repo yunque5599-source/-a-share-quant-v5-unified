@@ -127,6 +127,12 @@ export function assessNextDayLimitUpCandidate(row = {}) {
   const flow = flowScore(row);
   const leader = leaderScore(row);
   const catalyst = catalystScore(row);
+  const catalystDirection = String(
+    (row.psychology?.stockNewsFallback ?? {}).headlineCatalystDirection
+      ?? row.psychology?.headlineCatalystDirection ?? ''
+  ).toLowerCase();
+  const leaderStatus = String(row.leaderEvidence?.leaderStatus ?? '').toLowerCase();
+  const leaderVerified = row.leaderEvidence?.isLeader === true || ['leader','core'].includes(leaderStatus);
   const trend = trendScore(f);
 
   const moveRatio = pct !== null && limitPct ? pct / limitPct : null;
@@ -166,7 +172,7 @@ export function assessNextDayLimitUpCandidate(row = {}) {
   if (flow === null) riskFlags.push('资金流证据缺失，不能确认持续流入');
   else if (flow < 45) riskFlags.push('资金证据偏弱');
   if (leader === null) riskFlags.push('题材龙头证据不足');
-  if (catalyst !== null && String((row.psychology?.stockNewsFallback ?? row.psychology ?? {}).headlineCatalystDirection ?? '').toLowerCase() === 'negative') {
+  if (catalyst !== null && catalystDirection === 'negative') {
     score = Math.max(0, score - 8);
     riskFlags.push('检测到负面催化证据，已施加风险扣分');
   }
@@ -187,7 +193,7 @@ export function assessNextDayLimitUpCandidate(row = {}) {
     currentPct:pct,
     score:Number(score.toFixed(1)),
     confidence:Number(confidence.toFixed(1)),
-    stage,path:chosen.path,passed,
+    stage,path:chosen.path,passed,leaderVerified,
     components:{
       continuationScore:continuation.score===null?null:Number(continuation.score.toFixed(1)),
       prebreakoutScore:breakout.score===null?null:Number(breakout.score.toFixed(1)),
