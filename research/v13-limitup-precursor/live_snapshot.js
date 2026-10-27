@@ -561,7 +561,8 @@ async function fetchCurrentQuoteForNewsCandidate(stock) {
   } catch { return null; }
 }
 
-export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=null,wideNewsScan=false}={}){
+export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=null,wideNewsScan=false,previousSnapshotPath=null}={}){
+  const previousSnapshot=previousSnapshotPath?JSON.parse(await readFile(resolve(previousSnapshotPath),'utf8')):null;
   const capturedAt=new Date().toISOString(),requestedAsOf=asOf||capturedAt;
   const signalCutoff=/^\d{4}-\d{2}-\d{2}$/.test(String(requestedAsOf))
     ?new Date(String(requestedAsOf)+'T15:00:00+08:00').toISOString():requestedAsOf;
