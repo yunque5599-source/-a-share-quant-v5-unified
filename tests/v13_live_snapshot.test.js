@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRows, isDailyBarCompleteAt, mapUniverseRowsToRankCandidates, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isEntryReadyCandidate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, buildWideNewsCandidate, flattenNewsPayload, buildStockNewsFallback, selectWideNewsScanUniverse, summarizePsychologySourceDiagnostics, markNextDayRankingReadiness } from '../research/v13-limitup-precursor/live_snapshot.js';
+import { parseRows, isDailyBarCompleteAt, mapUniverseRowsToRankCandidates, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isEntryReadyCandidate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, buildWideNewsCandidate, flattenNewsPayload, buildStockNewsFallback, selectWideNewsScanUniverse, summarizePsychologySourceDiagnostics, markNextDayRankingReadiness, shouldAttemptFullUniverseFallback } from '../research/v13-limitup-precursor/live_snapshot.js';
 import { buildNextSessionPlan, evaluateNextSessionEntry } from '../research/v13-limitup-precursor/next_session_plan.js';
 import { buildNextDayActionPlan } from '../research/v13-limitup-precursor/next_day_action_plan.js';
 
@@ -532,4 +532,13 @@ test('next-day ranking remains data-degraded after close when source coverage is
   assert.equal(rows[0].forecastStatus,'CLOSED_BAR_DATA_DEGRADED');
   assert.equal(rows[0].confidence,72);
   assert.ok(rows[0].riskFlags.some(flag=>flag.includes('数据覆盖不足')));
+});
+
+
+test('ranked-candidates HTTP failure still triggers the independent full-universe fallback',()=>{
+ assert.equal(shouldAttemptFullUniverseFallback({ranked:null,rawCount:0,rankedError:'ranked_candidates HTTP 502'}),true);
+ assert.equal(shouldAttemptFullUniverseFallback({ranked:{data:{degraded:true,candidates:[]}},rawCount:0}),true);
+ assert.equal(shouldAttemptFullUniverseFallback({ranked:{data:{serverStale:true,candidates:Array(500).fill({})}},rawCount:500}),true);
+ assert.equal(shouldAttemptFullUniverseFallback({ranked:{data:{candidates:Array(500).fill({})}},rawCount:500}),false);
+ assert.equal(shouldAttemptFullUniverseFallback({ranked:{data:{candidates:Array(120).fill({})}},rawCount:120}),true);
 });
