@@ -239,7 +239,12 @@ export function assessNextDayLimitUpCandidate(row = {}) {
     - (leaderVerified ? 0 : 7) - (flow !== null && flow < 45 ? 5 : 0)
     - (!hasRecentLimitUp && !positiveCatalyst ? 4 : 0));
   const minScore = 45;
-  if (atDailyLimit && evidenceCount < 3) failures.push('insufficient-limitup-continuation-evidence');
+  const independentContinuationEvidenceCount = [
+    closeScore,volumeScore,trend,sector,flow,leader,catalyst
+  ].filter(value => value !== null && Number.isFinite(value)).length;
+  if (atDailyLimit && independentContinuationEvidenceCount < 2) {
+    failures.push('insufficient-limitup-continuation-evidence');
+  }
   const passed = failures.length === 0 && score >= minScore;
   const stage = chosen.path === 'LIMITUP_CONTINUATION'
     ? 'NEXT_DAY_LIMITUP_CONTINUATION_WATCH'
