@@ -228,3 +228,23 @@ The actionable pre-limit-up rankings require all of the following initial guardr
 Rows that fail remain available in the candidate audit trail and `diagnosticRankings.entryGateRejected`, with explicit reasons, but are not promoted into the actionable pre-limit-up, catalyst-confirmed, or policy-confirmed rankings. If no candidate passes, the system should show no entry-ready candidates rather than force a pick.
 
 These are conservative research guardrails motivated by the October 26, 2026 audit: 大西洋 (600558) appeared in the deep-scan candidate pool only after its daily move had reached +10.1%, while 华数传媒 (000156) ranked highly despite weak sector evidence and only 40% positive historical flow periods. The gates are not a calibrated probability or a buy recommendation; their thresholds must still be evaluated in walk-forward tests.
+
+
+## Next-session action plan and prior-pick follow-through (v10)
+
+The live snapshot now emits `nextDayActionPlan`, separating a candidate's discovery rank from its next-session decision state. The scheduled workflow restores the most recent **validated** snapshot from an earlier China-local trading date and passes it to the current capture. Multiple snapshots from the same trading date are not counted as next-day follow-through.
+
+The current action states are deliberately conservative:
+
+- `MOVE_MATERIALIZED_NO_CHASE`: today's move has reached or nearly reached the board limit; log that the prior signal followed through, but do not convert it into a chase entry.
+- `EXTENDED_WAIT_PULLBACK`: the current daily move exceeds the entry cap; wait for a new setup rather than chasing.
+- `WEAKENED_REASSESS_RISK`: the stock is down more than 2% on the day; re-check the thesis, theme/flow evidence, and planned risk. The model never recommends automatic averaging down.
+- `ENTRY_TRIGGER_WATCH`: the row passes the model's entry-readiness gates and score threshold, but still requires a separately verified real-time trigger, liquidity check, and pre-defined stop. This is not an order.
+- `WATCH_ONLY`: the score or evidence gates do not justify an entry state.
+- `NOT_REASSESSED`: a prior pick is absent from today's candidate coverage. This is explicitly not counted as a failed signal.
+
+The prior-day audit includes the previous rank/score, current rank/score when available, today's return, follow-through classification, and reason. If no earlier validated snapshot is available, the output marks `CURRENT_ONLY_NO_PRIOR_SNAPSHOT` and does not fabricate a follow-through result. To run the comparison manually, pass `--previous-snapshot path/to/previous-snapshot.json` to `live_snapshot.js`.
+
+This directly addresses two different failure modes observed in the October 26, 2026 review: **a candidate that only appears after its move is extended** (大西洋, 600558, around +10.1%) and **a high-ranked candidate whose sector/flow confirmation is weak** (华数传媒, 000156, with only 40% positive historical flow periods in that audit). The first should be tracked as a signal that materialized, not chased after the fact; the second should remain watch-only unless it independently passes entry gates. A one-day loss alone is not enough to conclude that a setup failed—the audit must compare the signal timestamp, entry price, subsequent path, and predefined risk rules.
+
+The action plan is research instrumentation. It does not place orders, infer a user's actual fill price, or establish profitability.
