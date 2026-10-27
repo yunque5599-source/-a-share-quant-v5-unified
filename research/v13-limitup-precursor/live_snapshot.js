@@ -97,23 +97,32 @@ export function parseRows(rows, kind, asOf) {
   }
   return [...out.values()].sort((a,b)=>a.date.localeCompare(b.date));
 }
-export function markNextDayRankingReadiness(rows=[], dailyBarComplete=false){
+export function markNextDayRankingReadiness(rows=[], readiness=false){
+  const state=typeof readiness==='boolean'
+    ?{dailyBarComplete:readiness,dataDegraded:false}
+    :{dailyBarComplete:readiness?.dailyBarComplete===true,dataDegraded:readiness?.dataDegraded===true,
+      forecastStatus:readiness?.forecastStatus??null};
+  const forecastStatus=state.forecastStatus??(!state.dailyBarComplete?'PROVISIONAL_INTRADAY':
+    state.dataDegraded?'CLOSED_BAR_DATA_DEGRADED':'CLOSED_BAR_READY');
   return (Array.isArray(rows)?rows:[]).map(row=>{
     const existingFlags=Array.isArray(row?.riskFlags)?row.riskFlags:[];
-    if(dailyBarComplete===true){
-      return {...row,signalBarComplete:true,forecastStatus:'CLOSED_BAR_READY'};
+    if(forecastStatus==='CLOSED_BAR_READY'){
+      return {...row,signalBarComplete:true,forecastStatus};
+    }
+    if(forecastStatus==='CLOSED_BAR_DATA_DEGRADED'){
+      const warning='信号日K线已收盘，但关键数据覆盖不足；当前排名为降级观察，不可视为可靠次日涨停预测';
+      return {...row,signalBarComplete:true,forecastStatus,
+        confidence:Number(Math.max(0,(Number(row?.confidence)||0)-10).toFixed(1)),
+        riskFlags:[...new Set([...existingFlags,warning])]};
     }
     const warning='信号日K线尚未收盘；当前排名仅为盘中临时观察，不可视为次日涨停预测';
     return {
-      ...row,
-      signalBarComplete:false,
-      forecastStatus:'PROVISIONAL_INTRADAY',
+      ...row,signalBarComplete:false,forecastStatus:'PROVISIONAL_INTRADAY',
       confidence:Number(Math.max(0,(Number(row?.confidence)||0)-12).toFixed(1)),
       riskFlags:[...new Set([...existingFlags,warning])]
     };
   });
 }
-
 export function isDailyBarCompleteAt(timestamp){
   const value=Date.parse(String(timestamp??''));
   if(!Number.isFinite(value))return false;
@@ -1001,6 +1010,13 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     newsResponseCount:newsSuccessCodes.size,newsResponseCoveragePct:+(newsSuccessCodes.size/Math.max(1,funnel.length)*100).toFixed(2),
     datedNewsCandidateCount:records.filter(r=>Math.max(r.psychology.datedNewsCount??0,r.psychology.stockNewsFallback?.datedNewsCount??0)>0).length,
     datedNewsCoveragePct:+(records.filter(r=>Math.max(r.psychology.datedNewsCount??0,r.psychology.stockNewsFallback?.datedNewsCount??0)>0).length/Math.max(1,funnel.length)*100).toFixed(2),sourceErrors};
+  const nextDayDataDegraded=quality.rankedSourceDegraded===true||quality.rankedSourceStale===true
+    ||quality.deepSuccessPct<85||quality.barHistoryCoveragePct<90
+    ||quality.historicalFlowCoveragePct<85||quality.psychologyThemeCoveragePct<65
+    ||quality.sourceErrors.some(error=>/full-universe-quote-fallback|psychology_universe_degraded|all-theme-flow-requests-failed/.test(String(error)));
+  const nextDayForecastStatus=!dailyBarComplete?'PROVISIONAL_INTRADAY'
+    :nextDayDataDegraded?'CLOSED_BAR_DATA_DEGRADED':'CLOSED_BAR_READY';
+  const nextDayReadiness={dailyBarComplete,dataDegraded:nextDayDataDegraded,forecastStatus:nextDayForecastStatus};
   const diagnosticRankings={overall:balancedBlend,catalystConfirmed,policyConfirmed,combinedOverall:overall,
     preBreakoutWatch:preBreakoutResult.ranking,preBreakoutAssessed:preBreakoutResult.assessed.slice(0,60),
     limitUpIgnitionWatch:limitUpIgnitionResult.ranking,limitUpIgnitionAssessed:limitUpIgnitionResult.assessed.slice(0,80),
@@ -1015,7 +1031,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     coreSelectionAssessed:coreSelectionResult.assessed.slice(0,50)};
   const snapshot={schema:'v13-live-psychology-catalyst-snapshot-v1',modelVersion:MODEL_VERSION,
     snapshotId:'v13-'+capturedAt.replace(/[-:.TZ]/g,''),capturedAt,asOf:requestedAsOf,
-    nextDayForecastStatus:dailyBarComplete?'CLOSED_BAR_READY':'PROVISIONAL_INTRADAY',
+    nextDayForecastStatus,
     marketRegime,policyFramework:{catalogVersion:POLICY_CATALOG_VERSION,reviewedAt:POLICY_CATALOG_REVIEWED_AT,
       officialPolicyCount:OFFICIAL_POLICIES.length,companySpecificSubsidyClaim:false,
       catalogStale:Date.now()-Date.parse(POLICY_CATALOG_REVIEWED_AT)>14*86400000},
@@ -1060,7 +1076,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       coreSelection:coreSelectionResult.ranking,
       preBreakoutWatch:preBreakoutResult.ranking,
       limitUpIgnitionWatch:limitUpIgnitionResult.ranking,
-      nextDayLimitUpWatch:markNextDayRankingReadiness(nextDayLimitUpResult.ranking,dailyBarComplete),
+      nextDayLimitUpWatch:markNextDayRankingReadiness(nextDayLimitUpResult.ranking,nextDayReadiness),
       overall,
       catalystConfirmed,
       policyConfirmed,
