@@ -26,7 +26,12 @@ export default async function handler(req, res) {
     const emotionRepair = Array.isArray(snapshot?.rankings?.emotionRepair) ? snapshot.rankings.emotionRepair : [];
     const oversold = Array.isArray(snapshot?.rankings?.oversold) ? snapshot.rankings.oversold : [];
     const preBreakout = Array.isArray(snapshot?.rankings?.preBreakoutWatch) ? snapshot.rankings.preBreakoutWatch : [];
-    const compact = (rows, lane) => rows.slice(0, 12).map((row, index) => ({
+    const actionPlan = snapshot?.nextDayActionPlan ?? {};
+    const actionByCode = new Map((Array.isArray(actionPlan.currentActions) ? actionPlan.currentActions : [])
+      .map(item => [String(item?.code ?? ''), item]));
+    const compact = (rows, lane) => rows.slice(0, 12).map((row, index) => {
+      const nextAction = actionByCode.get(String(row?.code ?? '')) ?? {};
+      return ({
       rank: Number(row?.rank) || index + 1,
       code: String(row?.code ?? ''),
       name: String(row?.name ?? row?.code ?? ''),
@@ -57,8 +62,14 @@ export default async function handler(req, res) {
       policyEvidenceAvailable: row?.policyAlignment?.evidenceAvailable === true,
       catalystEvidence: (row?.catalystEvidence ?? []).slice(0, 2),
       riskFlags: row?.riskFlags ?? [],
-      executionEligible: row?.executionEligible === true
-    }));
+      executionEligible: row?.executionEligible === true,
+      entryEligible: row?.entryEligible === true,
+      entryGateReasons: Array.isArray(row?.entryGateReasons) ? row.entryGateReasons.slice(0, 8) : [],
+      nextDayAction: nextAction.action ?? null,
+      nextDayActionLabel: nextAction.label ?? null,
+      nextDayActionReason: nextAction.reason ?? null
+    });
+    });
     const compactPreBreakout = preBreakout.slice(0, 15).map((row, index) => ({
       rank: Number(row?.rank) || index + 1,
       code: String(row?.code ?? ''),
@@ -94,6 +105,13 @@ export default async function handler(req, res) {
       coverage: snapshot?.coverage ?? {},
       selectionSummary: snapshot?.selectionSummary ?? {},
       preBreakoutSummary: snapshot?.preBreakoutSummary ?? {},
+      nextDayActionPlan: {
+        status: actionPlan.status ?? 'CURRENT_ONLY_NO_PRIOR_SNAPSHOT',
+        summary: actionPlan.summary ?? {},
+        priorSnapshotAvailable: actionPlan.priorSnapshotAvailable === true,
+        currentActions: compact(Array.isArray(actionPlan.currentActions) ? actionPlan.currentActions : [], 'next-day-action-plan'),
+        priorDayFollowThrough: Array.isArray(actionPlan.priorDayFollowThrough) ? actionPlan.priorDayFollowThrough.slice(0, 15) : []
+      },
       preBreakoutRanking: compactPreBreakout,
       preBreakoutPolicy: 'Pre-breakout observation only: compressed base near prior 20-day high, trend turn, sustained flow, sector strength, and dated policy/leader evidence. Wait for a close above resistance with volume/flow/sector confirmation; no buy order is authorized.',
       selectionPolicy: 'Four-layer strict selection: market regime; policy/trend/relative strength/theme leadership/sustained capital flow; risk-reward and overnight risk; decision tier. No candidates are added to fill empty slots.',
