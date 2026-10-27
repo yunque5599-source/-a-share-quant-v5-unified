@@ -56,6 +56,14 @@ function limitThresholdPct(code) {
   if (board === 'BSE') return 28.5;
   return 9.3;
 }
+
+function entryMoveCapPct(board) {
+  // Entry eligibility is intentionally stricter than discovery: don't treat a
+  // candidate already close to its daily price limit as a pre-breakout entry.
+  if (board === 'CHINEXT' || board === 'STAR') return 15.0;
+  if (board === 'BSE') return 22.5;
+  return 7.5;
+}
 function cleanDatedRows(rows, asOf, kind) {
   const cutoff = asOf ? String(asOf).slice(0, 10) : '';
   const normalized = [];
@@ -437,8 +445,22 @@ function scoreCandidate(candidate, options = {}) {
     + (Number.isFinite(f.amount) ? 6 : 0)
     + (Number.isFinite(f.turnoverRate) ? 6 : 0));
   const discoveryEligible = !risk.excluded;
+  // Preserve executionEligible as a board/account-permission check. A separate
+  // entryEligible gate prevents a high discovery score from being mistaken for
+  // an actionable entry when the move is extended or evidence is weak.
   const executionEligible = discoveryEligible && allowedBoards.includes(board) && candidate.executionEligible !== false;
   const tradeabilityReason = !discoveryEligible ? risk.reason : executionEligible ? null : 'BOARD_OR_ACCOUNT_PERMISSION:' + board;
+  const entryGateReasons = [];
+  if (!discoveryEligible) entryGateReasons.push('restricted-or-excluded');
+  if (!executionEligible) entryGateReasons.push('board-or-account-permission');
+  if (f.currentPct > entryMoveCapPct(board)) entryGateReasons.push('daily-move-too-extended');
+  if (f.sectorFieldsPresent < 2) entryGateReasons.push('sector-evidence-insufficient');
+  if (f.flowCount < 5 || !Number.isFinite(f.flowPositiveShare) || f.flowPositiveShare < 0.6 || f.mainNet5 <= 0) {
+    entryGateReasons.push('sustained-flow-confirmation-insufficient');
+  }
+  if (score < 60) entryGateReasons.push('score-below-entry-threshold');
+  if (confidence < 65) entryGateReasons.push('data-confidence-low');
+  const entryEligible = entryGateReasons.length === 0;
   const setup = scorePath === 'early-turn'
     ? '底部转强候选'
     : modelVariant === 'v13-current'
@@ -465,6 +487,7 @@ function scoreCandidate(candidate, options = {}) {
     policyAlignment,
     leaderEvidence: candidate.leaderEvidence ?? null,
     horizonTradingDays: [1, 5], discoveryEligible, executionEligible,
+    entryEligible, entryGateReasons,
     tradeabilityReason,
     components: {
       trend: Number(trend.toFixed(1)), volumePrice: Number(volumePrice.toFixed(1)),
