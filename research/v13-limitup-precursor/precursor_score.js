@@ -217,7 +217,7 @@ function volumePriceScore(f) {
 }
 function flowScore(f) {
   if (f.flowCount === 0) {
-    if(!f.currentFlowAvailable)return 45;
+    if(!f.currentFlowAvailable)return null;
     const direction=Number.isFinite(f.currentMainNetSnapshot)?(f.currentMainNetSnapshot>0?70:f.currentMainNetSnapshot<0?30:50):50;
     const ratio=Number.isFinite(f.currentMainPctSnapshot)?ramp(f.currentMainPctSnapshot,-1.5,4.5):50;
     const oneDay=0.55*direction+0.45*ratio;
@@ -243,7 +243,7 @@ function sectorScore(f) {
   if (finite(s.leaderScore)) parts.push([clamp(Number(s.leaderScore)), 0.14]);
   if (finite(s.catalystScore)) parts.push([clamp(Number(s.catalystScore)), 0.08]);
   if (finite(s.themeHeat)) parts.push([clamp(Number(s.themeHeat)), 0.04]);
-  if (!parts.length) return 45;
+  if (!parts.length) return null;
   const weight = sum(parts.map(part => part[1]));
   return clamp(parts.reduce((total, part) => total + part[0] * part[1], 0) / weight);
 }
@@ -488,6 +488,11 @@ function scoreCandidate(candidate, options = {}) {
     leaderEvidence: candidate.leaderEvidence ?? null,
     horizonTradingDays: [1, 5], discoveryEligible, executionEligible,
     entryEligible, entryGateReasons,
+    evidence: {
+      flow: {status: f.flowCount > 0 ? 'historical' : f.currentFlowAvailable ? 'quote-snapshot-only' : 'missing', historicalCount: f.flowCount, currentSnapshot: f.currentFlowAvailable},
+      sector: {status: f.sectorFieldsPresent >= 2 ? 'available' : f.sectorFieldsPresent > 0 ? 'partial' : 'missing', fieldsPresent: f.sectorFieldsPresent},
+      leader: {status: candidate.leaderEvidence?.source ? 'provided' : 'missing'}
+    },
     tradeabilityReason,
     components: {
       trend: Number(trend.toFixed(1)), volumePrice: Number(volumePrice.toFixed(1)),
@@ -512,6 +517,8 @@ function scoreCandidate(candidate, options = {}) {
       atrProxyPct: Number.isFinite(f.atrProxyPct) ? Number(f.atrProxyPct.toFixed(2)) : null,
       barCount: f.bars.length,
       flowCount: f.flowCount,
+      sectorFieldsPresent: f.sectorFieldsPresent,
+      flowEvidenceStatus: f.flowCount > 0 ? 'historical' : f.currentFlowAvailable ? 'quote-snapshot-only' : 'missing',
       flowPositiveShare: Number.isFinite(f.flowPositiveShare) ? Number(f.flowPositiveShare.toFixed(2)) : null,
       amount5Avg: Number.isFinite(f.amount5Avg) ? Number(f.amount5Avg.toFixed(0)) : null,
       mainNet3: Number(f.mainNet3.toFixed(0)),
