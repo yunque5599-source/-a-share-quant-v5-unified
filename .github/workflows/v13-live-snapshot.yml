@@ -11,6 +11,7 @@ on:
       - 'research/v13-limitup-precursor/policy_alignment.js'
       - 'research/v13-limitup-precursor/pre_breakout.js'
       - 'research/v13-limitup-precursor/next_day_action_plan.js'
+      - 'research/v13-limitup-precursor/next_day_limitup.js'
       - 'api/psychology_universe.js'
       - '.github/workflows/v13-live-snapshot.yml'
   schedule:
