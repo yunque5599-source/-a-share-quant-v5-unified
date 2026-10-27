@@ -27,6 +27,7 @@ export default async function handler(req, res) {
     const oversold = Array.isArray(snapshot?.rankings?.oversold) ? snapshot.rankings.oversold : [];
     const preBreakout = Array.isArray(snapshot?.rankings?.preBreakoutWatch) ? snapshot.rankings.preBreakoutWatch : [];
     const limitUpIgnition = Array.isArray(snapshot?.rankings?.limitUpIgnitionWatch) ? snapshot.rankings.limitUpIgnitionWatch : [];
+    const nextDayLimitUp = Array.isArray(snapshot?.rankings?.nextDayLimitUpWatch) ? snapshot.rankings.nextDayLimitUpWatch : [];
     const actionPlan = snapshot?.nextDayActionPlan ?? {};
     const actionByCode = new Map((Array.isArray(actionPlan.currentActions) ? actionPlan.currentActions : [])
       .map(item => [String(item?.code ?? ''), item]));
@@ -109,6 +110,27 @@ export default async function handler(req, res) {
       nextSessionChecklist: Array.isArray(row?.nextSessionChecklist) ? row.nextSessionChecklist : [],
       method: row?.method ?? 'heuristic-continuation-ranking-not-a-calibrated-limit-up-probability'
     }));
+    const compactNextDayLimitUp = nextDayLimitUp.slice(0, 20).map((row, index) => ({
+      rank:Number(row?.rank)||index+1,
+      code:String(row?.code??''),
+      name:String(row?.name??row?.code??''),
+      board:row?.board??null,
+      currentPct:Number.isFinite(Number(row?.currentPct))?Number(row.currentPct):null,
+      score:Number.isFinite(Number(row?.score))?Number(row.score):null,
+      confidence:Number.isFinite(Number(row?.confidence))?Number(row.confidence):null,
+      path:row?.path??null,
+      stage:row?.stage??null,
+      themeName:row?.themeName??null,
+      leaderVerified:row?.leaderVerified===true,
+      signalBarComplete:row?.signalBarComplete===true,
+      forecastStatus:row?.forecastStatus??snapshot?.nextDayForecastStatus??'UNKNOWN',
+      components:row?.components??{},
+      evidence:row?.evidence??{},
+      riskFlags:Array.isArray(row?.riskFlags)?row.riskFlags.slice(0,6):[],
+      failedGates:Array.isArray(row?.failedGates)?row.failedGates.slice(0,5):[],
+      action:row?.action??'WATCH_NEXT_SESSION_CONFIRMATION',
+      method:row?.method??'dual-path-next-session-limit-up-ranking-not-a-calibrated-probability'
+    }));
     return json(res, 200, {
       schema: 'v13-prelimitup-watch-v1',
       status: snapshot?.recommendationsAvailable ? 'OBSERVATION_READY' : 'OBSERVATION_ONLY_QUALITY_GATE',
@@ -117,6 +139,14 @@ export default async function handler(req, res) {
       executionAllowed: false,
       capturedAt: snapshot?.capturedAt ?? new Date().toISOString(),
       asOf: snapshot?.asOf ?? null,
+      nextDayForecastStatus:snapshot?.nextDayForecastStatus??'UNKNOWN',
+      nextDayLimitUpSummary:snapshot?.coverage?{
+        assessedCount:Number(snapshot.coverage.nextDayLimitUpAssessedCount)||0,
+        passedGateCount:Number(snapshot.coverage.nextDayLimitUpPassedGateCount)||0,
+        returnedCount:Number(snapshot.coverage.nextDayLimitUpWatchCount)||0,
+        continuationCount:Number(snapshot.coverage.nextDayLimitUpContinuationCount)||0,
+        prebreakoutCount:Number(snapshot.coverage.nextDayLimitUpPrebreakoutCount)||0
+      }:{},
       marketRegime: snapshot?.marketRegime ?? null,
       policyFramework: snapshot?.policyFramework ?? null,
       elapsedMs: Date.now() - startedAt,
@@ -126,6 +156,8 @@ export default async function handler(req, res) {
       preBreakoutSummary: snapshot?.preBreakoutSummary ?? {},
       limitUpIgnitionSummary: snapshot?.limitUpIgnitionSummary ?? {},
       limitUpIgnitionRanking: compactLimitUpIgnition,
+      nextDayLimitUpRanking:compactNextDayLimitUp,
+      nextDayLimitUpPolicy:'Dual-path next-session observation ranking. Before the daily bar closes it is provisional intraday only; after close it is still a heuristic watchlist, not a calibrated probability or buy signal.',
       limitUpIgnitionPolicy: 'Momentum-continuation watch only; not a calibrated probability or buy signal. Confirm next-session sector breadth, order-book/volume support and risk before any decision; do not chase a locked limit-up.',
       nextDayActionPlan: {
         status: actionPlan.status ?? 'CURRENT_ONLY_NO_PRIOR_SNAPSHOT',
