@@ -125,6 +125,8 @@ export function assessNextDayLimitUpCandidate(row = {}) {
   const board = inferBoard(code, row.board);
   const limitPct = limitPctForBoard(board);
   const pct = n(row.quote?.pct ?? row.currentPct);
+  const atDailyLimit = pct !== null && limitPct !== null
+    && pct >= limitPct - 0.4 && pct <= limitPct + 0.4;
   const f = row.features ?? {};
   const c = row.components ?? {};
   const failures = [];
@@ -132,7 +134,6 @@ export function assessNextDayLimitUpCandidate(row = {}) {
   if (!/^\d{6}$/.test(code) || limitPct === null) failures.push('unsupported-board-or-code');
   if (isRestricted(row)) failures.push('restricted-listing-name');
   if (pct === null) failures.push('missing-current-session-return');
-  if (pct !== null && limitPct !== null && pct >= limitPct - 0.05) failures.push('already-at-daily-limit');
 
   const r3 = n(f.r3Pct), r5 = n(f.r5Pct), r10 = n(f.r10Pct);
   const closeLocation = n(f.closeLocation);
@@ -158,11 +159,16 @@ export function assessNextDayLimitUpCandidate(row = {}) {
   const closeScore = closeLocation === null ? null : clamp(closeLocation * 100);
   const volumeScore = band(volumeExpansion, 1.15, 2.6, 0.45, 4.5);
   const proximityScore = distHigh20 === null ? null : band(distHigh20, -5, 1.5, -22, 10);
-  const priorLimitUpScore = recentLimitUp5 !== null
+  const historicalLimitUpScore = recentLimitUp5 !== null
     ? clamp(45 + Math.min(Math.max(recentLimitUp5, 0), 2) * 20
       + Math.min(Math.max((recentLimitUp10 ?? recentLimitUp5) - recentLimitUp5, 0), 3) * 5
       - Math.max(recentLimitUp5 - 3, 0) * 12)
     : recentLimitUp10 !== null ? clamp(45 + Math.min(Math.max(recentLimitUp10, 0), 3) * 9) : null;
+  // Today's confirmed limit-up is itself a continuation event, even if the
+  // historical feature window has not yet incorporated the current session.
+  const priorLimitUpScore = atDailyLimit
+    ? Math.max(historicalLimitUpScore ?? 0, 82)
+    : historicalLimitUpScore;
   const impulsePotential = impulsePotentialScore(row, priorLimitUpScore);
 
   const continuation = weightedScore([
@@ -175,13 +181,23 @@ export function assessNextDayLimitUpCandidate(row = {}) {
     [trend,0.14],[breakoutMove,0.08],[sector,0.11],
     [flow,0.10],[leader,0.03],[catalyst,0.05],[impulsePotential,0.08]
   ]);
-  const chosen = (breakout.score ?? -Infinity) > (continuation.score ?? -Infinity)
-    ? {...breakout, path:'PREBREAKOUT'}
-    : {...continuation, path:'CONTINUATION'};
+  // A stock already locked at its board limit cannot be bought as a same-day
+  // breakout, but is a material candidate for a next-session continuation.
+  const lockedContinuation = weightedScore([
+    [priorLimitUpScore,0.18],[closeScore,0.12],[volumeScore,0.12],
+    [trend,0.12],[sector,0.12],[flow,0.12],
+    [leader,0.10],[catalyst,0.06],[impulsePotential,0.06]
+  ]);
+  const chosen = atDailyLimit
+    ? {...lockedContinuation, path:'LIMITUP_CONTINUATION'}
+    : (breakout.score ?? -Infinity) > (continuation.score ?? -Infinity)
+      ? {...breakout, path:'PREBREAKOUT'}
+      : {...continuation, path:'CONTINUATION'};
   let score = chosen.score;
   if (score === null) score = 0;
   const riskFlags = [];
-  if (pct !== null && limitPct !== null && pct / limitPct >= 0.78) riskFlags.push('当日涨幅已接近涨停区间，次日高开与追涨风险偏高');
+  if (atDailyLimit) riskFlags.push('当日已触及涨停区间；此路径仅评估次日连板/延续，不代表可在封板价买入，需警惕一字板、炸板和次日分歧');
+  else if (pct !== null && limitPct !== null && pct / limitPct >= 0.78) riskFlags.push('当日涨幅已接近涨停区间，次日高开与追涨风险偏高');
   if (r5 !== null && r5 > 18) riskFlags.push('近5日涨幅偏大，存在短线过热风险');
   if (r3 !== null && r5 !== null && r3 < -3 && r5 < -5) {
     score = Math.max(0, score - 14);
@@ -223,20 +239,26 @@ export function assessNextDayLimitUpCandidate(row = {}) {
     - (leaderVerified ? 0 : 7) - (flow !== null && flow < 45 ? 5 : 0)
     - (!hasRecentLimitUp && !positiveCatalyst ? 4 : 0));
   const minScore = 45;
+  if (atDailyLimit && evidenceCount < 3) failures.push('insufficient-limitup-continuation-evidence');
   const passed = failures.length === 0 && score >= minScore;
-  const stage = chosen.path === 'CONTINUATION'
-    ? 'NEXT_DAY_CONTINUATION_WATCH'
-    : 'NEXT_DAY_PREBREAKOUT_WATCH';
+  const stage = chosen.path === 'LIMITUP_CONTINUATION'
+    ? 'NEXT_DAY_LIMITUP_CONTINUATION_WATCH'
+    : chosen.path === 'CONTINUATION'
+      ? 'NEXT_DAY_CONTINUATION_WATCH'
+      : 'NEXT_DAY_PREBREAKOUT_WATCH';
 
   return {
     code,name,board,asOf:row.asOf??null,
     themeName:row.leaderEvidence?.themeName??row.psychology?.primaryTheme??null,
     currentPct:pct,
+    atDailyLimit,
+    forecastHorizon:'NEXT_SESSION',
     score:Number(score.toFixed(1)),
     confidence:Number(confidence.toFixed(1)),
     stage,path:chosen.path,passed,leaderVerified,
     components:{
       continuationScore:continuation.score===null?null:Number(continuation.score.toFixed(1)),
+      limitUpContinuationScore:lockedContinuation.score===null?null:Number(lockedContinuation.score.toFixed(1)),
       prebreakoutScore:breakout.score===null?null:Number(breakout.score.toFixed(1)),
       dailyMove:moveRatio===null?null:Number((clamp(moveRatio*100)).toFixed(1)),
       closeStrength:closeScore===null?null:Number(closeScore.toFixed(1)),
@@ -278,7 +300,12 @@ export function rankNextDayLimitUpCandidates(rows = [], options = {}) {
       passedGateCount:eligible.length,
       returnedCount:ranking.length,
       continuationCount:ranking.filter(row=>row.path==='CONTINUATION').length,
+      limitUpContinuationCount:ranking.filter(row=>row.path==='LIMITUP_CONTINUATION').length,
       prebreakoutCount:ranking.filter(row=>row.path==='PREBREAKOUT').length,
+      atLimitAssessedCount:assessed.filter(row=>row.atDailyLimit).length,
+      atLimitPassedGateCount:assessed.filter(row=>row.atDailyLimit&&row.passed).length,
+      failedGateCounts:Object.fromEntries(assessed.flatMap(row=>row.failedGates).reduce((map,key)=>map.set(key,(map.get(key)??0)+1),new Map())),
+      scoreRejectedCount:assessed.filter(row=>row.failedGates.length===0&&row.score<minScore).length,
       observationOnly:true,
       calibratedProbability:false,
       entrySignal:false
