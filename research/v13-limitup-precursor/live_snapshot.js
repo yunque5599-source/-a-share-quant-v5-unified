@@ -97,6 +97,23 @@ export function parseRows(rows, kind, asOf) {
   }
   return [...out.values()].sort((a,b)=>a.date.localeCompare(b.date));
 }
+export function markNextDayRankingReadiness(rows=[], dailyBarComplete=false){
+  return (Array.isArray(rows)?rows:[]).map(row=>{
+    const existingFlags=Array.isArray(row?.riskFlags)?row.riskFlags:[];
+    if(dailyBarComplete===true){
+      return {...row,signalBarComplete:true,forecastStatus:'CLOSED_BAR_READY'};
+    }
+    const warning='信号日K线尚未收盘；当前排名仅为盘中临时观察，不可视为次日涨停预测';
+    return {
+      ...row,
+      signalBarComplete:false,
+      forecastStatus:'PROVISIONAL_INTRADAY',
+      confidence:Number(Math.max(0,(Number(row?.confidence)||0)-12).toFixed(1)),
+      riskFlags:[...new Set([...existingFlags,warning])]
+    };
+  });
+}
+
 export function isDailyBarCompleteAt(timestamp){
   const value=Date.parse(String(timestamp??''));
   if(!Number.isFinite(value))return false;
@@ -982,6 +999,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     coreSelectionAssessed:coreSelectionResult.assessed.slice(0,50)};
   const snapshot={schema:'v13-live-psychology-catalyst-snapshot-v1',modelVersion:MODEL_VERSION,
     snapshotId:'v13-'+capturedAt.replace(/[-:.TZ]/g,''),capturedAt,asOf:requestedAsOf,
+    nextDayForecastStatus:dailyBarComplete?'CLOSED_BAR_READY':'PROVISIONAL_INTRADAY',
     marketRegime,policyFramework:{catalogVersion:POLICY_CATALOG_VERSION,reviewedAt:POLICY_CATALOG_REVIEWED_AT,
       officialPolicyCount:OFFICIAL_POLICIES.length,companySpecificSubsidyClaim:false,
       catalogStale:Date.now()-Date.parse(POLICY_CATALOG_REVIEWED_AT)>14*86400000},
@@ -1026,7 +1044,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       coreSelection:coreSelectionResult.ranking,
       preBreakoutWatch:preBreakoutResult.ranking,
       limitUpIgnitionWatch:limitUpIgnitionResult.ranking,
-      nextDayLimitUpWatch:nextDayLimitUpResult.ranking,
+      nextDayLimitUpWatch:markNextDayRankingReadiness(nextDayLimitUpResult.ranking,dailyBarComplete),
       overall,
       catalystConfirmed,
       policyConfirmed,
@@ -1063,6 +1081,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const output=resolve(out||'output/v13-live-snapshots/'+snapshot.snapshotId+'.json');await mkdir(dirname(output),{recursive:true});await writeFile(output,JSON.stringify(finalSnapshot,null,2));
   console.log(JSON.stringify({snapshotId:finalSnapshot.snapshotId,capturedAt,asOf:requestedAsOf,
     recommendationStatus:finalSnapshot.recommendationStatus,recommendationsAvailable:finalSnapshot.recommendationsAvailable,
+    nextDayForecastStatus:finalSnapshot.nextDayForecastStatus,
     marketRegime:finalSnapshot.marketRegime,policyFramework:finalSnapshot.policyFramework,quality:finalSnapshot.quality,
     selectionSummary:finalSnapshot.selectionSummary,
     preBreakoutSummary:finalSnapshot.preBreakoutSummary,
