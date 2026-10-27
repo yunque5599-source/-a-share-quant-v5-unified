@@ -270,10 +270,12 @@ test('psychology source diagnostics aggregate providers and preserve degraded ba
  const summary=summarizePsychologySourceDiagnostics([
   {batchIndex:1,codes:['000001','600000'],status:'SOURCE_COVERAGE_AVAILABLE',degraded:false,
    conceptSource:'eastmoney',membershipSource:'eastmoney',quoteSource:'eastmoney',
+   conceptRankingCacheHit:false,conceptRankingCacheAgeMs:0,
    requestedCodes:2,conceptRows:100,quoteRows:2,themeCount:4,researchThemes:3,
    membershipFailures:0,flowFailures:0,researchFailures:1,sourceFailures:[],sourceWarnings:[]},
   {batchIndex:2,codes:['600519'],status:'DEGRADED_SOURCE_COVERAGE',degraded:true,
    conceptSource:'sina-node-aggregate',membershipSource:'10jqka-stock-concepts-mapped-to-sina',quoteSource:'tencent',
+   conceptRankingCacheHit:true,conceptRankingCacheAgeMs:1500,
    requestedCodes:1,conceptRows:5,quoteRows:1,themeCount:2,researchThemes:2,
    membershipFailures:1,flowFailures:2,researchFailures:1,
    sourceFailures:['concept-ranking-eastmoney: unavailable'],sourceWarnings:['sampled board constituents']}
@@ -285,6 +287,9 @@ test('psychology source diagnostics aggregate providers and preserve degraded ba
  assert.equal(summary.totals.requestedCodes,3);
  assert.equal(summary.totals.conceptRows,105);
  assert.equal(summary.totals.flowFailures,2);
+ assert.equal(summary.totals.conceptRankingCacheHitCount,1);
  assert.equal(summary.batches[0].candidateCount,2);
+ assert.equal(summary.batches[1].conceptRankingCacheHit,true);
+ assert.equal(summary.batches[1].conceptRankingCacheAgeMs,1500);
  assert.deepEqual(summary.batches[1].sourceWarnings,['sampled board constituents']);
 });
