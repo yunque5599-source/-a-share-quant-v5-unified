@@ -55,14 +55,14 @@ async function fetchParsed(url, timeoutMs = 7000, referer = 'https://quote.eastm
 
 function decodeResponseText(buffer, contentType = '') {
   const bytes = buffer instanceof Uint8Array ? buffer : new Uint8Array(buffer);
-  const declared = String(contentType).match(/charset\\s*=\\s*["']?([^\\s;"']+)/i)?.[1]?.toLowerCase();
+  const declared = String(contentType).match(/charset\s*=\s*["']?([^\s;"']+)/i)?.[1]?.toLowerCase();
   const encodings = [...new Set([declared, 'utf-8', 'gbk'].filter(Boolean))];
   let bestText = '';
   let bestReplacementCount = Infinity;
   for (const encoding of encodings) {
     try {
       const decoded = new TextDecoder(encoding).decode(bytes);
-      const replacementCount = (decoded.match(/\\uFFFD/g) ?? []).length;
+      const replacementCount = (decoded.match(/\uFFFD/g) ?? []).length;
       if (replacementCount < bestReplacementCount) {
         bestText = decoded;
         bestReplacementCount = replacementCount;
