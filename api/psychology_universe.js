@@ -718,16 +718,18 @@ function enrichTheme(base, flowRows, memberRows, newsRows, candidatePct, candida
   const memberCount = base.memberCount ??
     ((base.upCount ?? 0) + (base.downCount ?? 0) + (base.flatCount ?? 0));
   const resolvedCandidateCode = String(candidateCode ?? '').trim();
-  const candidateRankIndex = resolvedCandidateCode
+  const sampledFallback = base.provider === 'sina+10jqka';
+  const candidateRankIndex = !sampledFallback && resolvedCandidateCode
     ? members.findIndex(row => row.code === candidateCode) : -1;
-  const memberLeader = members[0] ?? null;
-  const leaderCode = base.leaderCode || memberLeader?.code || null;
-  const leaderName = base.leaderName || memberLeader?.name || null;
-  const leaderChangePct = base.leaderChangePct ?? memberLeader?.pct ?? null;
-  const leaderStatus = resolvedCandidateCode && resolvedCandidateCode === leaderCode ? 'leader' :
+  const memberLeader = sampledFallback ? null : members[0] ?? null;
+  const leaderCode = sampledFallback ? null : base.leaderCode || memberLeader?.code || null;
+  const leaderName = sampledFallback ? null : base.leaderName || memberLeader?.name || null;
+  const leaderChangePct = sampledFallback ? null : base.leaderChangePct ?? memberLeader?.pct ?? null;
+  const leaderStatus = sampledFallback ? null :
+    resolvedCandidateCode && resolvedCandidateCode === leaderCode ? 'leader' :
     candidateRankIndex >= 0 && candidateRankIndex < 3 ? 'core' :
     candidateRankIndex >= 0 && candidateRankIndex < 5 ? 'front' : 'follower';
-  const candidatePremiumPct = candidatePct !== null && base.changePct !== null
+  const candidatePremiumPct = !sampledFallback && candidatePct !== null && base.changePct !== null
     ? candidatePct - base.changePct : null;
   const research = buildAutomaticPsychologyResearch({
     ...base,
@@ -792,6 +794,7 @@ function enrichTheme(base, flowRows, memberRows, newsRows, candidatePct, candida
       conceptRanking:true,
       changePctMethod:base.changePctMethod ?? 'provider-board-quote',
       memberCoverage:base.memberCoverage ?? 'provider-member-list',
+      leaderEvidenceQuality:sampledFallback ? 'sample-only-not-qualified' : 'provider-board-members',
       membership:memberRows.length > 0,
       themeMembers:memberRows.length > 0,
       news:true,
@@ -830,7 +833,8 @@ export const _internal = {
   fetchThsStockConcepts,
   fetchSinaConceptNodes,
   fetchSinaNodeMembers,
-  fetchSinaThsConceptFallback
+  fetchSinaThsConceptFallback,
+  enrichTheme
 };
 
 export default async function handler(req, res) {
