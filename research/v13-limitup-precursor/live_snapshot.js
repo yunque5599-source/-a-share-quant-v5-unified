@@ -10,7 +10,7 @@ import { scorePolicyAlignment, deriveMarketRegime, OFFICIAL_POLICIES, POLICY_CAT
 import { rankCoreSelection } from './core_selection.js';
 import { rankPreBreakoutCandidates } from './pre_breakout.js';
 
-const MODEL_VERSION = 'V13-live-four-layer-core-leader-selection-v8-source-cache-diagnostics';
+const MODEL_VERSION = 'V13-live-four-layer-core-leader-selection-v9-entry-gates';
 const n = v => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
 const clamp = (v, lo=0, hi=100) => Math.max(lo, Math.min(hi, v));
 const avg = xs => { const a=xs.filter(Number.isFinite); return a.length ? a.reduce((x,y)=>x+y,0)/a.length : null; };
@@ -410,6 +410,10 @@ export function validateLiveSnapshot(s={}){
   if(newsFallback)warnings.push('theme psychology coverage is below 70%; only timestamp-verified headline news is available as fallback');
   return {valid,status,reasons,...(warnings.length?{warnings}:{})};
 }
+export function isEntryReadyCandidate(row={}) {
+  return row.entryEligible === true;
+}
+
 export function isPreLimitUpCandidate(row={},early=null){
   const code=String(row.code??'');
   const board=boardForCode(code);
@@ -804,7 +808,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       components:opportunity.components,metrics:opportunity.metrics,reasons:opportunity.reasons};
   }).filter(Boolean).sort((a,b)=>b.score-a.score||b.confidence-a.confidence);
   const earlyByCode=new Map(earlyRows.map(r=>[r.code,r]));
-  const preLimitUpScores=rankedScores.filter(row=>isPreLimitUpCandidate(row,earlyByCode.get(row.code)));
+  const preLimitUpScores=rankedScores.filter(row=>isEntryReadyCandidate(row)&&isPreLimitUpCandidate(row,earlyByCode.get(row.code)));
   const eligibleCodes=new Set(preLimitUpScores.map(row=>row.code));
   const coreSelectionResult=rankCoreSelection(rankedScores,{marketRegime,eligibleCodes,maxResults:5});
   const preBreakoutResult=rankPreBreakoutCandidates(rankedScores,earlyByCode,{maxResults:15,minScore:60});
@@ -830,7 +834,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       classifiedHeadlineCount:overlay.classifiedHeadlineCount??0,
       positiveHeadlineCount:overlay.positiveHeadlineCount??0,negativeHeadlineCount:overlay.negativeHeadlineCount??0,
       catalystEvidence:overlay.catalystEvidence??[],timestampVerified:true,baseScore:base?.score??null,
-      preLimitUpEligible:base?isPreLimitUpCandidate(base,early):false};
+      preLimitUpEligible:base?isEntryReadyCandidate(base)&&isPreLimitUpCandidate(base,early):false};
   }).filter(Boolean);
   const catalystConfirmed=catalystRows.map(row=>scoreCatalystConfirmed({
     ...row, base:scoreByCode.get(row.code), psychology:recordByCode.get(row.code)?.psychology,
@@ -890,6 +894,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     datedNewsCoveragePct:+(records.filter(r=>Math.max(r.psychology.datedNewsCount??0,r.psychology.stockNewsFallback?.datedNewsCount??0)>0).length/Math.max(1,funnel.length)*100).toFixed(2),sourceErrors};
   const diagnosticRankings={overall:balancedBlend,catalystConfirmed,policyConfirmed,combinedOverall:overall,
     preBreakoutWatch:preBreakoutResult.ranking,preBreakoutAssessed:preBreakoutResult.assessed.slice(0,60),
+    entryGateRejected:rankedScores.filter(row=>!isEntryReadyCandidate(row)).sort((a,b)=>b.score-a.score).slice(0,50),
     trendTransition:rankedScores.slice(0,20),
     emotionRepair:rankedScores.filter(r=>Number(r.components?.emotionRepair)>=65).sort((a,b)=>Number(b.components.emotionRepair)-Number(a.components.emotionRepair)).slice(0,20),
     oversold:rankedScores.filter(r=>Number(r.components?.oversoldReversal)>=65).sort((a,b)=>Number(b.components.oversoldReversal)-Number(a.components.oversoldReversal)).slice(0,20),
@@ -910,7 +915,10 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       rankedUniverseFallback:fullUniverseFallback.used?'eastmoney-full-universe-live-quote-fallback':null,
       brokerConnected:false,automaticOrderPlacement:false},
     quality:{},coverage:{rawRankedCandidates:raw.length,funnelCandidates:funnel.length,scoredCandidates:rankedScores.length,
-      preLimitUpEligibleCount:preLimitUpScores.length,earlyOpportunityCandidates:earlyRows.length,balancedBlendCount:balancedBlend.length,
+      preLimitUpEligibleCount:preLimitUpScores.length,
+      entryReadyCandidateCount:rankedScores.filter(isEntryReadyCandidate).length,
+      entryGateRejectedCandidateCount:rankedScores.filter(row=>!isEntryReadyCandidate(row)).length,
+      earlyOpportunityCandidates:earlyRows.length,balancedBlendCount:balancedBlend.length,
       policyMatchedCandidateCount:records.filter(r=>r.score?.policyAlignment?.evidenceAvailable).length,
       policyConfirmedCandidateCount:policyConfirmed.length,
       coreSelectionAssessedCount:coreSelectionResult.summary.assessedCount,
