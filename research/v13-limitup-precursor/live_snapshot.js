@@ -48,6 +48,8 @@ export function summarizePsychologySourceDiagnostics(rows=[]) {
       conceptSource:item.conceptSource??null,
       membershipSource:item.membershipSource??null,
       quoteSource:item.quoteSource??null,
+      selectedThemesPerStock:Number(item.selectedThemesPerStock)||0,
+      maxResearchThemes:Number(item.maxResearchThemes)||0,
       conceptRankingCacheHit:item.conceptRankingCacheHit===true,
       conceptRankingCacheAgeMs:Number(item.conceptRankingCacheAgeMs)||0,
       requestedCodes:Number(item.requestedCodes)||0,
@@ -608,7 +610,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     const codes=group.map(r=>String(r.f12)),query=encodeURIComponent(codes.join(','));
     const [deepR,psychR]=await Promise.allSettled([
       invoke(marketHandler,'/api/market?action=deep_batch&codes='+query),
-      invoke(psychologyHandler,'/api/psychology_universe?codes='+query+'&asOf='+encodeURIComponent(requestedAsOf))
+      invoke(psychologyHandler,'/api/psychology_universe?codes='+query+'&asOf='+encodeURIComponent(requestedAsOf)+'&mode=live')
     ]);
     let deep=null,psych=null,deepError=null,psychError=null;
     try { if(deepR.status==='fulfilled') deep=parseResult('deep_batch',deepR.value); else deepError=String(deepR.reason?.message??deepR.reason); }
@@ -638,6 +640,8 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
         conceptSource:psychDiagnostics.conceptSource??null,
         membershipSource:psychDiagnostics.membershipSource??null,
         quoteSource:psychDiagnostics.quoteSource??null,
+        selectedThemesPerStock:Number(psychDiagnostics.selectedThemesPerStock)||0,
+        maxResearchThemes:Number(psychDiagnostics.maxResearchThemes)||0,
         conceptRankingCacheHit:psychDiagnostics.conceptRankingCacheHit===true,
         conceptRankingCacheAgeMs:Number(psychDiagnostics.conceptRankingCacheAgeMs)||0,
         requestedCodes:Number(psychDiagnostics.requestedCodes??batch.codes.length)||0,
@@ -669,6 +673,8 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
         conceptSource:null,
         membershipSource:null,
         quoteSource:null,
+        selectedThemesPerStock:0,
+        maxResearchThemes:0,
         conceptRankingCacheHit:false,
         conceptRankingCacheAgeMs:0,
         requestedCodes:batch.codes.length,
