@@ -150,5 +150,6 @@ main().catch(async error => {
   if (process.env.GITHUB_OUTPUT) {
     await writeFile(process.env.GITHUB_OUTPUT, 'found=false\npath=\n', {flag:'a'});
   }
-  process.exitCode = 1;
+  // Prior-snapshot retrieval is optional; never block today's fresh capture.
+  process.exitCode = 0;
 });
