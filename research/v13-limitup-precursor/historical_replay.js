@@ -157,7 +157,7 @@ async function fetchUniversePage(page, pageSize, segmentFs, segmentKey = 'unknow
       return { total: Number(result.json.data.total), rows: rowsOf(result.json.data.diff) };
     } catch (error) {
       lastError = error;
-      if (attempt < Math.max(1, Number(maxAttempts) || 1)) await new Promise(resolve => setTimeout(resolve, Math.min(1000, 250 * (2 ** (attempt - 1))));
+      if (attempt < Math.max(1, Number(maxAttempts) || 1)) await new Promise(resolve => setTimeout(resolve, Math.min(1000, 250 * (2 ** (attempt - 1)))));
     }
   }
   throw new Error('market segment ' + segmentKey + ' page ' + page + ' failed after ' + Math.max(1, Number(maxAttempts) || 1) + ' attempts: ' + String(lastError?.message ?? lastError));
