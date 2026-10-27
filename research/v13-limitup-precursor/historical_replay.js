@@ -163,6 +163,12 @@ async function fetchUniversePage(page, pageSize, segmentFs, segmentKey = 'unknow
   throw new Error('market segment ' + segmentKey + ' page ' + page + ' failed after ' + Math.max(1, Number(maxAttempts) || 1) + ' attempts: ' + String(lastError?.message ?? lastError));
 }
 
+export function isUniverseSegmentCoverageSufficient(collected, minimumPct = 90) {
+  if (!collected || !Number.isFinite(Number(collected.total)) || Number(collected.total) <= 0) return false;
+  const rows = Array.isArray(collected.rows) ? collected.rows.length : Number(collected.collected);
+  return Number.isFinite(rows) && rows >= Number(collected.total) * (Number(minimumPct) / 100);
+}
+
 export async function fetchUniverse({ concurrency = 4, pageSize = 100, priorityCodes = [], timeoutMs = 7000, maxAttempts = 4 } = {}) {
   const firstPages = [];
   for (const segment of MARKET_SEGMENTS) {
@@ -200,7 +206,7 @@ export async function fetchUniverse({ concurrency = 4, pageSize = 100, priorityC
   }
   for (const segment of MARKET_SEGMENTS) {
     const collected = segmentRows.get(segment.key);
-    if (!collected || collected.rows.length < collected.total * 0.9) {
+    if (!isUniverseSegmentCoverageSufficient(collected, 90)) {
       throw new Error('segment coverage mismatch for ' + segment.key + ': collected ' +
         (collected?.rows.length ?? 0) + ' of ' + (collected?.total ?? 0));
     }
