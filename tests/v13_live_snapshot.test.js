@@ -17,6 +17,19 @@ test('funnel diversifies consensus, momentum and capital-flow candidates and exc
  const result=selectCandidateFunnel(rows,120);assert.equal(result.length,120);assert.ok(!result.some(x=>x.f12==='600999'));assert.ok(!result.some(x=>x.f12==='000556'));
  assert.ok(result.some(x=>x.funnelLanes.includes('price-momentum')));assert.ok(result.some(x=>x.funnelLanes.includes('capital-inflow')));
 });
+
+test('candidate funnel reserves a separate lane for current limit-up continuation stocks',()=>{
+ const rows=Array.from({length:240},(_,i)=>({f12:String(600000+i),f14:'普通样本'+i,rankScore:120-i/3,rankHits:i%3,f3:(i%8)-2,f62:i*1000,f6:10000000,f10:1.1}));
+ rows.push({f12:'600901',f14:'主板涨停',rankScore:8,rankHits:0,f3:10.07,f62:1000,f6:80000000,f10:3.2});
+ rows.push({f12:'300901',f14:'创业板涨停',rankScore:7,rankHits:0,f3:20.0,f62:1000,f6:120000000,f10:4.1});
+ const result=selectCandidateFunnel(rows,120);
+ const main=result.find(row=>row.f12==='600901');
+ const growth=result.find(row=>row.f12==='300901');
+ assert.ok(main);
+ assert.ok(growth);
+ assert.ok(main.funnelLanes.includes('limit-up-continuation'));
+ assert.ok(growth.funnelLanes.includes('limit-up-continuation'));
+});
 test('untimed or future news is not used as a point-in-time catalyst',()=>{
  const news=normalizeDatedNews([{code:'AI',name:'AI',news:[{title:'Untimed'},{title:'Before',publishedAt:'2026-10-21T03:00:00Z'},{title:'After',publishedAt:'2026-10-22T08:00:00Z'}]}],'2026-10-22T06:00:00Z');
  assert.equal(news.length,3);assert.equal(news[0].usableAsPointInTimeCatalyst,false);assert.equal(news[1].usableAsPointInTimeCatalyst,true);assert.equal(news[2].usableAsPointInTimeCatalyst,false);
