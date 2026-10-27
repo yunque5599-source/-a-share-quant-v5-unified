@@ -284,8 +284,8 @@ test('entry eligibility requires a non-extended move and corroborating sector an
 
   const huashuLike = makeCandidate({ code: '000156', name: '华数传媒', pct: 3.76 });
   huashuLike.sector = {};
-  huashuLike.flows = huashuLike.flows.map((flow, index) => ({
-    ...flow, mainNet: index % 2 ? -1_000_000 : 1_000_000
+  huashuLike.flows = huashuLike.flows.map(flow => ({
+    ...flow, mainNet: -1_000_000
   }));
   const weakEvidence = scoreCandidate(huashuLike);
   assert.ok(weakEvidence);
