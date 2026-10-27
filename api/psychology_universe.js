@@ -734,7 +734,19 @@ export const _internal = {
   normalizeThemeName,
   parseThsStockConcepts,
   parseSinaConceptNodes,
-  parseSinaNodeMembers
+  parseSinaNodeMembers,
+  normalizeThemeName,
+  fetchConceptRanking,
+  fetchCandidateQuotes,
+  fetchTencentCandidateQuotes,
+  fetchStockConcepts,
+  fetchThemeFlow,
+  fetchThemeMembers,
+  fetchThemeNews,
+  fetchThsStockConcepts,
+  fetchSinaConceptNodes,
+  fetchSinaNodeMembers,
+  fetchSinaThsConceptFallback
 };
 
 export default async function handler(req, res) {
