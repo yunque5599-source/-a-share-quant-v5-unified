@@ -509,3 +509,14 @@ test('next-day ranking is marked ready only after the daily bar is complete',()=
   assert.equal(rows[0].confidence,82);
   assert.deepEqual(rows[0].riskFlags,[]);
 });
+
+
+test('next-day ranking remains data-degraded after close when source coverage is insufficient',()=>{
+  const rows=markNextDayRankingReadiness([{code:'600001',confidence:82,riskFlags:[]}],{
+    dailyBarComplete:true,dataDegraded:true,forecastStatus:'CLOSED_BAR_DATA_DEGRADED'
+  });
+  assert.equal(rows[0].signalBarComplete,true);
+  assert.equal(rows[0].forecastStatus,'CLOSED_BAR_DATA_DEGRADED');
+  assert.equal(rows[0].confidence,72);
+  assert.ok(rows[0].riskFlags.some(flag=>flag.includes('数据覆盖不足')));
+});
