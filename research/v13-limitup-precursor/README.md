@@ -353,3 +353,14 @@ The capture now catches and records the ranked-source error, then attempts the i
 Regression tests verify that an HTTP error triggers fallback, as do degraded/stale responses and undersized candidate lists, while a healthy full candidate list does not trigger unnecessary fallback.
 
 **Validation:** the V13 automated test suite passed on commit `638950bd273a14210661b7005bac2e5561cf0a56`: https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40462289164. A new live capture is required to verify whether the full-universe quote endpoint is reachable in the same environment; passing unit tests do not prove that the external source is currently available.
+
+
+## Partial market-universe page handling (2026-10-27)
+
+The historical replay run then exposed a second data-coverage failure: 6 of 122 quote-universe pages failed after retries, all in the Beijing-board segment. The collector previously rejected the entire universe on *any* failed page, before applying its existing per-segment 90% coverage rule. That prevented a replay from being measured even when the remaining sample was above the documented coverage floor.
+
+The collector now retains successful pages, records failed page numbers and errors, and accepts a partial segment only when that segment still meets the explicit 90% minimum. Any segment below the floor still fails the replay; no missing quote rows are synthesized. Live capture also records partial page failures and marks the ranked source degraded, so an incomplete universe cannot silently become an actionable recommendation list. Live fallback retries are bounded to two attempts with a 5-second per-attempt timeout; historical collection keeps its more conservative defaults.
+
+Regression coverage verifies the per-segment coverage threshold. Latest V13 tests and V12 validation passed on commit `904c0db304415becf1b34544188b8138697d71af`: https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40463156830 and https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40463156853.
+
+The earlier replay artifact remains `NOT_MEASURABLE`; it was generated before this partial-page repair. A new replay must complete with sufficient bar and outcome coverage before any claim that the new continuation lane improves exact T+1 limit-up recall.
