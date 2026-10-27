@@ -150,6 +150,12 @@ export function mapUniverseRowsToRankCandidates(rows){
   }
   return output.sort((a,b)=>b.rankScore-a.rankScore||String(a.f12).localeCompare(String(b.f12)));
 }
+export function shouldAttemptFullUniverseFallback({ranked=null,rawCount=0,rankedError=null}={}) {
+  return Boolean(rankedError)
+    || ranked?.data?.degraded===true
+    || ranked?.data?.serverStale===true
+    || Number(rawCount)<300;
+}
 export function selectCandidateFunnel(rows, limit=120) {
   const cap=Math.max(1,Math.min(300,Number(limit)||120));
   const valid=(Array.isArray(rows)?rows:[]).filter(r=>/^(00|30|60|68|43|83|87|92)\d{4}$/.test(String(r?.f12??''))&&!isRestrictedListingName(r?.f14));
@@ -680,11 +686,16 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const signalCutoff=/^\d{4}-\d{2}-\d{2}$/.test(String(requestedAsOf))
     ?new Date(String(requestedAsOf)+'T15:00:00+08:00').toISOString():requestedAsOf;
   const dailyBarComplete=isDailyBarCompleteAt(capturedAt);
-  const ranked=parseResult('ranked_candidates',await invoke(marketHandler,'/api/market?action=ranked_candidates'));
+  let ranked=null,rankedSourceError=null;
+  try{
+    ranked=parseResult('ranked_candidates',await invoke(marketHandler,'/api/market?action=ranked_candidates'));
+  }catch(error){
+    rankedSourceError=String(error?.message??error);
+  }
   let raw=ranked?.data?.candidates??[];
-  const fullUniverseFallback={attempted:false,used:false,error:null,universeCount:0,providerTotal:null,pageCount:null,segmentTotals:null};
+  const fullUniverseFallback={attempted:false,used:false,error:null,rankedSourceError,universeCount:0,providerTotal:null,pageCount:null,segmentTotals:null};
   let fullUniverseSnapshot=null;
-  if(ranked?.data?.degraded===true||ranked?.data?.serverStale===true||raw.length<300){
+  if(shouldAttemptFullUniverseFallback({ranked,rawCount:raw.length,rankedError:rankedSourceError})){
     fullUniverseFallback.attempted=true;
     try{
       fullUniverseSnapshot=await fetchUniverse({concurrency:4,pageSize:100});
@@ -701,7 +712,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       fullUniverseSnapshot=null;
     }
   }
-  const rankingSourceDegraded=!fullUniverseFallback.used&&ranked?.data?.degraded===true;
+  const rankingSourceDegraded=!fullUniverseFallback.used&&(Boolean(rankedSourceError)||ranked?.data?.degraded===true);
   const rankingSourceStale=!fullUniverseFallback.used&&ranked?.data?.serverStale===true;
   const rankingSourceMethod=fullUniverseFallback.used?'eastmoney-full-universe-live-quote-fallback':ranked?.data?.method??null;
   const marketRegime=deriveMarketRegime({indices:ranked?.data?.indices??[],universeRows:raw,capturedAt});
@@ -999,7 +1010,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     .map(name=>[name,funnel.filter(row=>(row.funnelLanes??[]).includes(name)).length]));
   const limitUpContinuationFunnelCount=funnel.filter(row=>(row.funnelLanes??[]).includes('limit-up-continuation')).length;
   const quality={rankedSourceDegraded:rankingSourceDegraded,rankedSourceStale:rankingSourceStale,rankedSourceMethod:rankingSourceMethod,
-    originalRankedSourceDegraded:ranked?.data?.degraded===true,originalRankedSourceMethod:ranked?.data?.method??null,
+    rankedSourceError,originalRankedSourceDegraded:ranked?.data?.degraded===true,originalRankedSourceMethod:ranked?.data?.method??null,
     rankedCandidateCount:raw.length,funnelCandidateCount:funnel.length,funnelLaneCounts,limitUpContinuationFunnelCount,
     deepSuccessCount:deepGood,deepSuccessPct:+(deepGood/Math.max(1,funnel.length)*100).toFixed(2),
     industryContextCandidateCount:funnel.filter(row=>industryContextByCode.has(String(row.f12))).length,
