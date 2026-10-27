@@ -177,16 +177,32 @@ export function selectCandidateFunnel(rows, limit=120) {
     };
     return proxy(b)-proxy(a);
   });
+  // Today's locked/near-locked names are a separate next-session continuation
+  // population. They must not be excluded merely because the pre-breakout
+  // lane intentionally avoids extended entries.
+  const limitUpContinuationRows=valid.filter(row=>{
+    const board=boardForCode(row.f12),pct=val(row,'f3');
+    if(!['SH_MAIN','SZ_MAIN','CHINEXT','STAR','BSE'].includes(board))return false;
+    const limit=board==='CHINEXT'||board==='STAR'?20:board==='BSE'?30:10;
+    return pct>=limit-0.4&&pct<=limit+0.4;
+  }).sort((a,b)=>{
+    const boardA=boardForCode(a.f12),boardB=boardForCode(b.f12);
+    const limitA=boardA==='CHINEXT'||boardA==='STAR'?20:boardA==='BSE'?30:10;
+    const limitB=boardB==='CHINEXT'||boardB==='STAR'?20:boardB==='BSE'?30:10;
+    const gapA=Math.abs(limitA-val(a,'f3')),gapB=Math.abs(limitB-val(b,'f3'));
+    return gapA-gapB||val(b,'rankScore')-val(a,'rankScore')||val(b,'f6')-val(a,'f6');
+  });
   const lanes=[
-    {name:'consensus-rank',weight:0.24,rows:[...valid].sort((a,b)=>val(b,'rankScore')-val(a,'rankScore'))},
-    {name:'price-momentum',weight:0.10,rows:[...valid].sort((a,b)=>val(b,'f3')-val(a,'f3'))},
-    {name:'capital-inflow',weight:0.10,rows:[...valid].sort((a,b)=>val(b,'f62')-val(a,'f62'))},
-    {name:'main-board-consensus',weight:0.10,rows:[...mainBoardValid].sort((a,b)=>val(b,'rankScore')-val(a,'rankScore'))},
-    {name:'main-board-capital-inflow',weight:0.07,rows:[...mainBoardValid].sort((a,b)=>val(b,'f62')-val(a,'f62'))},
-    {name:'main-board-price-momentum',weight:0.07,rows:[...mainBoardValid].sort((a,b)=>val(b,'f3')-val(a,'f3'))},
-    {name:'next-day-ignition-band',weight:0.18,rows:ignitionRows},
-    {name:'prebreakout-volume-expansion',weight:0.08,rows:prebreakoutRows},
-    {name:'cross-rank-consensus',weight:0.06,rows:[...valid].sort((a,b)=>val(b,'rankHits')-val(a,'rankHits'))}
+    {name:'consensus-rank',weight:0.21,rows:[...valid].sort((a,b)=>val(b,'rankScore')-val(a,'rankScore'))},
+    {name:'price-momentum',weight:0.09,rows:[...valid].sort((a,b)=>val(b,'f3')-val(a,'f3'))},
+    {name:'capital-inflow',weight:0.08,rows:[...valid].sort((a,b)=>val(b,'f62')-val(a,'f62'))},
+    {name:'main-board-consensus',weight:0.08,rows:[...mainBoardValid].sort((a,b)=>val(b,'rankScore')-val(a,'rankScore'))},
+    {name:'main-board-capital-inflow',weight:0.06,rows:[...mainBoardValid].sort((a,b)=>val(b,'f62')-val(a,'f62'))},
+    {name:'main-board-price-momentum',weight:0.06,rows:[...mainBoardValid].sort((a,b)=>val(b,'f3')-val(a,'f3'))},
+    {name:'next-day-ignition-band',weight:0.16,rows:ignitionRows},
+    {name:'prebreakout-volume-expansion',weight:0.07,rows:prebreakoutRows},
+    {name:'cross-rank-consensus',weight:0.05,rows:[...valid].sort((a,b)=>val(b,'rankHits')-val(a,'rankHits'))},
+    {name:'limit-up-continuation',weight:0.14,rows:limitUpContinuationRows}
   ];
   const quotas=lanes.map(lane=>Math.floor(cap*lane.weight));
   let remainder=cap-quotas.reduce((sum,value)=>sum+value,0);
