@@ -10,7 +10,7 @@ import { scorePolicyAlignment, deriveMarketRegime, OFFICIAL_POLICIES, POLICY_CAT
 import { rankCoreSelection } from './core_selection.js';
 import { rankPreBreakoutCandidates } from './pre_breakout.js';
 
-const MODEL_VERSION = 'V13-live-four-layer-core-leader-selection-v7-source-diagnostics';
+const MODEL_VERSION = 'V13-live-four-layer-core-leader-selection-v8-source-cache-diagnostics';
 const n = v => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
 const clamp = (v, lo=0, hi=100) => Math.max(lo, Math.min(hi, v));
 const avg = xs => { const a=xs.filter(Number.isFinite); return a.length ? a.reduce((x,y)=>x+y,0)/a.length : null; };
@@ -38,7 +38,8 @@ export function summarizePsychologySourceDiagnostics(rows=[]) {
       researchThemes:sum('researchThemes'),
       membershipFailures:sum('membershipFailures'),
       flowFailures:sum('flowFailures'),
-      researchFailures:sum('researchFailures')
+      researchFailures:sum('researchFailures'),
+      conceptRankingCacheHitCount:items.filter(item=>item?.conceptRankingCacheHit===true).length
     },
     batches:items.map(item=>({
       batchIndex:item.batchIndex??null,
@@ -47,6 +48,8 @@ export function summarizePsychologySourceDiagnostics(rows=[]) {
       conceptSource:item.conceptSource??null,
       membershipSource:item.membershipSource??null,
       quoteSource:item.quoteSource??null,
+      conceptRankingCacheHit:item.conceptRankingCacheHit===true,
+      conceptRankingCacheAgeMs:Number(item.conceptRankingCacheAgeMs)||0,
       requestedCodes:Number(item.requestedCodes)||0,
       candidateCount:Array.isArray(item.codes)?item.codes.length:0,
       sampleCodes:Array.isArray(item.codes)?item.codes.slice(0,3):[],
@@ -635,6 +638,8 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
         conceptSource:psychDiagnostics.conceptSource??null,
         membershipSource:psychDiagnostics.membershipSource??null,
         quoteSource:psychDiagnostics.quoteSource??null,
+        conceptRankingCacheHit:psychDiagnostics.conceptRankingCacheHit===true,
+        conceptRankingCacheAgeMs:Number(psychDiagnostics.conceptRankingCacheAgeMs)||0,
         requestedCodes:Number(psychDiagnostics.requestedCodes??batch.codes.length)||0,
         conceptRows:Number(psychDiagnostics.conceptRows)||0,
         quoteRows:Number(psychDiagnostics.quoteRows)||0,
@@ -664,6 +669,8 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
         conceptSource:null,
         membershipSource:null,
         quoteSource:null,
+        conceptRankingCacheHit:false,
+        conceptRankingCacheAgeMs:0,
         requestedCodes:batch.codes.length,
         conceptRows:0,
         quoteRows:0,
@@ -881,7 +888,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     selectionSummary:coreSelectionResult.summary,
     preBreakoutSummary:preBreakoutResult.summary,
     sourceDiagnostics:{psychology:summarizePsychologySourceDiagnostics(psychologySourceDiagnostics)},
-    sourcePolicy:{provider:'Eastmoney public quote/history and psychology/theme/news endpoint',pointInTime:'captured-at-source',
+    sourcePolicy:{provider:'Eastmoney public quote/history; psychology/theme/news with Sina and 10jqka taxonomy fallback',pointInTime:'captured-at-source',
       futureDatedBarsExcluded:true,catalystOnlyUsedWhenNewsTimestampVerified:true,dailyBarCompleteAtCapture:dailyBarComplete,
       rankedUniverseFallback:fullUniverseFallback.used?'eastmoney-full-universe-live-quote-fallback':null,
       brokerConnected:false,automaticOrderPlacement:false},
