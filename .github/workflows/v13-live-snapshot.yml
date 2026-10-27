@@ -32,6 +32,7 @@ on:
         default: false
 permissions:
   contents: read
+  actions: read
 jobs:
   capture:
     runs-on: ubuntu-latest
@@ -51,13 +52,45 @@ jobs:
           const yes=['Mon','Tue','Wed','Thu','Fri'].includes(wd)&&((minute>=570&&minute<690)||(minute>=780&&minute<900));
           require('fs').appendFileSync(process.env.GITHUB_OUTPUT,'in_session='+yes+'\n');console.log('in_session='+yes);
           NODE
+      - name: Restore latest prior-trading-day snapshot
+        id: previous
+        if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.schedule == '15 1 * * 1-5'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          mkdir -p output/previous-snapshot
+          current_date="$(TZ=Asia/Shanghai date +%F)"
+          found=false
+          for run_id in $(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/v13-live-snapshot.yml/runs?branch=research%2Fv13-limitup-precursor&status=success&per_page=30" --jq '.workflow_runs[].id'); do
+            temp_dir="$(mktemp -d)"
+            if gh run download "$run_id" --repo "$GITHUB_REPOSITORY" --name "v13-live-snapshot-$run_id" --dir "$temp_dir" >/dev/null 2>&1; then
+              snapshot_file="$(find "$temp_dir" -type f -name snapshot.json | head -n 1)"
+              if [ -n "$snapshot_file" ]; then
+                snapshot_date="$(node -e 'const fs=require("node:fs");const x=JSON.parse(fs.readFileSync(process.argv[1],"utf8"));const d=new Date(x.asOf||x.capturedAt);const p=new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Shanghai",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(d);const g=t=>p.find(v=>v.type===t)?.value;process.stdout.write(g("year")+"-"+g("month")+"-"+g("day"));' "$snapshot_file")"
+                if [[ -n "$snapshot_date" && "$snapshot_date" < "$current_date" ]]; then
+                  cp "$snapshot_file" output/previous-snapshot/snapshot.json
+                  echo "path=output/previous-snapshot/snapshot.json" >> "$GITHUB_OUTPUT"
+                  echo "Restored prior trading-day snapshot from run $run_id ($snapshot_date)."
+                  found=true
+                  rm -rf "$temp_dir"
+                  break
+                fi
+              fi
+            fi
+            rm -rf "$temp_dir"
+          done
+          if [ "$found" != "true" ]; then
+            echo "path=" >> "$GITHUB_OUTPUT"
+            echo "No prior trading-day snapshot artifact found; follow-through will be marked unavailable."
+          fi
       - name: Capture timestamped snapshot
         if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.schedule == '15 1 * * 1-5'
         env:
           WIDE_NEWS_SCAN: ${{ github.event.schedule == '15 1 * * 1-5' || github.event.inputs.wide_news_scan == 'true' }}
         run: |
           EXTRA_ARGS=""
-          if [ "$WIDE_NEWS_SCAN" = "true" ]; then EXTRA_ARGS="--wide-news-scan"; fi
+          if [ "$WIDE_NEWS_SCAN" = "true" ]; then EXTRA_ARGS="$EXTRA_ARGS --wide-news-scan"; fi
+          if [ -s output/previous-snapshot/snapshot.json ]; then EXTRA_ARGS="$EXTRA_ARGS --previous-snapshot output/previous-snapshot/snapshot.json"; fi
           node research/v13-limitup-precursor/live_snapshot.js --limit "${{ github.event.inputs.candidate_limit || '120' }}" --out output/v13-live-snapshots/snapshot.json $EXTRA_ARGS
       - name: Upload immutable snapshot
         if: always()
