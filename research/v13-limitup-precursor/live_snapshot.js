@@ -961,7 +961,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
           signalDate: requestedAsOf,
           marketRegime,
           lane: key,
-          sourceDegraded: snapshot.quality?.rankedSourceDegraded === true
+          sourceDegraded: quality.rankedSourceDegraded === true
         })
       }));
     }
