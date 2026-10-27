@@ -140,7 +140,7 @@ export async function writeNdjson(filePath, rows) {
   }
 }
 
-async function fetchUniversePage(page, pageSize, segmentFs, segmentKey = 'unknown') {
+async function fetchUniversePage(page, pageSize, segmentFs, segmentKey = 'unknown', {timeoutMs=7000,maxAttempts=4} = {}) {
   const buildUrl = host => {
     const p = new URLSearchParams({
       pn: String(page), pz: String(pageSize), po: '1', np: '1',
@@ -149,25 +149,25 @@ async function fetchUniversePage(page, pageSize, segmentFs, segmentKey = 'unknow
     return host + '/api/qt/clist/get?' + p;
   };
   let lastError = null;
-  for (let attempt = 1; attempt <= 4; attempt++) {
+  for (let attempt = 1; attempt <= Math.max(1, Number(maxAttempts) || 1); attempt++) {
     try {
       const result = await fetchFromHosts(buildUrl, MARKET_HOSTS,
         json => Number.isInteger(Number(json?.data?.total)) && !!json?.data?.diff &&
-          (Array.isArray(json.data.diff) || typeof json.data.diff === 'object'), 7000);
+          (Array.isArray(json.data.diff) || typeof json.data.diff === 'object'), timeoutMs);
       return { total: Number(result.json.data.total), rows: rowsOf(result.json.data.diff) };
     } catch (error) {
       lastError = error;
-      if (attempt < 4) await new Promise(resolve => setTimeout(resolve, 500 * (2 ** (attempt - 1))));
+      if (attempt < Math.max(1, Number(maxAttempts) || 1)) await new Promise(resolve => setTimeout(resolve, Math.min(1000, 250 * (2 ** (attempt - 1))));
     }
   }
-  throw new Error('market segment ' + segmentKey + ' page ' + page + ' failed after retries: ' + String(lastError?.message ?? lastError));
+  throw new Error('market segment ' + segmentKey + ' page ' + page + ' failed after ' + Math.max(1, Number(maxAttempts) || 1) + ' attempts: ' + String(lastError?.message ?? lastError));
 }
 
-export async function fetchUniverse({ concurrency = 4, pageSize = 100, priorityCodes = [] } = {}) {
+export async function fetchUniverse({ concurrency = 4, pageSize = 100, priorityCodes = [], timeoutMs = 7000, maxAttempts = 4 } = {}) {
   const firstPages = [];
   for (const segment of MARKET_SEGMENTS) {
     try {
-      firstPages.push({ segment, first: await fetchUniversePage(1, pageSize, segment.fs, segment.key) });
+      firstPages.push({ segment, first: await fetchUniversePage(1, pageSize, segment.fs, segment.key, {timeoutMs,maxAttempts}) });
     } catch (error) {
       throw new Error('could not establish first page for segment ' + segment.key + ': ' + String(error?.message ?? error));
     }
@@ -184,7 +184,7 @@ export async function fetchUniverse({ concurrency = 4, pageSize = 100, priorityC
     for (let page = 2; page <= pages; page++) tasks.push({ segment, page });
   }
   const pageResults = await mapLimit(tasks, concurrency,
-    async task => ({ segmentKey: task.segment.key, page: task.page, ...(await fetchUniversePage(task.page, pageSize, task.segment.fs, task.segment.key)) }),
+    async task => ({ segmentKey: task.segment.key, page: task.page, ...(await fetchUniversePage(task.page, pageSize, task.segment.fs, task.segment.key, {timeoutMs,maxAttempts})) }),
     (done, all) => { if (done % 20 === 0 || done === all) console.log('[universe] pages ' + done + '/' + all); });
   const failedPages = pageResults.filter(result => result?.error);
   if (failedPages.length) {
