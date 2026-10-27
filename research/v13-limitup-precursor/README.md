@@ -258,3 +258,24 @@ The prior-day audit includes the previous rank/score, current rank/score when av
 This directly addresses two different failure modes observed in the October 26, 2026 review: **a candidate that only appears after its move is extended** (大西洋, 600558, around +10.1%) and **a high-ranked candidate whose sector/flow confirmation is weak** (华数传媒, 000156, with only 40% positive historical flow periods in that audit). The first should be tracked as a signal that materialized, not chased after the fact; the second should remain watch-only unless it independently passes entry gates. A one-day loss alone is not enough to conclude that a setup failed—the audit must compare the signal timestamp, entry price, subsequent path, and predefined risk rules.
 
 The action plan is research instrumentation. It does not place orders, infer a user's actual fill price, or establish profitability.
+
+
+## Next-day limit-up diagnosis and recall repair (2026-10-27)
+
+### Why the existing list misses next-session limit-ups
+
+The existing global rank is not trained specifically for a limit-up on the *next trading session*. The earlier supervised classifier used `limitUpWithin5`, while the main balanced shortlist deliberately mixes five-session momentum and a defensive early-opportunity rank. Those objectives are not interchangeable. In the 60-date evaluation, the balanced top-10 had 21.27% limit-up precision **within five sessions**; raw five-session momentum had 38.39% within five sessions but materially larger adverse excursion (-11.92% vs -6.56%). These figures do not establish next-day hit rate.
+
+The October 20 held-out audit also exposed a recall failure: only one of three true limit-up targets entered the supervised model's top 30; two target stocks ranked thousands of places down the list. The live snapshot normally deep-scans 120 symbols out of roughly six thousand. Before this repair, the funnel appended ranked lanes in sequence and then sliced to the cap, so later ignition/main-board lanes could be cut off instead of receiving their intended share. Missing timestamped theme-leadership and catalyst data further limits identification of the actual market leader.
+
+### Code changes
+
+- Reworked `selectCandidateFunnel` to allocate explicit per-lane quotas before the final cap. The next-day ignition band now receives a reserved 14% share, with additional reserved capacity for main-board consensus, capital inflow and momentum. Overlapping candidates are deduplicated without consuming another lane's quota. The overall default remains 120 candidates to avoid an untested runtime increase; `--limit 180` remains available for controlled coverage experiments.
+- Added recent prior-limit-up activity to the `limitUpIgnitionWatch` score. Prior limit-ups over the previous five/ten sessions now contribute a bounded 8% score component; they are a continuation prior, not a hard requirement. Multiple recent limit-ups also create an explicit divergence/volatility risk flag.
+- Exposed the separate `rankings.nextDayLimitUpWatch` key and included its top rows in the live snapshot summary. This is still a watchlist, not a probability or an entry signal.
+- Added an exact next-session supervised target, `limitUpWithin1`, alongside the existing five-session limit-up and positive-return targets. The chronological evaluator now trains a separate next-day classifier, reports its T+1 precision/recall and forward-return risk metrics, exposes next-day feature importance, and audits held-out target ranks. The existing purge split and strictly point-in-time feature construction remain in place.
+- Added regression tests for crowded-universe lane reservation, prior-limit-up continuation scoring, first-time breakouts with missing prior-limit-up history, and the next-day supervised objective.
+
+### Validation status
+
+V13 automated tests passed for the next-day classifier change on commit `8db14f81422003965ee0aa979451e9f814912b96` (https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40457317774). Later funnel/output changes are running their own checks; the latest run must pass before this patch is treated as validated. No new historical replay result has yet established that the new ranking beats the prior baselines. The next acceptance criterion is to compare the next-day classifier against raw momentum and the existing ignition heuristic on untouched chronological dates, using T+1 limit-up precision/recall, top-10/top-30 capture, T+1 return, and adverse excursion. Do not promote the new ranking to executable trading logic until that test is measurable and repeatably better.
