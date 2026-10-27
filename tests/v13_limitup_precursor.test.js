@@ -61,12 +61,14 @@ test('early-turning / expanding-volume candidate ranks above a weak downtrend', 
   assert.ok(ranked[0].components.volumePrice > ranked[1].components.volumePrice);
 });
 
-test('a near-limit-up daily move is penalized softly, not hard-filtered', () => {
+test('a near-limit-up daily move remains discoverable but fails the pre-breakout entry gate', () => {
   const result = scoreCandidate(makeCandidate({ code: '600003', pct: 9.6 }));
   assert.ok(result);
   assert.equal(result.discoveryEligible, true);
   assert.ok(result.riskPenalty > 0);
   assert.ok(result.score >= 0);
+  assert.equal(result.entryEligible, false);
+  assert.ok(result.entryGateReasons.includes('daily-move-too-extended'));
 });
 
 test('asOf cutoff excludes future bars and future fund-flow records', () => {
@@ -79,7 +81,7 @@ test('asOf cutoff excludes future bars and future fund-flow records', () => {
   assert.equal(a.asOf, b.asOf);
 });
 
-test('missing sector or flow data degrades confidence but does not crash discovery', () => {
+test('missing sector or flow data keeps discovery alive but blocks entry eligibility', () => {
   const candidate = makeCandidate({ code: '300006', name: '莱美药业' });
   candidate.flows = [];
   candidate.sector = {};
@@ -88,6 +90,9 @@ test('missing sector or flow data degrades confidence but does not crash discove
   assert.equal(result.discoveryEligible, true);
   assert.ok(result.confidence < 75);
   assert.ok(result.riskFlags.some(flag => flag.includes('资金流历史不足')));
+  assert.equal(result.entryEligible, false);
+  assert.ok(result.entryGateReasons.includes('sector-evidence-insufficient'));
+  assert.ok(result.entryGateReasons.includes('sustained-flow-confirmation-insufficient'));
 });
 
 test('ST and delisting-risk symbols are excluded from discovery', () => {
@@ -266,4 +271,33 @@ test('policy-aware ranking exposes policy evidence and adapts to market regime w
   assert.ok(rankedAware);
   assert.equal(rankedAware.score, aware.score);
   assert.equal(rankedAware.scorePath, aware.scorePath);
+});
+
+
+test('entry eligibility requires a non-extended move and corroborating sector and flow evidence', () => {
+  const candidate = makeCandidate({ code: '600558', name: '大西洋', pct: 10.1 });
+  const result = scoreCandidate(candidate);
+  assert.ok(result);
+  assert.equal(result.discoveryEligible, true);
+  assert.equal(result.entryEligible, false);
+  assert.ok(result.entryGateReasons.includes('daily-move-too-extended'));
+
+  const huashuLike = makeCandidate({ code: '000156', name: '华数传媒', pct: 3.76 });
+  huashuLike.sector = {};
+  huashuLike.flows = huashuLike.flows.map((flow, index) => ({
+    ...flow, mainNet: index % 2 ? -1_000_000 : 1_000_000
+  }));
+  const weakEvidence = scoreCandidate(huashuLike);
+  assert.ok(weakEvidence);
+  assert.equal(weakEvidence.entryEligible, false);
+  assert.ok(weakEvidence.entryGateReasons.includes('sector-evidence-insufficient'));
+  assert.ok(weakEvidence.entryGateReasons.includes('sustained-flow-confirmation-insufficient'));
+});
+
+test('a supported non-extended main-board candidate can pass entry eligibility', () => {
+  const result = scoreCandidate(makeCandidate({ code: '600007', pct: 4.2 }));
+  assert.ok(result);
+  assert.equal(result.executionEligible, true);
+  assert.equal(result.entryEligible, true);
+  assert.deepEqual(result.entryGateReasons, []);
 });
