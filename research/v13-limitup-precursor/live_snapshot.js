@@ -693,7 +693,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     rankedSourceError=String(error?.message??error);
   }
   let raw=ranked?.data?.candidates??[];
-  const fullUniverseFallback={attempted:false,used:false,error:null,rankedSourceError,universeCount:0,providerTotal:null,pageCount:null,segmentTotals:null};
+  const fullUniverseFallback={attempted:false,used:false,error:null,rankedSourceError,universeCount:0,providerTotal:null,pageCount:null,failedPageCount:0,failedPages:[],segmentTotals:null};
   let fullUniverseSnapshot=null;
   if(shouldAttemptFullUniverseFallback({ranked,rawCount:raw.length,rankedError:rankedSourceError})){
     fullUniverseFallback.attempted=true;
@@ -706,13 +706,16 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       fullUniverseFallback.universeCount=fullRows.length;
       fullUniverseFallback.providerTotal=fullUniverseSnapshot.providerTotal;
       fullUniverseFallback.pageCount=fullUniverseSnapshot.pageCount;
+      fullUniverseFallback.failedPages=fullUniverseSnapshot.failedPages??[];
+      fullUniverseFallback.failedPageCount=fullUniverseFallback.failedPages.length;
       fullUniverseFallback.segmentTotals=fullUniverseSnapshot.segmentTotals??null;
     }catch(error){
       fullUniverseFallback.error=String(error?.message??error);
       fullUniverseSnapshot=null;
     }
   }
-  const rankingSourceDegraded=!fullUniverseFallback.used&&(Boolean(rankedSourceError)||ranked?.data?.degraded===true);
+  const rankingSourceDegraded=(!fullUniverseFallback.used&&(Boolean(rankedSourceError)||ranked?.data?.degraded===true))
+    ||fullUniverseFallback.failedPageCount>0;
   const rankingSourceStale=!fullUniverseFallback.used&&ranked?.data?.serverStale===true;
   const rankingSourceMethod=fullUniverseFallback.used?'eastmoney-full-universe-live-quote-fallback':ranked?.data?.method??null;
   const marketRegime=deriveMarketRegime({indices:ranked?.data?.indices??[],universeRows:raw,capturedAt});
