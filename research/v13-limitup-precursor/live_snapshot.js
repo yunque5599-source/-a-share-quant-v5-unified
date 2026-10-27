@@ -9,6 +9,7 @@ import { fetchUniverse } from './historical_replay.js';
 import { scorePolicyAlignment, deriveMarketRegime, OFFICIAL_POLICIES, POLICY_CATALOG_VERSION, POLICY_CATALOG_REVIEWED_AT } from './policy_alignment.js';
 import { rankCoreSelection } from './core_selection.js';
 import { rankPreBreakoutCandidates } from './pre_breakout.js';
+import { rankLimitUpIgnitionCandidates } from './limitup_ignition.js';
 import { buildNextDayActionPlan } from './next_day_action_plan.js';
 import { buildNextSessionPlan } from './next_session_plan.js';
 
@@ -128,7 +129,24 @@ export function selectCandidateFunnel(rows, limit=120) {
   const add=(arr,count,lane)=>{let added=0;for(const r of arr){const code=String(r.f12);if(chosen.has(code)){chosen.get(code).funnelLanes.push(lane);continue;}chosen.set(code,{...r,funnelLanes:[lane]});if(++added>=count)break;}};
   const val=(r,k)=>n(r?.[k])??-Infinity;
   add([...valid].sort((a,b)=>val(b,'rankScore')-val(a,'rankScore')),Math.ceil(limit*.42),'consensus-rank');
-  add([...valid].sort((a,b)=>val(b,'f3')-val(a,'f3')),Math.ceil(limit*.20),'price-momentum');
+  add([...valid].sort((a,b)=>val(b,'f3')-val(a,'f3')),Math.ceil(limit*.18),'price-momentum');
+  const ignitionRows=valid.filter(row=>{
+    const board=boardForCode(row.f12);
+    const pct=val(row,'f3');
+    const limit=board==='CHINEXT'||board==='STAR'?20:board==='BSE'?30:10;
+    const minimum=board==='CHINEXT'||board==='STAR'?3:board==='BSE'?4.5:1.5;
+    return pct>=minimum&&pct<limit-0.05&&['SH_MAIN','SZ_MAIN','CHINEXT','STAR','BSE'].includes(board);
+  }).sort((a,b)=>{
+    const score=row=>{
+      const board=boardForCode(row.f12),limit=board==='CHINEXT'||board==='STAR'?20:board==='BSE'?30:10;
+      const pct=val(row,'f3');
+      const band=limit*0.25;
+      const middle=limit*0.60;
+      return -Math.abs(pct-middle)+Math.log1p(Math.max(0,val(row,'f6')===-Infinity?0:val(row,'f6')));
+    };
+    return score(b)-score(a)||val(b,'f6')-val(a,'f6');
+  });
+  add(ignitionRows,Math.ceil(limit*.18),'next-day-ignition-band');
   add([...valid].sort((a,b)=>val(b,'f62')-val(a,'f62')),Math.ceil(limit*.18),'capital-inflow');
   // The strict primary shortlist is limited to executable Shanghai/Shenzhen main-board names.
   // Reserve explicit funnel capacity for those names so growth-board momentum cannot consume
@@ -474,6 +492,16 @@ export function selectWideNewsScanUniverse(universeRows, maxSymbols=320) {
     ['swing-momentum', all.filter(x=>x.pct60!==null&&x.pct60!==undefined&&Number.isFinite(Number(x.pct60))).sort((a,b)=>(Number(b.pct60)||0)-(Number(a.pct60)||0))],
     ['early-daily-move', all.filter(x=>x.pct!==null&&x.pct!==undefined&&Number.isFinite(Number(x.pct))&&Number(x.pct)>=0&&Number(x.pct)<=8)
       .sort((a,b)=>(Number(b.amount)||0)-(Number(a.amount)||0))],
+    ['next-day-ignition-band', all.filter(x=>{
+      const board=boardForCode(x.code),pct=Number(x.pct);
+      const limit=board==='CHINEXT'||board==='STAR'?20:board==='BSE'?30:10;
+      const minimum=board==='CHINEXT'||board==='STAR'?3:board==='BSE'?4.5:1.5;
+      return Number.isFinite(pct)&&pct>=minimum&&pct<limit-0.05;
+    }).sort((a,b)=>{
+      const limit=row=>{const board=boardForCode(row.code);return board==='CHINEXT'||board==='STAR'?20:board==='BSE'?30:10;};
+      const score=row=>-Math.abs(Number(row.pct)-limit(row)*0.60)+Math.log1p(Math.max(0,Number(row.amount)||0));
+      return score(b)-score(a);
+    })],
     ['active-turnover', all.filter(x=>Number.isFinite(Number(x.turnoverRate))&&Number(x.turnoverRate)>=2&&Number(x.turnoverRate)<=20)
       .sort((a,b)=>(Number(b.amount)||0)-(Number(a.amount)||0))]
   ];
@@ -815,6 +843,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const eligibleCodes=new Set(preLimitUpScores.map(row=>row.code));
   const coreSelectionResult=rankCoreSelection(rankedScores,{marketRegime,eligibleCodes,maxResults:5});
   const preBreakoutResult=rankPreBreakoutCandidates(rankedScores,earlyByCode,{maxResults:15,minScore:60});
+  const limitUpIgnitionResult=rankLimitUpIgnitionCandidates(rankedScores,{maxResults:20,minScore:52});
   const momentumCodes=[...preLimitUpScores].sort((a,b)=>(Number.isFinite(b.features?.r5Pct)?b.features.r5Pct:-Infinity)-(Number.isFinite(a.features?.r5Pct)?a.features.r5Pct:-Infinity)||b.score-a.score).map(r=>r.code);
   const earlyCodes=earlyRows.filter(row=>eligibleCodes.has(row.code)).map(r=>r.code);
   const balancedCodes=interleaveCodes(momentumCodes,earlyCodes,Math.min(30,new Set([...momentumCodes,...earlyCodes]).size));
@@ -897,6 +926,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     datedNewsCoveragePct:+(records.filter(r=>Math.max(r.psychology.datedNewsCount??0,r.psychology.stockNewsFallback?.datedNewsCount??0)>0).length/Math.max(1,funnel.length)*100).toFixed(2),sourceErrors};
   const diagnosticRankings={overall:balancedBlend,catalystConfirmed,policyConfirmed,combinedOverall:overall,
     preBreakoutWatch:preBreakoutResult.ranking,preBreakoutAssessed:preBreakoutResult.assessed.slice(0,60),
+    limitUpIgnitionWatch:limitUpIgnitionResult.ranking,limitUpIgnitionAssessed:limitUpIgnitionResult.assessed.slice(0,80),
     entryGateRejected:rankedScores.filter(row=>!isEntryReadyCandidate(row)).sort((a,b)=>b.score-a.score).slice(0,50),
     trendTransition:rankedScores.slice(0,20),
     emotionRepair:rankedScores.filter(r=>Number(r.components?.emotionRepair)>=65).sort((a,b)=>Number(b.components.emotionRepair)-Number(a.components.emotionRepair)).slice(0,20),
@@ -912,6 +942,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       catalogStale:Date.now()-Date.parse(POLICY_CATALOG_REVIEWED_AT)>14*86400000},
     selectionSummary:coreSelectionResult.summary,
     preBreakoutSummary:preBreakoutResult.summary,
+    limitUpIgnitionSummary:limitUpIgnitionResult.summary,
     sourceDiagnostics:{psychology:summarizePsychologySourceDiagnostics(psychologySourceDiagnostics)},
     sourcePolicy:{provider:'Eastmoney public quote/history; psychology/theme/news with Sina and 10jqka taxonomy fallback',pointInTime:'captured-at-source',
       futureDatedBarsExcluded:true,catalystOnlyUsedWhenNewsTimestampVerified:true,dailyBarCompleteAtCapture:dailyBarComplete,
@@ -934,12 +965,17 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       preBreakoutReturnedCount:preBreakoutResult.summary.returnedCount,
       preBreakoutVerifiedLeaderCount:preBreakoutResult.summary.verifiedLeaderCount,
       preBreakoutPolicyVerifiedCount:preBreakoutResult.summary.policyVerifiedCount,
+      limitUpIgnitionAssessedCount:limitUpIgnitionResult.summary.assessedCount,
+      limitUpIgnitionPassedGateCount:limitUpIgnitionResult.summary.passedGateCount,
+      limitUpIgnitionReturnedCount:limitUpIgnitionResult.summary.returnedCount,
+      limitUpIgnitionLeaderWatchCount:limitUpIgnitionResult.summary.verifiedLeaderCount,
       policyMatchCoveragePct:+(records.filter(r=>r.score?.policyAlignment?.evidenceAvailable).length/Math.max(1,records.length)*100).toFixed(2),
       marketRegimeSourceQuality:marketRegime.dataQuality,
       fullUniverseFallback,wideNewsScan:wideNewsDiagnostics},
     candidates:auditRecords,rankings:{
       coreSelection:coreSelectionResult.ranking,
       preBreakoutWatch:preBreakoutResult.ranking,
+      limitUpIgnitionWatch:limitUpIgnitionResult.ranking,
       overall,
       catalystConfirmed,
       policyConfirmed,
