@@ -698,7 +698,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   if(shouldAttemptFullUniverseFallback({ranked,rawCount:raw.length,rankedError:rankedSourceError})){
     fullUniverseFallback.attempted=true;
     try{
-      fullUniverseSnapshot=await fetchUniverse({concurrency:4,pageSize:100});
+      fullUniverseSnapshot=await fetchUniverse({concurrency:4,pageSize:100,timeoutMs:5000,maxAttempts:2});
       const fullRows=mapUniverseRowsToRankCandidates(fullUniverseSnapshot.rows);
       if(fullRows.length<3000)throw new Error('full-universe quote fallback returned only '+fullRows.length+' usable rows');
       raw=fullRows;
@@ -721,7 +721,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   let wideNewsDiagnostics={enabled:false,reason:'not-requested'};
   if(wideNewsScan){
     try{
-      const universe=fullUniverseSnapshot??await fetchUniverse({concurrency:4,pageSize:100});
+      const universe=fullUniverseSnapshot??await fetchUniverse({concurrency:4,pageSize:100,timeoutMs:5000,maxAttempts:2});
       const scan=await scanUniverseCatalystNews(universe.rows,signalCutoff,{limit:60,concurrency:4,batchSize:8,maxScanSymbols:320});
       wideNewsDiagnostics={...scan.diagnostics,providerTotal:universe.providerTotal,pageCount:universe.pageCount};
       const existing=new Set(funnel.map(row=>String(row.f12)));
