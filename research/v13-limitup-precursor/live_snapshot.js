@@ -10,10 +10,58 @@ import { scorePolicyAlignment, deriveMarketRegime, OFFICIAL_POLICIES, POLICY_CAT
 import { rankCoreSelection } from './core_selection.js';
 import { rankPreBreakoutCandidates } from './pre_breakout.js';
 
-const MODEL_VERSION = 'V13-live-four-layer-core-leader-selection-v6-prebreakout';
+const MODEL_VERSION = 'V13-live-four-layer-core-leader-selection-v7-source-diagnostics';
 const n = v => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
 const clamp = (v, lo=0, hi=100) => Math.max(lo, Math.min(hi, v));
 const avg = xs => { const a=xs.filter(Number.isFinite); return a.length ? a.reduce((x,y)=>x+y,0)/a.length : null; };
+
+export function summarizePsychologySourceDiagnostics(rows=[]) {
+  const items=Array.isArray(rows)?rows:[];
+  const countBy=key=>{
+    const values=[...new Set(items.map(item=>String(item?.[key]??'').trim()).filter(Boolean))].sort();
+    return Object.fromEntries(values.map(value=>[value,items.filter(item=>String(item?.[key]??'').trim()===value).length]));
+  };
+  const sum=key=>items.reduce((total,item)=>total+(Number(item?.[key])||0),0);
+  return {
+    batchCount:items.length,
+    degradedBatchCount:items.filter(item=>item?.degraded===true).length,
+    sourceCounts:{
+      concept:countBy('conceptSource'),
+      membership:countBy('membershipSource'),
+      quotes:countBy('quoteSource')
+    },
+    totals:{
+      requestedCodes:sum('requestedCodes'),
+      conceptRows:sum('conceptRows'),
+      quoteRows:sum('quoteRows'),
+      themeCount:sum('themeCount'),
+      researchThemes:sum('researchThemes'),
+      membershipFailures:sum('membershipFailures'),
+      flowFailures:sum('flowFailures'),
+      researchFailures:sum('researchFailures')
+    },
+    batches:items.map(item=>({
+      batchIndex:item.batchIndex??null,
+      status:item.status??null,
+      degraded:item.degraded===true,
+      conceptSource:item.conceptSource??null,
+      membershipSource:item.membershipSource??null,
+      quoteSource:item.quoteSource??null,
+      requestedCodes:Number(item.requestedCodes)||0,
+      candidateCount:Array.isArray(item.codes)?item.codes.length:0,
+      sampleCodes:Array.isArray(item.codes)?item.codes.slice(0,3):[],
+      conceptRows:Number(item.conceptRows)||0,
+      quoteRows:Number(item.quoteRows)||0,
+      themeCount:Number(item.themeCount)||0,
+      researchThemes:Number(item.researchThemes)||0,
+      membershipFailures:Number(item.membershipFailures)||0,
+      flowFailures:Number(item.flowFailures)||0,
+      researchFailures:Number(item.researchFailures)||0,
+      sourceFailures:Array.isArray(item.sourceFailures)?item.sourceFailures.slice(0,5):[],
+      sourceWarnings:Array.isArray(item.sourceWarnings)?item.sourceWarnings.slice(0,10):[]
+    }))
+  };
+}
 
 export function parseRows(rows, kind, asOf) {
   const cutoff = String(asOf ?? '').slice(0,10), out = new Map();
@@ -566,7 +614,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     catch(e) { psychError=String(e?.message??e); }
     return {codes,deep,psych,deepError,psychError};
   });
-  const deepByCode=new Map(),psychByCode=new Map(),psychSuccessCodes=new Set(),sourceErrors=[];
+  const deepByCode=new Map(),psychByCode=new Map(),psychSuccessCodes=new Set(),sourceErrors=[],psychologySourceDiagnostics=[];
   if(fullUniverseFallback.error)sourceErrors.push('full-universe-quote-fallback: '+fullUniverseFallback.error);
   for(const batch of batches){
     if(batch.deep) for(const item of batch.deep.items??[]) deepByCode.set(String(item.code??''),item);
@@ -579,6 +627,25 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
         || Number(psychDiagnostics.conceptRows??0)===0
         || Number(psychDiagnostics.requestedCodes??batch.codes.length)>0
           && Number(psychDiagnostics.themeCount??0)===0;
+      psychologySourceDiagnostics.push({
+        batchIndex:psychologySourceDiagnostics.length+1,
+        codes:batch.codes,
+        status:batch.psych.status??null,
+        degraded:psychDegraded,
+        conceptSource:psychDiagnostics.conceptSource??null,
+        membershipSource:psychDiagnostics.membershipSource??null,
+        quoteSource:psychDiagnostics.quoteSource??null,
+        requestedCodes:Number(psychDiagnostics.requestedCodes??batch.codes.length)||0,
+        conceptRows:Number(psychDiagnostics.conceptRows)||0,
+        quoteRows:Number(psychDiagnostics.quoteRows)||0,
+        themeCount:Number(psychDiagnostics.themeCount)||0,
+        researchThemes:Number(psychDiagnostics.researchThemes)||0,
+        membershipFailures:Number(psychDiagnostics.membershipFailures)||0,
+        flowFailures:Number(psychDiagnostics.flowFailures)||0,
+        researchFailures:Number(psychDiagnostics.researchFailures)||0,
+        sourceFailures:Array.isArray(psychDiagnostics.sourceFailures)?psychDiagnostics.sourceFailures:[],
+        sourceWarnings:Array.isArray(psychDiagnostics.sourceWarnings)?psychDiagnostics.sourceWarnings:[]
+      });
       if(!psychDegraded) for(const code of batch.codes) psychSuccessCodes.add(code);
       else sourceErrors.push('psychology_universe_degraded: '+JSON.stringify({
         status:batch.psych.status??null,
@@ -588,7 +655,28 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
         themeCount:psychDiagnostics.themeCount??0,
         researchFailures:psychDiagnostics.researchFailures??0
       }));
-    } else sourceErrors.push('psychology_universe: '+batch.psychError);
+    } else {
+      psychologySourceDiagnostics.push({
+        batchIndex:psychologySourceDiagnostics.length+1,
+        codes:batch.codes,
+        status:'REQUEST_FAILED',
+        degraded:true,
+        conceptSource:null,
+        membershipSource:null,
+        quoteSource:null,
+        requestedCodes:batch.codes.length,
+        conceptRows:0,
+        quoteRows:0,
+        themeCount:0,
+        researchThemes:0,
+        membershipFailures:batch.codes.length,
+        flowFailures:0,
+        researchFailures:0,
+        sourceFailures:[String(batch.psychError??'unknown psychology endpoint failure')],
+        sourceWarnings:[]
+      });
+      sourceErrors.push('psychology_universe: '+batch.psychError);
+    }
   }
   let retryAttemptCount=0,retryRecoveredKlineCount=0,retryRecoveredFlowCount=0;
   const retryTargets=funnel.filter(row=>{
@@ -792,6 +880,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       catalogStale:Date.now()-Date.parse(POLICY_CATALOG_REVIEWED_AT)>14*86400000},
     selectionSummary:coreSelectionResult.summary,
     preBreakoutSummary:preBreakoutResult.summary,
+    sourceDiagnostics:{psychology:summarizePsychologySourceDiagnostics(psychologySourceDiagnostics)},
     sourcePolicy:{provider:'Eastmoney public quote/history and psychology/theme/news endpoint',pointInTime:'captured-at-source',
       futureDatedBarsExcluded:true,catalystOnlyUsedWhenNewsTimestampVerified:true,dailyBarCompleteAtCapture:dailyBarComplete,
       rankedUniverseFallback:fullUniverseFallback.used?'eastmoney-full-universe-live-quote-fallback':null,
