@@ -18,11 +18,11 @@ on:
       - 'tests/v13_supervised_ranker.test.js'
       - 'tests/v13_live_snapshot.test.js'
       - 'tests/v13_limitup_ignition.test.js'
-      - 'tests/v13_next_day_limitup.test.js'
       - '.github/workflows/v13-limitup-precursor-tests.yml'
   pull_request:
     paths:
       - 'research/v13-limitup-precursor/**'
+      - 'tests/v13_next_day_limitup.test.js'
       - 'tests/v13_next_day_action_plan.test.js'
       - 'tests/v13_core_selection.test.js'
       - 'api/v13_prelimitup.js'
