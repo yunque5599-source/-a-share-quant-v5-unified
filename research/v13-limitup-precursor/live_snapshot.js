@@ -124,23 +124,12 @@ export function mapUniverseRowsToRankCandidates(rows){
   return output.sort((a,b)=>b.rankScore-a.rankScore||String(a.f12).localeCompare(String(b.f12)));
 }
 export function selectCandidateFunnel(rows, limit=120) {
+  const cap=Math.max(1,Math.min(300,Number(limit)||120));
   const valid=(Array.isArray(rows)?rows:[]).filter(r=>/^(00|30|60|68|43|83|87|92)\d{4}$/.test(String(r?.f12??''))&&!isRestrictedListingName(r?.f14));
-  const chosen=new Map();
-  const add=(arr,count,lane)=>{let added=0;for(const r of arr){const code=String(r.f12);if(chosen.has(code)){chosen.get(code).funnelLanes.push(lane);continue;}chosen.set(code,{...r,funnelLanes:[lane]});if(++added>=count)break;}};
   const val=(r,k)=>n(r?.[k])??-Infinity;
-  add([...valid].sort((a,b)=>val(b,'rankScore')-val(a,'rankScore')),Math.ceil(limit*.42),'consensus-rank');
-  add([...valid].sort((a,b)=>val(b,'f3')-val(a,'f3')),Math.ceil(limit*.18),'price-momentum');
-  add([...valid].sort((a,b)=>val(b,'f62')-val(a,'f62')),Math.ceil(limit*.18),'capital-inflow');
-  // The strict primary shortlist is limited to executable Shanghai/Shenzhen main-board names.
-  // Reserve explicit funnel capacity for those names so growth-board momentum cannot consume
-  // the entire candidate budget before policy/leader/flow gates are evaluated.
   const mainBoardValid=valid.filter(row=>['SH_MAIN','SZ_MAIN'].includes(boardForCode(row.f12)));
-  add([...mainBoardValid].sort((a,b)=>val(b,'rankScore')-val(a,'rankScore')),Math.ceil(limit*.18),'main-board-consensus');
-  add([...mainBoardValid].sort((a,b)=>val(b,'f62')-val(a,'f62')),Math.ceil(limit*.10),'main-board-capital-inflow');
-  add([...mainBoardValid].sort((a,b)=>val(b,'f3')-val(a,'f3')),Math.ceil(limit*.10),'main-board-price-momentum');
   const ignitionRows=valid.filter(row=>{
-    const board=boardForCode(row.f12);
-    const pct=val(row,'f3');
+    const board=boardForCode(row.f12),pct=val(row,'f3');
     const limit=board==='CHINEXT'||board==='STAR'?20:board==='BSE'?30:10;
     const minimum=board==='CHINEXT'||board==='STAR'?3:board==='BSE'?4.5:1.5;
     return pct>=minimum&&pct<limit-0.05&&['SH_MAIN','SZ_MAIN','CHINEXT','STAR','BSE'].includes(board);
@@ -152,10 +141,45 @@ export function selectCandidateFunnel(rows, limit=120) {
     const distanceB=Math.abs(val(b,'f3')/limitB-0.60);
     return distanceA-distanceB||val(b,'f6')-val(a,'f6');
   });
-  add(ignitionRows,Math.ceil(limit*.18),'next-day-ignition-band');
-  add([...valid].sort((a,b)=>val(b,'rankHits')-val(a,'rankHits')),Math.ceil(limit*.10),'cross-rank-consensus');
-  add(valid,limit,'ranked-funnel-fill');
-  return [...chosen.values()].slice(0,limit).map(r=>({...r,funnelLanes:[...new Set(r.funnelLanes)],board:boardForCode(r.f12)}));
+  const lanes=[
+    {name:'consensus-rank',weight:0.28,rows:[...valid].sort((a,b)=>val(b,'rankScore')-val(a,'rankScore'))},
+    {name:'price-momentum',weight:0.12,rows:[...valid].sort((a,b)=>val(b,'f3')-val(a,'f3'))},
+    {name:'capital-inflow',weight:0.12,rows:[...valid].sort((a,b)=>val(b,'f62')-val(a,'f62'))},
+    {name:'main-board-consensus',weight:0.12,rows:[...mainBoardValid].sort((a,b)=>val(b,'rankScore')-val(a,'rankScore'))},
+    {name:'main-board-capital-inflow',weight:0.08,rows:[...mainBoardValid].sort((a,b)=>val(b,'f62')-val(a,'f62'))},
+    {name:'main-board-price-momentum',weight:0.08,rows:[...mainBoardValid].sort((a,b)=>val(b,'f3')-val(a,'f3'))},
+    {name:'next-day-ignition-band',weight:0.14,rows:ignitionRows},
+    {name:'cross-rank-consensus',weight:0.06,rows:[...valid].sort((a,b)=>val(b,'rankHits')-val(a,'rankHits'))}
+  ];
+  const quotas=lanes.map(lane=>Math.floor(cap*lane.weight));
+  let remainder=cap-quotas.reduce((sum,value)=>sum+value,0);
+  for(let i=0;remainder>0;i=(i+1)%lanes.length,remainder--)quotas[i]++;
+  const chosen=new Map();
+  const addLane=(lane,quota)=>{
+    let added=0;
+    for(const row of lane.rows){
+      if(added>=quota||chosen.size>=cap)break;
+      const code=String(row.f12);
+      const existing=chosen.get(code);
+      if(existing){
+        if(!existing.funnelLanes.includes(lane.name))existing.funnelLanes.push(lane.name);
+        continue;
+      }
+      chosen.set(code,{...row,funnelLanes:[lane.name]});
+      added++;
+    }
+  };
+  lanes.forEach((lane,index)=>addLane(lane,quotas[index]));
+  if(chosen.size<cap){
+    for(const row of [...valid].sort((a,b)=>val(b,'rankScore')-val(a,'rankScore')||val(b,'f3')-val(a,'f3'))){
+      if(chosen.size>=cap)break;
+      const code=String(row.f12);
+      const existing=chosen.get(code);
+      if(existing){if(!existing.funnelLanes.includes('ranked-funnel-fill'))existing.funnelLanes.push('ranked-funnel-fill');continue;}
+      chosen.set(code,{...row,funnelLanes:['ranked-funnel-fill']});
+    }
+  }
+  return [...chosen.values()].slice(0,cap).map(row=>({...row,funnelLanes:[...new Set(row.funnelLanes)],board:boardForCode(row.f12)}));
 }
 export function deriveLiveIndustryContext(rows){
   const groups=new Map(),seenCodes=new Set();
