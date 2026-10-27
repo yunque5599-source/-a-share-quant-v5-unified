@@ -101,7 +101,8 @@ jobs:
                   researchFailures:b.researchFailures,
                   themeMemberFailures:b.themeMemberFailures,
                   themeNewsFailures:b.themeNewsFailures,
-                  sourceFailures:b.sourceFailures.slice(0,2)
+                  sourceFailures:b.sourceFailures.slice(0,2),
+                  themeRequestFailureSamples:b.themeRequestFailureSamples.slice(0,4)
                 }))
               } : null,
               top10:x.rankings?.overall?.slice(0,10).map(r => ({
