@@ -87,7 +87,7 @@ jobs:
       - name: Capture timestamped snapshot
         if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push' || github.event.schedule == '15 1 * * 1-5' || github.event.schedule == '15 7 * * 1-5'
         env:
-          WIDE_NEWS_SCAN: ${{ github.event.schedule == '15 1 * * 1-5' || github.event.schedule == '15 7 * * 1-5' || github.event.inputs.wide_news_scan == 'true' }}
+          WIDE_NEWS_SCAN: ${{ github.event.schedule == '15 1 * * 1-5' || github.event.inputs.wide_news_scan == 'true' }}
         run: |
           EXTRA_ARGS=""
           if [ "$WIDE_NEWS_SCAN" = "true" ]; then EXTRA_ARGS="$EXTRA_ARGS --wide-news-scan"; fi
