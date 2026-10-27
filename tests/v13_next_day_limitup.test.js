@@ -62,10 +62,17 @@ test('ranking returns both paths and does not promote an already locked limit-up
   assert.equal(result.summary.observationOnly,true);
   assert.equal(result.summary.calibratedProbability,false);
   assert.equal(result.summary.entrySignal,false);
-  assert.equal(result.summary.returnedCount,2);
+  assert.equal(result.summary.returnedCount,3);
   assert.equal(result.summary.continuationCount,1);
+  assert.equal(result.summary.limitUpContinuationCount,1);
   assert.equal(result.summary.prebreakoutCount,1);
-  assert.ok(result.assessed.find(row=>row.code==='600003').failedGates.includes('already-at-daily-limit'));
+  const locked=result.assessed.find(row=>row.code==='600003');
+  assert.equal(locked.atDailyLimit,true);
+  assert.equal(locked.path,'LIMITUP_CONTINUATION');
+  assert.equal(locked.stage,'NEXT_DAY_LIMITUP_CONTINUATION_WATCH');
+  assert.equal(locked.passed,true);
+  assert.ok(!locked.failedGates.includes('already-at-daily-limit'));
+  assert.ok(locked.riskFlags.some(flag=>flag.includes('次日连板')));
   assert.ok(result.assessed.find(row=>row.code==='600004').failedGates.includes('restricted-listing-name'));
 });
 
@@ -107,4 +114,27 @@ test('unverified industry/theme proxy is capped below verified leadership eviden
   assert.equal(verified.leaderVerified,true);
   assert.equal(proxy.leaderVerified,false);
   assert.ok(proxy.components.leaderEvidence <= 55);
+});
+
+
+test('limit-up continuation detection is board-normalized for 10%, 20% and 30% boards',()=>{
+  const main=assessNextDayLimitUpCandidate(makeRow({code:'600101',pct:10.07}));
+  const chinext=assessNextDayLimitUpCandidate(makeRow({code:'300101',board:'CHINEXT',pct:20.0}));
+  const beijing=assessNextDayLimitUpCandidate(makeRow({code:'920101',board:'BSE',pct:30.0}));
+  assert.equal(main.atDailyLimit,true);
+  assert.equal(chinext.atDailyLimit,true);
+  assert.equal(beijing.atDailyLimit,true);
+  assert.equal(main.path,'LIMITUP_CONTINUATION');
+  assert.equal(chinext.path,'LIMITUP_CONTINUATION');
+  assert.equal(beijing.path,'LIMITUP_CONTINUATION');
+});
+
+test('limit-up continuation with almost no supporting evidence is not promoted',()=>{
+  const result=assessNextDayLimitUpCandidate({
+    code:'600999',name:'证据缺失股',board:'SH_MAIN',currentPct:10,
+    features:{},components:{},leaderEvidence:{}
+  });
+  assert.equal(result.atDailyLimit,true);
+  assert.equal(result.passed,false);
+  assert.ok(result.failedGates.includes('insufficient-limitup-continuation-evidence'));
 });
