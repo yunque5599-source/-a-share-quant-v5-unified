@@ -273,13 +273,14 @@ test('psychology source diagnostics aggregate providers and preserve degraded ba
    selectedThemesPerStock:1,maxResearchThemes:10,
    conceptRankingCacheHit:false,conceptRankingCacheAgeMs:0,
    requestedCodes:2,conceptRows:100,quoteRows:2,themeCount:4,researchThemes:3,
-   membershipFailures:0,flowFailures:0,researchFailures:1,sourceFailures:[],sourceWarnings:[]},
+   membershipFailures:0,flowFailures:0,researchFailures:1,themeMemberFailures:0,themeNewsFailures:1,
+   sourceFailures:[],sourceWarnings:[]},
   {batchIndex:2,codes:['600519'],status:'DEGRADED_SOURCE_COVERAGE',degraded:true,
    conceptSource:'sina-node-aggregate',membershipSource:'10jqka-stock-concepts-mapped-to-sina',quoteSource:'tencent',
    selectedThemesPerStock:1,maxResearchThemes:10,
    conceptRankingCacheHit:true,conceptRankingCacheAgeMs:1500,
    requestedCodes:1,conceptRows:5,quoteRows:1,themeCount:2,researchThemes:2,
-   membershipFailures:1,flowFailures:2,researchFailures:1,
+   membershipFailures:1,flowFailures:2,researchFailures:1,themeMemberFailures:1,themeNewsFailures:0,
    sourceFailures:['concept-ranking-eastmoney: unavailable'],sourceWarnings:['sampled board constituents']}
  ]);
  assert.equal(summary.batchCount,2);
@@ -289,11 +290,33 @@ test('psychology source diagnostics aggregate providers and preserve degraded ba
  assert.equal(summary.totals.requestedCodes,3);
  assert.equal(summary.totals.conceptRows,105);
  assert.equal(summary.totals.flowFailures,2);
+ assert.equal(summary.totals.themeMemberFailures,1);
+ assert.equal(summary.totals.themeNewsFailures,1);
  assert.equal(summary.totals.conceptRankingCacheHitCount,1);
  assert.equal(summary.batches[0].candidateCount,2);
  assert.equal(summary.batches[1].conceptRankingCacheHit,true);
  assert.equal(summary.batches[1].conceptRankingCacheAgeMs,1500);
+ assert.equal(summary.batches[1].themeMemberFailures,1);
+ assert.equal(summary.batches[1].themeNewsFailures,0);
  assert.equal(summary.batches[1].selectedThemesPerStock,1);
  assert.equal(summary.batches[1].maxResearchThemes,10);
  assert.deepEqual(summary.batches[1].sourceWarnings,['sampled board constituents']);
+});
+
+
+test('theme without a verified member list does not default to follower leadership status', () => {
+  const result = enrichTheme({
+    code:'BK12345',
+    name:'人工智能',
+    changePct:1.8,
+    mainNetCny:null,
+    mainNetPct:null,
+    upCount:30,
+    downCount:10,
+    flatCount:5,
+    memberCount:45
+  }, [], [], [], 5, '000001', '平安银行', '2026-10-27T03:00:00Z');
+  assert.equal(result.leaderStatus, null);
+  assert.equal(result.candidateRank, null);
+  assert.equal(result.source.leaderEvidenceQuality, 'unavailable');
 });
