@@ -257,7 +257,7 @@ export function auditCandidateFunnel(rows=[], selected=[], limit=120) {
     const code = String(row?.f12 ?? '');
     const selectedRow = selectedByCode.get(code);
     const reasons = [];
-    if (!/^(00|30|60|68|43|83|87|92)\\d{4}$/.test(code)) reasons.push('invalid-or-unsupported-code');
+    if (!/^(00|30|60|68|43|83|87|92)\d{4}$/.test(code)) reasons.push('invalid-or-unsupported-code');
     if (isRestrictedListingName(row?.f14)) reasons.push('restricted-listing-name');
     if (!reasons.length && !selectedRow) reasons.push('not-selected-by-funnel-quota');
     return {
