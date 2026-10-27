@@ -477,3 +477,17 @@ test('candidate funnel reserves next-day ignition and main-board slots under a c
   const mainBoardCount=result.filter(row=>['SH_MAIN','SZ_MAIN'].includes(row.board)).length;
   assert.ok(mainBoardCount>=35,'main-board lane should retain a meaningful reserved share');
 });
+
+
+test('candidate funnel reserves a prebreakout volume-expansion lane under a crowded ranked universe',()=>{
+  const crowded=Array.from({length:160},(_,i)=>({
+    f12:String(600100+i),f14:'高排名样本'+i,rankScore:200-i,rankHits:1,
+    f3:Math.min(9.4,5+(i%5)*0.3),f6:50000000+i*10000,f62:100000+i
+  }));
+  const early={f12:'300006',f14:'莱美药业',rankScore:1,rankHits:0,
+    f3:1.0,f6:85000000,f62:3000000,f10:2.8};
+  const result=selectCandidateFunnel([...crowded,early],120);
+  const candidate=result.find(row=>row.f12==='300006');
+  assert.ok(candidate,'prebreakout candidate should survive the capped deep-scan funnel');
+  assert.ok(candidate.funnelLanes.includes('prebreakout-volume-expansion'));
+});
