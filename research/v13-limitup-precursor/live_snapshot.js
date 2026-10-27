@@ -995,9 +995,13 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   const flowSignalGood=records.filter(r=>r.source.flowCount>0||r.source.currentFlowSnapshotUsed).length;
   const historicalFlowGood=records.filter(r=>r.source.flowSource==='eastmoney'&&r.source.historicalFlowCount>=3).length;
   const psychGood=records.filter(r=>r.psychology.available&&r.psychology.source!=='timestamped-stock-news-fallback').length;
+  const funnelLaneCounts=Object.fromEntries([...new Set(funnel.flatMap(row=>row.funnelLanes??[]))]
+    .map(name=>[name,funnel.filter(row=>(row.funnelLanes??[]).includes(name)).length]));
+  const limitUpContinuationFunnelCount=funnel.filter(row=>(row.funnelLanes??[]).includes('limit-up-continuation')).length;
   const quality={rankedSourceDegraded:rankingSourceDegraded,rankedSourceStale:rankingSourceStale,rankedSourceMethod:rankingSourceMethod,
     originalRankedSourceDegraded:ranked?.data?.degraded===true,originalRankedSourceMethod:ranked?.data?.method??null,
-    rankedCandidateCount:raw.length,funnelCandidateCount:funnel.length,deepSuccessCount:deepGood,deepSuccessPct:+(deepGood/Math.max(1,funnel.length)*100).toFixed(2),
+    rankedCandidateCount:raw.length,funnelCandidateCount:funnel.length,funnelLaneCounts,limitUpContinuationFunnelCount,
+    deepSuccessCount:deepGood,deepSuccessPct:+(deepGood/Math.max(1,funnel.length)*100).toFixed(2),
     industryContextCandidateCount:funnel.filter(row=>industryContextByCode.has(String(row.f12))).length,
     industryContextCoveragePct:+(funnel.filter(row=>industryContextByCode.has(String(row.f12))).length/Math.max(1,funnel.length)*100).toFixed(2),
     retryAttemptCount,retryRecoveredKlineCount,retryRecoveredFlowCount,
