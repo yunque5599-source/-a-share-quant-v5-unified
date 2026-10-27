@@ -735,7 +735,6 @@ export const _internal = {
   parseThsStockConcepts,
   parseSinaConceptNodes,
   parseSinaNodeMembers,
-  normalizeThemeName,
   fetchConceptRanking,
   fetchCandidateQuotes,
   fetchTencentCandidateQuotes,
