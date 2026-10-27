@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRows, isDailyBarCompleteAt, mapUniverseRowsToRankCandidates, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isEntryReadyCandidate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, buildWideNewsCandidate, flattenNewsPayload, buildStockNewsFallback, selectWideNewsScanUniverse, summarizePsychologySourceDiagnostics } from '../research/v13-limitup-precursor/live_snapshot.js';
+import { parseRows, isDailyBarCompleteAt, mapUniverseRowsToRankCandidates, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isEntryReadyCandidate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, buildWideNewsCandidate, flattenNewsPayload, buildStockNewsFallback, selectWideNewsScanUniverse, summarizePsychologySourceDiagnostics, markNextDayRankingReadiness } from '../research/v13-limitup-precursor/live_snapshot.js';
 import { buildNextSessionPlan, evaluateNextSessionEntry } from '../research/v13-limitup-precursor/next_session_plan.js';
 import { buildNextDayActionPlan } from '../research/v13-limitup-precursor/next_day_action_plan.js';
 
@@ -490,4 +490,22 @@ test('candidate funnel reserves a prebreakout volume-expansion lane under a crow
   const candidate=result.find(row=>row.f12==='300006');
   assert.ok(candidate,'prebreakout candidate should survive the capped deep-scan funnel');
   assert.ok(candidate.funnelLanes.includes('prebreakout-volume-expansion'));
+});
+
+
+test('next-day ranking is explicitly provisional before the daily bar closes',()=>{
+  const rows=markNextDayRankingReadiness([{code:'600001',confidence:82,riskFlags:['资金证据偏弱']}],false);
+  assert.equal(rows[0].signalBarComplete,false);
+  assert.equal(rows[0].forecastStatus,'PROVISIONAL_INTRADAY');
+  assert.equal(rows[0].confidence,70);
+  assert.ok(rows[0].riskFlags.some(flag=>flag.includes('K线尚未收盘')));
+  assert.ok(rows[0].riskFlags.includes('资金证据偏弱'));
+});
+
+test('next-day ranking is marked ready only after the daily bar is complete',()=>{
+  const rows=markNextDayRankingReadiness([{code:'600001',confidence:82,riskFlags:[]}],true);
+  assert.equal(rows[0].signalBarComplete,true);
+  assert.equal(rows[0].forecastStatus,'CLOSED_BAR_READY');
+  assert.equal(rows[0].confidence,82);
+  assert.deepEqual(rows[0].riskFlags,[]);
 });
