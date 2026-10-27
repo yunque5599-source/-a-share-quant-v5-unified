@@ -230,6 +230,7 @@ export function assessNextDayLimitUpCandidate(row = {}) {
 
   return {
     code,name,board,asOf:row.asOf??null,
+    themeName:row.leaderEvidence?.themeName??row.psychology?.primaryTheme??null,
     currentPct:pct,
     score:Number(score.toFixed(1)),
     confidence:Number(confidence.toFixed(1)),
