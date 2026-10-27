@@ -11,13 +11,17 @@ const currentRunId = Number(process.env.GITHUB_RUN_ID ?? 0);
 const branch = process.env.GITHUB_REF_NAME ?? 'research/v13-limitup-precursor';
 const outputPath = resolve(process.env.PREVIOUS_SNAPSHOT_OUTPUT ?? 'output/previous-snapshot/snapshot.json');
 
-function chinaDate() {
+function chinaDateOf(value = new Date()) {
+  if (typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+  const date = value instanceof Date ? value : new Date(value);
+  if (!Number.isFinite(date.getTime())) return '';
   const parts = new Intl.DateTimeFormat('en-CA', {
     timeZone:'Asia/Shanghai', year:'numeric', month:'2-digit', day:'2-digit'
-  }).formatToParts(new Date());
+  }).formatToParts(date);
   const get = key => parts.find(part => part.type === key)?.value;
   return get('year') + '-' + get('month') + '-' + get('day');
 }
+function chinaDate() { return chinaDateOf(new Date()); }
 
 async function apiJson(url) {
   const response = await fetch(url, {
@@ -76,7 +80,7 @@ async function main() {
   if (!token) throw new Error('GITHUB_TOKEN or GH_TOKEN is required to read prior workflow artifacts.');
   const today = chinaDate();
   const runsUrl = api + '/repos/' + repo + '/actions/workflows/v13-live-snapshot.yml/runs?branch='
-    + encodeURIComponent(branch) + '&status=success&per_page=30';
+    + encodeURIComponent(branch) + '&status=completed&per_page=30';
   const payload = await apiJson(runsUrl);
   const runs = (payload.workflow_runs ?? [])
     .filter(run => run.id !== currentRunId && (!currentRunId || run.id < currentRunId))
@@ -104,7 +108,7 @@ async function main() {
       lastError = String(error?.message ?? error);
       continue;
     }
-    const asOfDate = String(snapshot.asOf ?? snapshot.capturedAt ?? '').slice(0, 10);
+    const asOfDate = chinaDateOf(snapshot.asOf ?? snapshot.capturedAt ?? '');
     if (snapshot.schema !== 'v13-live-psychology-catalyst-snapshot-v1') continue;
     if (snapshot.recommendationsAvailable !== true) continue;
     if (!/^\d{4}-\d{2}-\d{2}$/.test(asOfDate) || asOfDate >= today) continue;
