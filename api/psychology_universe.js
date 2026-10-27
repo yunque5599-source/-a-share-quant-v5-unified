@@ -862,6 +862,7 @@ export default async function handler(req, res) {
     researchFailures:0,
     themeMemberFailures:0,
     themeNewsFailures:0,
+    themeRequestFailureSamples:[],
     sourceFailures:[],
     sourceDegraded:false,
     sourceWarnings:[],
@@ -994,8 +995,14 @@ export default async function handler(req, res) {
       await sleep(120);
       try {
         flowMap.set(boardCode, await fetchThemeFlow(boardCode));
-      } catch {
+      } catch (error) {
         diagnostics.flowFailures += 1;
+        if (diagnostics.themeRequestFailureSamples.length < 10) {
+          diagnostics.themeRequestFailureSamples.push({
+            source:'theme-flow',themeCode:boardCode,
+            error:String(error?.message ?? error).slice(0,180)
+          });
+        }
         flowMap.set(boardCode, []);
       }
     });
@@ -1017,6 +1024,12 @@ export default async function handler(req, res) {
         memberMap.set(base.code, []);
         diagnostics.researchFailures += 1;
         diagnostics.themeMemberFailures += 1;
+        if (diagnostics.themeRequestFailureSamples.length < 10) {
+          diagnostics.themeRequestFailureSamples.push({
+            source:'theme-members',themeCode:base.code,
+            error:String(membersResult.reason?.message ?? membersResult.reason).slice(0,180)
+          });
+        }
       }
       if (newsResult.status === 'fulfilled') {
         newsMap.set(base.code, newsResult.value);
@@ -1024,6 +1037,12 @@ export default async function handler(req, res) {
         newsMap.set(base.code, []);
         diagnostics.researchFailures += 1;
         diagnostics.themeNewsFailures += 1;
+        if (diagnostics.themeRequestFailureSamples.length < 10) {
+          diagnostics.themeRequestFailureSamples.push({
+            source:'theme-news',themeCode:base.code,themeName:base.name,
+            error:String(newsResult.reason?.message ?? newsResult.reason).slice(0,180)
+          });
+        }
       }
     });
     diagnostics.researchThemes = rankedResearchThemes.length;
