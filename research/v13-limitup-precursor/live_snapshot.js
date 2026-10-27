@@ -142,7 +142,7 @@ export function mapUniverseRowsToRankCandidates(rows){
     if(price===null||price<=0||pct===null)continue;
     const momentumScore=clamp(50+pct*3);
     const capitalScore=mainPct===null?45:clamp(50+mainPct*5);
-    output.push({f12:code,f14:name,f2:price,f3:pct,f6:amount,f8:turnoverRate,
+    output.push({f12:code,f14:name,f2:price,f3:pct,f6:amount,f8:turnoverRate,f10:n(stock.volumeRatio),
       f62:mainNet,f184:mainPct,f100:String(stock.industry??''),
       rankScore:Number((0.60*momentumScore+0.40*capitalScore).toFixed(2)),
       rankHits:0,ranks:{fullUniverseSnapshot:0},board:stock.board??boardForCode(code),
