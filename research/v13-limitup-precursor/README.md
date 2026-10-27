@@ -364,3 +364,10 @@ The collector now retains successful pages, records failed page numbers and erro
 Regression coverage verifies the per-segment coverage threshold. Latest V13 tests and V12 validation passed on commit `904c0db304415becf1b34544188b8138697d71af`: https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40463156830 and https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40463156853.
 
 The earlier replay artifact remains `NOT_MEASURABLE`; it was generated before this partial-page repair. A new replay must complete with sufficient bar and outcome coverage before any claim that the new continuation lane improves exact T+1 limit-up recall.
+
+
+## Full-universe fallback feature parity (2026-10-27)
+
+A further audit found the full-universe fallback mapped price, turnover, amount and flow fields but dropped the source's `volumeRatio` field when converting rows into ranked-candidate format. That meant the pre-breakout volume-expansion lane could not use a valid volume-ratio signal whenever the fallback was active. The mapper now preserves this field as `f10`, and the live-snapshot regression test asserts the mapping.
+
+V13 tests passed on commit `6aea3b3c0dc38b2cb5d9bfe44bc44b08f16259a3`: https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40463409628.
