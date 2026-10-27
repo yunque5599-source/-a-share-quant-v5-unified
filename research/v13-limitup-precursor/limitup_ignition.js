@@ -64,6 +64,9 @@ export function assessLimitUpIgnitionCandidate(row = {}) {
   const c = row.components ?? {};
   const r3 = n(f.r3Pct);
   const r5 = n(f.r5Pct);
+  const r10 = n(f.r10Pct);
+  const recentLimitUp5 = n(f.recentLimitUp5Count);
+  const recentLimitUp10 = n(f.recentLimitUp10Count);
   const closeLocation = n(f.closeLocation);
   const volumeExpansion = n(f.volumeExpansion);
   const sector = avg([n(c.sector), n(c.marketFit)]);
@@ -92,22 +95,31 @@ export function assessLimitUpIgnitionCandidate(row = {}) {
   const volumeScore = scoreBand(volumeExpansion, 1.15, 2.4, 0.45, 4.0);
   const trendScore = avg([
     scoreBand(r3, 1.5, 7, -5, 14),
-    scoreBand(r5, 2, 14, -8, 25)
+    scoreBand(r5, 2, 14, -8, 25),
+    scoreBand(r10, 3, 20, -12, 35)
   ]);
+  const priorLimitUpScore = recentLimitUp5 !== null
+    ? clamp(48 + Math.min(recentLimitUp5, 2) * 17
+      + Math.min(Math.max(0, (recentLimitUp10 ?? recentLimitUp5) - recentLimitUp5), 3) * 5
+      - Math.max(0, recentLimitUp5 - 3) * 12)
+    : recentLimitUp10 !== null ? clamp(45 + Math.min(recentLimitUp10, 3) * 8) : null;
   const sectorScore = sector === null ? 45 : clamp(sector);
   const flowScore = flow === null ? 45 : clamp(flow);
   const leaderScore = leader.score;
+  // A recent limit-up is a useful continuation prior, but not a hard requirement:
+  // first-time leaders and catalyst-driven breakouts must remain discoverable.
   const scorePieces = [
-    [moveScore, 0.20], [closeScore, 0.14], [volumeScore, 0.14],
-    [trendScore, 0.18], [sectorScore, 0.14], [flowScore, 0.12],
-    [leaderScore, 0.08]
+    [moveScore, 0.18], [closeScore, 0.13], [volumeScore, 0.13],
+    [trendScore, 0.17], [sectorScore, 0.13], [flowScore, 0.11],
+    [leaderScore, 0.07], [priorLimitUpScore, 0.08]
   ];
   const score = clamp(scorePieces.reduce((sum, [value, weight]) => sum + (value ?? 45) * weight, 0));
   const evidenceCount = [
     moveScore, closeScore, volumeScore, trendScore,
     sector === null ? null : sectorScore,
     flow === null ? null : flowScore,
-    leader.verified || leader.themeName ? leaderScore : null
+    leader.verified || leader.themeName ? leaderScore : null,
+    priorLimitUpScore
   ].filter(value => value !== null).length;
   const confidence = clamp(25 + evidenceCount * 9 + (flowCount !== null && flowCount >= 3 ? 8 : 0));
   const trendPositive = (r3 !== null && r3 > 0) || (r5 !== null && r5 > 0);
@@ -125,6 +137,7 @@ export function assessLimitUpIgnitionCandidate(row = {}) {
   const riskFlags = [];
   if (limitPct !== null && pct !== null && pct >= limitPct * 0.78) riskFlags.push('当日涨幅已高，次日高开和追涨风险增加');
   if (r5 !== null && r5 > 18) riskFlags.push('近5日涨幅较大，注意短线过热');
+  if (recentLimitUp5 !== null && recentLimitUp5 >= 2) riskFlags.push('近5个交易日已有多次涨停，延续性增强但分歧与炸板风险也更高');
   if (flow !== null && flow < 45) riskFlags.push('资金证据偏弱或出现流出');
   if (!leader.verified) riskFlags.push('尚未验证为题材核心龙头');
   if (flowCount === null || flowCount < 3) riskFlags.push('历史资金流样本不足');
@@ -141,12 +154,15 @@ export function assessLimitUpIgnitionCandidate(row = {}) {
       closeStrength: closeScore === null ? null : Number(closeScore.toFixed(1)),
       volumeExpansion: volumeScore === null ? null : Number(volumeScore.toFixed(1)),
       shortTrend: trendScore === null ? null : Number(trendScore.toFixed(1)),
+      priorLimitUpActivity: priorLimitUpScore === null ? null : Number(priorLimitUpScore.toFixed(1)),
       sectorStrength: Number(sectorScore.toFixed(1)),
       capitalFlow: Number(flowScore.toFixed(1)),
       leaderEvidence: Number(leaderScore.toFixed(1))
     },
     evidence: {
-      r3Pct: r3, r5Pct: r5, closeLocation, volumeExpansion,
+      r3Pct: r3, r5Pct: r5, r10Pct: r10, closeLocation, volumeExpansion,
+      recentLimitUp5Count: recentLimitUp5, recentLimitUp10Count: recentLimitUp10,
+      priorLimitUpScore: priorLimitUpScore === null ? null : Number(priorLimitUpScore.toFixed(1)),
       flowCount, flowPositiveShare: flowShare, mainNet5,
       sectorScore: sector === null ? null : Number(sector.toFixed(1)),
       leaderVerified: leader.verified
