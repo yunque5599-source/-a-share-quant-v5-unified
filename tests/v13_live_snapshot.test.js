@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRows, isDailyBarCompleteAt, mapUniverseRowsToRankCandidates, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, buildWideNewsCandidate, flattenNewsPayload, buildStockNewsFallback, selectWideNewsScanUniverse, summarizePsychologySourceDiagnostics } from '../research/v13-limitup-precursor/live_snapshot.js';
+import { parseRows, isDailyBarCompleteAt, mapUniverseRowsToRankCandidates, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isEntryReadyCandidate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, buildWideNewsCandidate, flattenNewsPayload, buildStockNewsFallback, selectWideNewsScanUniverse, summarizePsychologySourceDiagnostics } from '../research/v13-limitup-precursor/live_snapshot.js';
 
 test('parsers exclude future-dated rows and sort history',()=>{
  const bars=parseRows(['2026-10-21,10,10.5,10.6,9.9,200,2100000,0,0,0,4.2','2026-10-19,9,9.2,9.3,8.9,100,920000,0,0,0,2.1','2026-10-22,10.5,11,11.1,10.4,300,3300000,0,0,0,5.1'],'bar','2026-10-21T05:00:00Z');
@@ -87,6 +87,12 @@ test('timestamp-verified positive and negative headline events are classified se
  assert.equal(out.overlay.catalystEvidence.some(x=>x.title.includes('中标重大合同')),false);
 });
 
+
+test('entry-ready gate is explicit and does not equate discovery with an entry',()=>{
+ assert.equal(isEntryReadyCandidate({entryEligible:true}),true);
+ assert.equal(isEntryReadyCandidate({entryEligible:false}),false);
+ assert.equal(isEntryReadyCandidate({}),false);
+});
 
 test('overextended stocks are excluded from the early actionable shortlist but remain diagnosable',()=>{
  const extendedChiNext={code:'300839',currentPct:20,features:{r5Pct:64,distHigh20Pct:16},quote:{pct:20}};
