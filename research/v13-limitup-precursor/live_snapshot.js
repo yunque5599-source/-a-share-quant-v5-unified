@@ -13,7 +13,7 @@ import { rankLimitUpIgnitionCandidates } from './limitup_ignition.js';
 import { buildNextDayActionPlan } from './next_day_action_plan.js';
 import { buildNextSessionPlan } from './next_session_plan.js';
 
-const MODEL_VERSION = 'V13-live-four-layer-core-leader-selection-v10-next-day-action-plan';
+const MODEL_VERSION = 'V13-live-four-layer-core-leader-selection-v11-next-day-limitup-watch';
 const n = v => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
 const clamp = (v, lo=0, hi=100) => Math.max(lo, Math.min(hi, v));
 const avg = xs => { const a=xs.filter(Number.isFinite); return a.length ? a.reduce((x,y)=>x+y,0)/a.length : null; };
