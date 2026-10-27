@@ -137,14 +137,12 @@ export function selectCandidateFunnel(rows, limit=120) {
     const minimum=board==='CHINEXT'||board==='STAR'?3:board==='BSE'?4.5:1.5;
     return pct>=minimum&&pct<limit-0.05&&['SH_MAIN','SZ_MAIN','CHINEXT','STAR','BSE'].includes(board);
   }).sort((a,b)=>{
-    const score=row=>{
-      const board=boardForCode(row.f12),limit=board==='CHINEXT'||board==='STAR'?20:board==='BSE'?30:10;
-      const pct=val(row,'f3');
-      const band=limit*0.25;
-      const middle=limit*0.60;
-      return -Math.abs(pct-middle)+Math.log1p(Math.max(0,val(row,'f6')===-Infinity?0:val(row,'f6')));
-    };
-    return score(b)-score(a)||val(b,'f6')-val(a,'f6');
+    const boardA=boardForCode(a.f12),boardB=boardForCode(b.f12);
+    const limitA=boardA==='CHINEXT'||boardA==='STAR'?20:boardA==='BSE'?30:10;
+    const limitB=boardB==='CHINEXT'||boardB==='STAR'?20:boardB==='BSE'?30:10;
+    const distanceA=Math.abs(val(a,'f3')/limitA-0.60);
+    const distanceB=Math.abs(val(b,'f3')/limitB-0.60);
+    return distanceA-distanceB||val(b,'f6')-val(a,'f6');
   });
   add(ignitionRows,Math.ceil(limit*.18),'next-day-ignition-band');
   add([...valid].sort((a,b)=>val(b,'f62')-val(a,'f62')),Math.ceil(limit*.18),'capital-inflow');
@@ -499,8 +497,9 @@ export function selectWideNewsScanUniverse(universeRows, maxSymbols=320) {
       return Number.isFinite(pct)&&pct>=minimum&&pct<limit-0.05;
     }).sort((a,b)=>{
       const limit=row=>{const board=boardForCode(row.code);return board==='CHINEXT'||board==='STAR'?20:board==='BSE'?30:10;};
-      const score=row=>-Math.abs(Number(row.pct)-limit(row)*0.60)+Math.log1p(Math.max(0,Number(row.amount)||0));
-      return score(b)-score(a);
+      const distanceA=Math.abs(Number(a.pct)/limit(a)-0.60);
+      const distanceB=Math.abs(Number(b.pct)/limit(b)-0.60);
+      return distanceA-distanceB||(Number(b.amount)||0)-(Number(a.amount)||0);
     })],
     ['active-turnover', all.filter(x=>Number.isFinite(Number(x.turnoverRate))&&Number(x.turnoverRate)>=2&&Number(x.turnoverRate)<=20)
       .sort((a,b)=>(Number(b.amount)||0)-(Number(a.amount)||0))]
