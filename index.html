@@ -65,6 +65,13 @@
     </div>
 
     <div class="card">
+      <div class="row between"><div><b>次日涨停延续观察（独立动量通道）</b><div class="small">补充捕捉“当日已有强势、次日可能继续加速”的候选，避免严格启动前门槛把强动量股全部排除。与启动前蓄势榜分开显示，避免把尚未启动和已经加速混为一类。</div></div><span class="pill">IGNITION</span></div>
+      <div class="status" id="limitUpIgnitionStatus">等待四层扫描完成后显示延续观察名单。</div>
+      <div id="limitUpIgnitionList" class="small" style="margin-top:10px">尚无次日延续观察结果。</div>
+      <div class="note" style="margin-top:10px"><b>使用边界：</b>该通道只用于次日观察与确认，不是涨停概率模型，也不授权追涨或自动下单。模型必须在历史滚动回测中证明它比原榜单提高涨停召回率且没有造成不可接受的回撤。</div>
+    </div>
+
+    <div class="card">
       <div class="row between"><div><b>V12 心理/题材决策层</b><div class="small">独立于 V10 主信号运行，用真实题材、资金、龙头、新闻叙事、想象空间与群体情绪重新验证短线优势。证据不完整时只显示“证据不足”，不会强行生成买入信号。</div></div><button class="btn" id="v12Btn">运行 V12</button></div>
       <div class="status" id="v12Status">尚未运行。</div>
       <div id="v12Result" class="small" style="margin-top:10px">V12 尚未生成候选。</div>
@@ -293,6 +300,35 @@ function preBreakoutRow(row,index){
     (reasons?'<div class="small" style="margin-top:5px">未通过原因：'+preEsc(reasons)+'</div>':'')+
     '</div><div class="score">'+(Number.isFinite(score)?score.toFixed(1):'—')+'</div></div>';
 }
+function limitUpIgnitionRow(row,index){
+  const pct=Number(row.currentPct),score=Number(row.score),components=row.components||{},evidence=row.evidence||{};
+  const stageLabels={
+    LIMIT_UP_FOLLOW_THROUGH_WATCH:'次日延续重点观察',
+    IGNITION_CONTINUATION_WATCH:'动量延续观察',
+    IGNITION_MOMENTUM_OBSERVATION:'动量候选观察'
+  };
+  const chip=(label,value)=>value===null||value===undefined||value===''||!Number.isFinite(Number(value))?'':'<span class="chip">'+preEsc(label)+' '+Number(value).toFixed(0)+'</span>';
+  const chips=[
+    '<span class="chip '+(row.stage==='LIMIT_UP_FOLLOW_THROUGH_WATCH'?'green':'amber')+'">'+preEsc(stageLabels[row.stage]||row.stage||'动量观察')+'</span>',
+    row.themeName?'<span class="chip">'+preEsc(row.themeName)+'</span>':'',
+    '<span class="chip">'+(row.leaderVerified?'龙头证据已核验':'龙头证据待确认')+'</span>',
+    chip('收盘强度',components.closeStrength),
+    chip('量能',components.volumeExpansion),
+    chip('板块',components.sectorStrength),
+    chip('资金',components.capitalFlow)
+  ].join('');
+  const pctText=Number.isFinite(pct)?(pct>0?'+':'')+pct.toFixed(2)+'%':'涨跌幅待核验';
+  const risks=(Array.isArray(row.riskFlags)?row.riskFlags:[]).slice(0,3);
+  const checklist=(Array.isArray(row.nextSessionChecklist)?row.nextSessionChecklist:[]).slice(0,2);
+  return '<div class="cand"><div><b>#'+(Number(row.rank)||index+1)+' '+preEsc(row.name||row.code)+' '+preEsc(row.code||'')+'</b>'+
+    '<div class="kicker">'+preEsc(row.board||'板块待核验')+' · 当日 '+pctText+' · 延续评分 '+(Number.isFinite(score)?score.toFixed(1):'—')+
+    ' · 置信覆盖 '+(Number.isFinite(Number(row.confidence))?Number(row.confidence).toFixed(0):'—')+'</div>'+
+    '<div class="chips">'+chips+'</div>'+
+    (checklist.length?'<div class="small" style="margin-top:5px">次日确认：'+checklist.map(preEsc).join('；')+'</div>':'')+
+    (risks.length?'<div class="small" style="margin-top:5px">风险：'+risks.map(preEsc).join(' · ')+'</div>':'')+
+    '<div class="small" style="margin-top:5px">这是延续观察排序，不是涨停概率或买入指令；若高开透支、板块退潮或失去承接，应放弃追涨。</div>'+
+    '</div><div class="score">'+(Number.isFinite(score)?score.toFixed(1):'—')+'</div></div>';
+}
 function preLimitupRow(row,index){
   const q=row.quote||{},pctRaw=q.pct,priceRaw=q.price,scoreRaw=row.selectionScore??row.score,modelScoreRaw=row.modelScore;
   const pct=Number(pctRaw),price=Number(priceRaw),score=Number(scoreRaw),modelScore=Number(modelScoreRaw);
@@ -426,6 +462,13 @@ async function runPreLimitupWatch(){
       '<div class="note danger">数据质量门槛未通过，启动前名单已隐藏，不能把数据缺失当成机会。</div>':
       preBreakoutRows.length?preBreakoutRows.map(preBreakoutRow).join(''):
       '<div class="note">本轮没有候选同时满足启动前结构门槛。不会为了凑数把已拉升、下跌趋势或远离压力位的股票放进名单。</div>';
+    const ignitionRows=qualityOk&&Array.isArray(j.limitUpIgnitionRanking)?j.limitUpIgnitionRanking:[];
+    const ignitionSummary=j.limitUpIgnitionSummary||{};
+    $('limitUpIgnitionStatus').textContent='评估 '+Number(ignitionSummary.assessedCount??coverage.scoredCandidates??0)+' 只 · 通过延续观察门槛 '+Number(ignitionSummary.passedGateCount??0)+' 只 · 输出 '+ignitionRows.length+' 只。此榜专门观察已有动量的次日延续，不替代启动前蓄势榜。';
+    $('limitUpIgnitionList').innerHTML=!qualityOk?
+      '<div class="note danger">数据质量门槛未通过，延续观察榜已隐藏；不使用缺失或过期数据生成候选。</div>':
+      ignitionRows.length?ignitionRows.map(limitUpIgnitionRow).join(''):
+      '<div class="note">本轮没有候选满足动量延续观察条件。继续等待，不为凑数输出股票。</div>';
   }catch(error){
     if(seq!==preLimitupSequence)return;
     $('preLimitupStatus').textContent='四层选股失败：'+(error?.name==='AbortError'?'超过65秒，可能是数据源限流或扫描耗时过长':(error?.message||'未知错误'));
