@@ -194,8 +194,10 @@ function trainingSamplesForDate(rawCandidates, signalDate, rawByCode) {
     samples.push({
       code: String(row.code), name: row.name, signalDate,
       x: extractFeatureVector(row),
+      yLimitUpNextDay: outcome.limitUpWithin1 ? 1 : 0,
       yLimitUp: outcome.limitUpWithin5 ? 1 : 0,
       yPositiveReturn5: outcome.t5CloseReturnPct >= 3 ? 1 : 0,
+      t1CloseReturnPct: outcome.t1CloseReturnPct,
       t5CloseReturnPct: outcome.t5CloseReturnPct
     });
   }
@@ -324,11 +326,15 @@ export function evaluateSupervisedRanker(rawCandidates, {
     featureRowsByDate.set(date, built.rows);
     dataDiagnostics.push({
       date, scoredRows: built.rows.length, labeledSamples: built.samples.length,
+      nextDayLimitUpLabels: built.samples.filter(sample => sample.yLimitUpNextDay === 1).length,
       positiveLabels: built.samples.filter(sample => sample.yLimitUp === 1).length,
       positiveReturnLabels: built.samples.filter(sample => sample.yPositiveReturn5 === 1).length
     });
   }
   const trainSamples = trainDates.flatMap(date => samplesByDate.get(date) ?? []);
+  const nextDayModel = trainLogisticRegression(
+    trainSamples.map(sample => ({ x: sample.x, y: sample.yLimitUpNextDay })), { epochs: 35 }
+  );
   const model = trainLogisticRegression(
     trainSamples.map(sample => ({ x: sample.x, y: sample.yLimitUp })), { epochs: 35 }
   );
@@ -338,29 +344,33 @@ export function evaluateSupervisedRanker(rawCandidates, {
   const perDate = [];
   for (const date of testDates) {
     const rowsAtDate = featureRowsByDate.get(date) ?? [];
+    const nextDaySupervised = scoreDateRows(rowsAtDate, nextDayModel).sort((a, b) => b.probability - a.probability || b.coreScore - a.coreScore);
     const supervised = scoreDateRows(rowsAtDate, model).sort((a, b) => b.probability - a.probability || b.coreScore - a.coreScore);
     const positiveReturn = scoreDateRows(rowsAtDate, positiveReturnModel).sort((a, b) => b.probability - a.probability || b.coreScore - a.coreScore);
     const momentum = [...rowsAtDate].sort((a, b) =>
       (Number.isFinite(b.features?.r5Pct) ? b.features.r5Pct : -Infinity) -
       (Number.isFinite(a.features?.r5Pct) ? a.features.r5Pct : -Infinity) || b.score - a.score);
     const core = [...rowsAtDate].sort((a, b) => b.score - a.score);
+    const nextDayCodes = nextDaySupervised.map(row => row.code);
     const supervisedCodes = supervised.map(row => row.code);
     const positiveReturnCodes = positiveReturn.map(row => row.code);
     const momentumCodes = momentum.map(row => row.code);
     const coreCodes = core.map(row => row.code);
-    const outcomeByCode = outcomesForCodes(rawByCode, [...new Set([...supervisedCodes, ...positiveReturnCodes, ...momentumCodes, ...coreCodes])], date);
+    const outcomeByCode = outcomesForCodes(rawByCode, [...new Set([...nextDayCodes, ...supervisedCodes, ...positiveReturnCodes, ...momentumCodes, ...coreCodes])], date);
     const universeCodes = supervisedCodes.filter(code => outcomeByCode.has(String(code)));
     const day = {
       signalDate: date,
       scoredUniverseCount: supervisedCodes.length,
       trainingSamples: trainSamples.length,
+      nextDaySupervisedTop10Codes: nextDayCodes.slice(0, 10),
       supervisedTop10Codes: supervisedCodes.slice(0, 10),
       positiveReturnTop10Codes: positiveReturnCodes.slice(0, 10),
       momentumTop10Codes: momentumCodes.slice(0, 10),
       coreTop10Codes: coreCodes.slice(0, 10),
-      supervised: {}, positiveReturn: {}, momentumBaseline: {}, coreOnly: {}
+      nextDaySupervised: {}, supervised: {}, positiveReturn: {}, momentumBaseline: {}, coreOnly: {}
     };
     for (const k of TOP_KS) {
+      day.nextDaySupervised['top' + k] = rankMetrics(nextDayCodes, k, universeCodes, outcomeByCode);
       day.supervised['top' + k] = rankMetrics(supervisedCodes, k, universeCodes, outcomeByCode);
       day.positiveReturn['top' + k] = rankMetrics(positiveReturnCodes, k, universeCodes, outcomeByCode);
       day.momentumBaseline['top' + k] = rankMetrics(momentumCodes, k, universeCodes, outcomeByCode);
@@ -371,6 +381,7 @@ export function evaluateSupervisedRanker(rawCandidates, {
   const summary = {};
   for (const k of TOP_KS) {
     summary['top' + k] = {
+      nextDaySupervised: aggregateTestMetrics(perDate, 'nextDaySupervised', k),
       supervised: aggregateTestMetrics(perDate, 'supervised', k),
       positiveReturn: aggregateTestMetrics(perDate, 'positiveReturn', k),
       momentumBaseline: aggregateTestMetrics(perDate, 'momentumBaseline', k),
@@ -379,6 +390,9 @@ export function evaluateSupervisedRanker(rawCandidates, {
   }
 
   const fitSamples = eligibleDates.flatMap(date => samplesByDate.get(date) ?? []);
+  const finalNextDayModel = trainLogisticRegression(
+    fitSamples.map(sample => ({ x: sample.x, y: sample.yLimitUpNextDay })), { epochs: 35 }
+  );
   const finalModel = trainLogisticRegression(
     fitSamples.map(sample => ({ x: sample.x, y: sample.yLimitUp })), { epochs: 35 }
   );
@@ -387,19 +401,27 @@ export function evaluateSupervisedRanker(rawCandidates, {
   );
   const holdoutDate = asOf || allDates.at(-1);
   const holdoutRows = buildPointInTimeRows(rows, holdoutDate);
+  const nextDayHoldoutRanked = scoreDateRows(holdoutRows, finalNextDayModel)
+    .sort((a, b) => b.probability - a.probability || b.coreScore - a.coreScore);
   const holdoutRanked = scoreDateRows(holdoutRows, finalModel)
     .sort((a, b) => b.probability - a.probability || b.coreScore - a.coreScore);
   const positiveReturnHoldoutRanked = scoreDateRows(holdoutRows, finalPositiveReturnModel)
     .sort((a, b) => b.probability - a.probability || b.coreScore - a.coreScore);
+  const nextDayHoldoutByCode = new Map(nextDayHoldoutRanked.map((row, index) => [row.code, { ...row, rank: index + 1 }]));
   const holdoutByCode = new Map(holdoutRanked.map((row, index) => [row.code, { ...row, rank: index + 1 }]));
   const positiveReturnHoldoutByCode = new Map(positiveReturnHoldoutRanked.map((row, index) => [row.code, { ...row, rank: index + 1 }]));
   const holdoutTargets = targets.filter(target => !target.signalDate || target.signalDate === holdoutDate)
     .map(target => {
+      const nextDayHit = nextDayHoldoutByCode.get(String(target.code));
       const hit = holdoutByCode.get(String(target.code));
       const positiveHit = positiveReturnHoldoutByCode.get(String(target.code));
       return {
         code: String(target.code), name: target.name, knownOutcome: target.outcome ?? null,
         isTrueLimitUp: isTrueLimitUpOutcome(target.outcome),
+        nextDayRank: nextDayHit?.rank ?? null,
+        nextDayInTop10: nextDayHit ? nextDayHit.rank <= 10 : null,
+        nextDayInTop30: nextDayHit ? nextDayHit.rank <= 30 : null,
+        nextDayProbability: nextDayHit ? Number(nextDayHit.probability.toFixed(6)) : null,
         rank: hit?.rank ?? null,
         inTop10: hit ? hit.rank <= 10 : null,
         inTop30: hit ? hit.rank <= 30 : null,
@@ -417,17 +439,18 @@ export function evaluateSupervisedRanker(rawCandidates, {
   if (coverage === null) reasons.push('source-bar-coverage-missing');
   else if (coverage < 90) reasons.push('historical-bar-coverage-below-90pct');
   if (testDates.length < 3) reasons.push('fewer-than-three-test-dates');
+  if (finalNextDayModel.positiveSamples < 100) reasons.push('too-few-positive-next-day-limit-up-training-labels');
   if (model.positiveSamples < 100) reasons.push('too-few-positive-limit-up-training-labels');
   if (finalPositiveReturnModel.positiveSamples < 100) reasons.push('too-few-positive-return-training-labels');
   if (missingTargets.length) reasons.push('one-or-more-holdout-targets-not-scored-by-both-models');
   const measurable = reasons.length === 0;
   return {
-    model: 'V13-supervised-dual-objective-ranker',
+    model: 'V13-supervised-triple-objective-ranker',
     status: measurable ? 'MEASURABLE' : 'NOT_MEASURABLE',
     measurable,
     reasons,
-    objective: 'Compare a five-session limit-up classifier with a separate positive-forward-return classifier',
-    label: 'Limit-up task: limitUpWithin5. Positive-return task: T+5 close return >= 3%. All labels use bars strictly after each signal date.',
+    objective: 'Compare an exact next-session limit-up classifier, a five-session limit-up classifier, and a separate positive-forward-return classifier',
+    label: 'Next-day task: limitUpWithin1. Multi-session task: limitUpWithin5. Positive-return task: T+5 close return >= 3%. All labels use bars strictly after each signal date.',
     split: {
       eligibleDates, trainDates, purgeDates, testDates, purgeWindow, testWindow,
       leakageGuard: 'Each training label horizon ends within the purge block or earlier; all test dates begin after the purge block and after every training label horizon'
@@ -435,6 +458,10 @@ export function evaluateSupervisedRanker(rawCandidates, {
     sourceCoveragePct: coverage,
     candidateCount: rows.length,
     trainingSamples: model.trainingSamples,
+    nextDayPositiveTrainingLabels: finalNextDayModel.positiveSamples,
+    nextDayNegativeTrainingLabels: finalNextDayModel.negativeSamples,
+    nextDayPositiveLabelRatePct: Number((finalNextDayModel.positiveSamples / Math.max(1, finalNextDayModel.trainingSamples) * 100).toFixed(3)),
+    nextDayFeatureImportance: summarizeImportance(finalNextDayModel),
     positiveTrainingLabels: model.positiveSamples,
     negativeTrainingLabels: model.negativeSamples,
     positiveLabelRatePct: Number((model.positiveSamples / Math.max(1, model.trainingSamples) * 100).toFixed(3)),
@@ -450,6 +477,11 @@ export function evaluateSupervisedRanker(rawCandidates, {
     holdout: {
       asOf: holdoutDate,
       scoredCount: holdoutRanked.length,
+      nextDayScoredCount: nextDayHoldoutRanked.length,
+      nextDayTrueLimitUpTargetTop10: measurable ? holdoutTargets.filter(target => target.isTrueLimitUp && target.nextDayInTop10).length : null,
+      nextDayTrueLimitUpTargetTop30: measurable ? holdoutTargets.filter(target => target.isTrueLimitUp && target.nextDayInTop30).length : null,
+      nextDayTop10: nextDayHoldoutRanked.slice(0, 10).map((row, index) => ({ rank: index + 1, code: row.code, name: row.name, probability: Number(row.probability.toFixed(6)), coreScore: row.coreScore })),
+      nextDayTop30: nextDayHoldoutRanked.slice(0, 30).map((row, index) => ({ rank: index + 1, code: row.code, name: row.name, probability: Number(row.probability.toFixed(6)), coreScore: row.coreScore })),
       targetCount: holdoutTargets.length,
       targetScoredCount: holdoutTargets.length - missingTargets.length,
       missingTargets,
@@ -483,6 +515,9 @@ async function main(argv) {
   console.log(JSON.stringify({
     model: report.model, status: report.status, reasons: report.reasons,
     sourceCoveragePct: report.sourceCoveragePct, trainingSamples: report.trainingSamples,
+    nextDayPositiveTrainingLabels: report.nextDayPositiveTrainingLabels,
+    nextDayPositiveLabelRatePct: report.nextDayPositiveLabelRatePct,
+    nextDayTop10Metrics: Object.fromEntries(Object.entries(report.testSummary ?? {}).map(([k,v]) => [k,v.nextDaySupervised?.t1 ?? null])),
     positiveTrainingLabels: report.positiveTrainingLabels,
     positiveReturnTrainingLabels: report.positiveReturnTrainingLabels,
     testSummary: report.testSummary,
@@ -494,8 +529,12 @@ async function main(argv) {
       trueLimitUpTargetsTop30: report.holdout.trueLimitUpTargetsTop30,
       positiveReturnModelTrueLimitUpTargetsTop10: report.holdout.positiveReturnModelTrueLimitUpTargetsTop10,
       positiveReturnModelTrueLimitUpTargetsTop30: report.holdout.positiveReturnModelTrueLimitUpTargetsTop30,
+      nextDayTrueLimitUpTargetTop10: report.holdout.nextDayTrueLimitUpTargetTop10,
+      nextDayTrueLimitUpTargetTop30: report.holdout.nextDayTrueLimitUpTargetTop30,
+      nextDayTop10: report.holdout.nextDayTop10,
       targets: report.holdout.targets.map(row => ({
-        code: row.code, limitUpRank: row.rank, positiveReturnRank: row.positiveReturnRank,
+        code: row.code, nextDayRank: row.nextDayRank, nextDayProbability: row.nextDayProbability,
+        limitUpRank: row.rank, positiveReturnRank: row.positiveReturnRank,
         probability: row.probability, positiveReturnProbability: row.positiveReturnProbability, knownOutcome: row.knownOutcome
       }))
     }
