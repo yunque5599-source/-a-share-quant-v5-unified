@@ -1,14 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
-  trainLogisticRegression, predictProbability, extractFeatureVector, buildPointInTimeRows, splitSignalDates
+  trainLogisticRegression, predictProbability, extractFeatureVector, buildPointInTimeRows, splitSignalDates,
+  evaluateSupervisedRanker
 } from '../research/v13-limitup-precursor/supervised_ranker.js';
 
-function makeHistory(code, name, slope, industry) {
+function makeHistory(code, name, slope, industry, limitupIndices = []) {
   const bars = [];
-  for (let i = 0; i < 45; i++) {
-    const close = i < 40 ? 10 + slope * i : bars.at(-1).close * 1.002;
-    const previous = bars.length ? bars.at(-1).close : close;
+  for (let i = 0; i < 90; i++) {
+    const previous = bars.length ? bars.at(-1).close : 10;
+    const close = limitupIndices.includes(i) ? previous * 1.10
+      : i < 40 ? 10 + slope * i : previous * 1.002;
     bars.push({
       date: new Date(Date.UTC(2026, 0, 1 + i)).toISOString().slice(0, 10),
       open: previous, high: Math.max(previous, close) * 1.01,
@@ -80,4 +82,27 @@ test('supervised chronological split reserves a five-session purge and a larger 
   assert.equal(long.trainDates.at(-1), 'long-39');
   assert.equal(long.purgeDates[0], 'long-40');
   assert.equal(long.testDates[0], 'long-45');
+});
+
+
+test('supervised evaluator trains a distinct exact-next-session limit-up objective', () => {
+  const histories = Array.from({length:8}, (_, i) => makeHistory(
+    String(600100+i),
+    '测试样本'+i,
+    i < 4 ? 0.04 : -0.015,
+    i < 4 ? '行业强势' : '行业弱势',
+    i === 0 ? [35,45,55,65,75,82] : []
+  ));
+  const report = evaluateSupervisedRanker(histories, {
+    sourceCoveragePct:100,
+    signalDays:60,
+    asOf:histories[0].bars.at(-6).date
+  });
+  assert.ok(report.nextDayPositiveTrainingLabels > 0);
+  assert.ok(report.nextDayNegativeTrainingLabels > 0);
+  assert.equal(report.label.includes('Next-day task: limitUpWithin1'), true);
+  assert.ok(report.testSummary.top10.nextDaySupervised);
+  assert.ok(report.testSummary.top10.nextDaySupervised.t1);
+  assert.ok(Array.isArray(report.holdout.nextDayTop10));
+  assert.ok(report.holdout.targets.every(row => Object.hasOwn(row, 'nextDayRank')));
 });
