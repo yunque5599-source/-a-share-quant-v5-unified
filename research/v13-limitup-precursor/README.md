@@ -371,3 +371,12 @@ The earlier replay artifact remains `NOT_MEASURABLE`; it was generated before th
 A further audit found the full-universe fallback mapped price, turnover, amount and flow fields but dropped the source's `volumeRatio` field when converting rows into ranked-candidate format. That meant the pre-breakout volume-expansion lane could not use a valid volume-ratio signal whenever the fallback was active. The mapper now preserves this field as `f10`, and the live-snapshot regression test asserts the mapping.
 
 V13 tests passed on commit `6aea3b3c0dc38b2cb5d9bfe44bc44b08f16259a3`: https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40463409628.
+
+
+## Oversized-segment pagination and live-lane smoke check (2026-10-27)
+
+The next historical replay showed the Beijing-board segment reported 6,804 rows but only 5,104 were collected. The failure pattern is consistent with an endpoint pagination cap: pages near the tail can return empty or fail even while the reported total is larger. The collector now rejects empty pages, limits forward pagination to the first 50 pages for oversized segments, and queries the opposite sort direction for the remaining tail. Segment coverage is measured using unique symbol codes, so overlapping reverse pages cannot inflate coverage. The segment still fails closed if unique-symbol coverage is below 90%.
+
+The latest completed live snapshot smoke run (captured at 14:49 China time on 2026-10-27, before the regular-session close) populated the new `nextDayLimitUpWatch` with 10 observations, including the `LIMITUP_CONTINUATION` path for today's limit-up/near-limit names. The run passed the workflow's quality gate with status `CAPTURED_WITH_FLOW_AND_NEWS_FALLBACK`; however, historical flow coverage was only 55%, three of four psychology batches were degraded, and the result was explicitly `PROVISIONAL_INTRADAY`. It proves that the new path is wired into the live pipeline, **not** that the selected stocks subsequently hit limit-up or that the ranking is profitable. Run: https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40463320720.
+
+A chronological historical replay using reverse pagination was still running when this note was written. Until that replay reaches `MEASURABLE` with sufficient signal/outcome coverage, the effect on exact T+1 limit-up recall remains unverified.
