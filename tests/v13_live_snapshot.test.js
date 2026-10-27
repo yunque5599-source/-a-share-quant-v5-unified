@@ -454,3 +454,26 @@ test('candidate funnel reserves a lane for next-day ignition-band movers',()=>{
  assert.ok(tiandeyu.funnelLanes.includes('next-day-ignition-band'));
  assert.ok(chenguang.funnelLanes.includes('next-day-ignition-band'));
 });
+
+
+test('candidate funnel reserves next-day ignition and main-board slots under a crowded high-rank universe', () => {
+  const crowded = Array.from({length:700}, (_, i) => ({
+    f12:String(600100+i), f14:'高排名样本'+i,
+    f3:-1+(i%3)*0.1, f6:500000000-i*1000, f62:10000000-i,
+    rankScore:10000-i, rankHits:10-i%4
+  }));
+  const special = [
+    {f12:'600558',f14:'大西洋',f3:6.8,f6:180000000,f62:20000000,rankScore:20,rankHits:2},
+    {f12:'002434',f14:'万里扬',f3:8.2,f6:220000000,f62:25000000,rankScore:19,rankHits:2},
+    {f12:'688252',f14:'天德钰',f3:12.2,f6:90000000,f62:9000000,rankScore:18,rankHits:2},
+    {f12:'920011',f14:'晨光电机',f3:11.09,f6:70000000,f62:8000000,rankScore:17,rankHits:2}
+  ];
+  const result=selectCandidateFunnel([...crowded,...special],120);
+  assert.equal(result.length,120);
+  for (const code of ['600558','002434','688252','920011']) {
+    assert.ok(result.some(row=>row.f12===code), 'expected ignition-band stock '+code+' to survive funnel selection');
+    assert.ok(result.find(row=>row.f12===code).funnelLanes.includes('next-day-ignition-band'));
+  }
+  const mainBoardCount=result.filter(row=>['SH_MAIN','SZ_MAIN'].includes(row.board)).length;
+  assert.ok(mainBoardCount>=35,'main-board lane should retain a meaningful reserved share');
+});
