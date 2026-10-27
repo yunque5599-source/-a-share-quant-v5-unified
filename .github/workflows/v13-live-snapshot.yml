@@ -91,6 +91,8 @@ jobs:
                   conceptSource:b.conceptSource,
                   membershipSource:b.membershipSource,
                   quoteSource:b.quoteSource,
+                  selectedThemesPerStock:b.selectedThemesPerStock,
+                  maxResearchThemes:b.maxResearchThemes,
                   conceptRankingCacheHit:b.conceptRankingCacheHit,
                   conceptRankingCacheAgeMs:b.conceptRankingCacheAgeMs,
                   conceptRows:b.conceptRows,
@@ -105,7 +107,7 @@ jobs:
                 executionEligible:r.executionEligible,tradeabilityReason:r.tradeabilityReason
               }))
             }, null, 2));
-            NODE
+          NODE
           else echo 'No snapshot created (outside session or source capture failed).'; fi
       - name: Enforce recommendation quality gate
         if: steps.session.outputs.in_session == 'true' || github.event_name == 'workflow_dispatch' || github.event_name == 'push'
