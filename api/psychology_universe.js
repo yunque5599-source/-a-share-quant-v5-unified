@@ -725,10 +725,12 @@ function enrichTheme(base, flowRows, memberRows, newsRows, candidatePct, candida
   const leaderCode = sampledFallback ? null : base.leaderCode || memberLeader?.code || null;
   const leaderName = sampledFallback ? null : base.leaderName || memberLeader?.name || null;
   const leaderChangePct = sampledFallback ? null : base.leaderChangePct ?? memberLeader?.pct ?? null;
+  const hasMemberRankEvidence = !sampledFallback && members.length > 0;
   const leaderStatus = sampledFallback ? null :
     resolvedCandidateCode && resolvedCandidateCode === leaderCode ? 'leader' :
     candidateRankIndex >= 0 && candidateRankIndex < 3 ? 'core' :
-    candidateRankIndex >= 0 && candidateRankIndex < 5 ? 'front' : 'follower';
+    candidateRankIndex >= 0 && candidateRankIndex < 5 ? 'front' :
+    hasMemberRankEvidence ? 'follower' : null;
   const candidatePremiumPct = !sampledFallback && candidatePct !== null && base.changePct !== null
     ? candidatePct - base.changePct : null;
   const research = buildAutomaticPsychologyResearch({
@@ -794,7 +796,8 @@ function enrichTheme(base, flowRows, memberRows, newsRows, candidatePct, candida
       conceptRanking:true,
       changePctMethod:base.changePctMethod ?? 'provider-board-quote',
       memberCoverage:base.memberCoverage ?? 'provider-member-list',
-      leaderEvidenceQuality:sampledFallback ? 'sample-only-not-qualified' : 'provider-board-members',
+      leaderEvidenceQuality:sampledFallback ? 'sample-only-not-qualified'
+        : members.length > 0 || base.leaderCode ? 'provider-board-members' : 'unavailable',
       membership:memberRows.length > 0,
       themeMembers:memberRows.length > 0,
       news:true,
@@ -857,6 +860,8 @@ export default async function handler(req, res) {
     themeCount:0,
     researchThemes:0,
     researchFailures:0,
+    themeMemberFailures:0,
+    themeNewsFailures:0,
     sourceFailures:[],
     sourceDegraded:false,
     sourceWarnings:[],
@@ -875,9 +880,9 @@ export default async function handler(req, res) {
   try {
     const liveMode = url.searchParams.get('mode') === 'live';
     const selectedThemesPerStock = liveMode ? 1 : 2;
-    const maxResearchThemes = liveMode ? 10 : 24;
+    const maxResearchThemes = liveMode ? 6 : 24;
     const membershipConcurrency = 6;
-    const researchConcurrency = 4;
+    const researchConcurrency = liveMode ? 3 : 4;
 
     diagnostics.selectedThemesPerStock = selectedThemesPerStock;
     diagnostics.maxResearchThemes = maxResearchThemes;
@@ -1011,12 +1016,14 @@ export default async function handler(req, res) {
       } else {
         memberMap.set(base.code, []);
         diagnostics.researchFailures += 1;
+        diagnostics.themeMemberFailures += 1;
       }
       if (newsResult.status === 'fulfilled') {
         newsMap.set(base.code, newsResult.value);
       } else {
         newsMap.set(base.code, []);
         diagnostics.researchFailures += 1;
+        diagnostics.themeNewsFailures += 1;
       }
     });
     diagnostics.researchThemes = rankedResearchThemes.length;
