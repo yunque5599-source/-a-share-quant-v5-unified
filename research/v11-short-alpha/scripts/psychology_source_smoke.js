@@ -80,18 +80,26 @@ async function main() {
       narrativeThemeRows: rows.filter(source.isNarrativeTheme).length,
       sampleThemes: rows.filter(source.isNarrativeTheme).slice(0, 4).map(row => ({code:row.code,name:row.name}))
     })),
-    measure('eastmoney-candidate-quotes', () => source.fetchCandidateQuotes(codes), quotes => ({
-      status: quotes.size ? (quotes.size === codes.length ? 'ok' : 'partial') : 'empty',
-      requestedStocks: codes.length,
-      quoteRows: quotes.size,
-      coveredCodes: codes.filter(code => quotes.has(code))
-    })),
-    measure('tencent-candidate-quotes', () => source.fetchTencentCandidateQuotes(codes, 5000), quotes => ({
-      status: quotes.size ? (quotes.size === codes.length ? 'ok' : 'partial') : 'empty',
-      requestedStocks: codes.length,
-      quoteRows: quotes.size,
-      coveredCodes: codes.filter(code => quotes.has(code))
-    })),
+    measure('eastmoney-candidate-quotes', () => source.fetchCandidateQuotes(codes), quotes => {
+      const validCodes = codes.filter(code => Number.isFinite(quotes.get(code)?.pct));
+      return {
+        status: validCodes.length ? (validCodes.length === codes.length ? 'ok' : 'partial') : 'empty',
+        requestedStocks: codes.length,
+        quoteRows: quotes.size,
+        validReturnRows: validCodes.length,
+        coveredCodes: validCodes
+      };
+    }),
+    measure('tencent-candidate-quotes', () => source.fetchTencentCandidateQuotes(codes, 5000), quotes => {
+      const validCodes = codes.filter(code => Number.isFinite(quotes.get(code)?.pct));
+      return {
+        status: validCodes.length ? (validCodes.length === codes.length ? 'ok' : 'partial') : 'empty',
+        requestedStocks: codes.length,
+        quoteRows: quotes.size,
+        validReturnRows: validCodes.length,
+        coveredCodes: validCodes
+      };
+    }),
     measure('eastmoney-stock-concepts', async () => Promise.all(codes.slice(0, 2).map(async code => {
       try { return {code, concepts:await source.fetchStockConcepts(code)}; }
       catch (error) { return {code, concepts:[], error:errorText(error)}; }
@@ -175,18 +183,21 @@ async function main() {
     });
   }
 
-  const quoteReady = (quoteProbe.value?.size ?? 0) > 0 || (tencentProbe.value?.size ?? 0) > 0;
-  const primaryMembershipCount = (membershipProbe.value ?? [])
-    .reduce((sum, row) => sum + (row.concepts?.length ?? 0), 0);
+  const primaryThemeCodes = new Set((rankingProbe.value ?? []).map(row => row.code));
   const primaryThemeNames = new Set((rankingProbe.value ?? [])
     .map(row => source.normalizeThemeName(row.name)));
+  const primaryMembershipMatches = (membershipProbe.value ?? []).reduce((sum, row) =>
+    sum + (row.concepts ?? []).filter(item => primaryThemeCodes.has(item.code)).length, 0);
   const thsMappedCount = (thsProbe.value ?? []).reduce((sum, row) =>
     sum + (row.concepts ?? []).filter(item => primaryThemeNames.has(item.normalizedName)).length, 0);
   const primaryTaxonomyReady = (rankingProbe.value?.length ?? 0) > 0 &&
-    (primaryMembershipCount > 0 || thsMappedCount > 0);
+    (primaryMembershipMatches > 0 || thsMappedCount > 0);
   const fallbackTaxonomyReady = (fallbackProbe.value?.concepts?.length ?? 0) > 0 &&
     (fallbackProbe.value?.diagnostics?.mappedMemberships ?? 0) > 0;
   const taxonomyReady = primaryTaxonomyReady || fallbackTaxonomyReady;
+  const validEastmoneyQuotes = codes.filter(code => Number.isFinite(quoteProbe.value?.get(code)?.pct)).length;
+  const validTencentQuotes = codes.filter(code => Number.isFinite(tencentProbe.value?.get(code)?.pct)).length;
+  const quoteReady = validEastmoneyQuotes > 0 || validTencentQuotes > 0;
   const coreReady = quoteReady && taxonomyReady;
   const nonSkippedProblems = checks.some(check => ['error','empty','partial'].includes(check.status));
   const overallStatus = !coreReady ? 'SOURCE_UNAVAILABLE'
@@ -202,6 +213,10 @@ async function main() {
     coreReady,
     coreChecks:{
       quoteSourceAvailable:quoteReady,
+      validEastmoneyQuotes,
+      validTencentQuotes,
+      primaryMembershipMatches,
+      thsMappedCount,
       primaryTaxonomyReady,
       fallbackTaxonomyReady,
       taxonomyReady
