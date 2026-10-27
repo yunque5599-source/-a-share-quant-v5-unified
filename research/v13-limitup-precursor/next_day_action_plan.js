@@ -62,11 +62,18 @@ function snapshotRankGroups(snapshot, previous = false) {
 
 function mergeCurrentCandidate(row, candidateByCode) {
   const audit = candidateByCode.get(String(row.code ?? '')) ?? {};
-  return {...audit, ...row,
+  const auditScore = audit.score && typeof audit.score === 'object' ? audit.score : {};
+  const merged = {...audit, ...row,
     quote:{...(audit.quote ?? {}), ...(row.quote ?? {})},
     features:{...(audit.features ?? {}), ...(row.features ?? {})},
     source:{...(audit.source ?? {}), ...(row.source ?? {})}
   };
+  merged.score = n(row.score) ?? n(row.selectionScore) ?? n(auditScore.score) ?? n(audit.score);
+  merged.entryEligible = row.entryEligible === true || auditScore.entryEligible === true;
+  merged.entryGateReasons = Array.isArray(row.entryGateReasons) ? row.entryGateReasons
+    : Array.isArray(auditScore.entryGateReasons) ? auditScore.entryGateReasons : [];
+  merged.confidence = n(row.confidence) ?? n(auditScore.confidence);
+  return merged;
 }
 
 function assessAction(row, sourceAvailable = true) {
@@ -178,7 +185,9 @@ export function buildNextDayActionPlan(currentSnapshot = {}, previousSnapshot = 
   const priorRows = priorSnapshotAvailable
     ? firstUniqueRows(snapshotRankGroups(previousSnapshot, true), 25)
     : [];
-  const currentByCode = new Map(currentRows.map(row => [String(row.code), row]));
+  const currentByCode = new Map([...candidateByCode.entries()].map(([code, row]) =>
+    [code, mergeCurrentCandidate(row, candidateByCode)]));
+  for (const row of currentRows) currentByCode.set(String(row.code), row);
   const followThrough = priorRows.map(row =>
     assessPriorCandidate(row, currentByCode.get(String(row.code)), sourceAvailable));
 
