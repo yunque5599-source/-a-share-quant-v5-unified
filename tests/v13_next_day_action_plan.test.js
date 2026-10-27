@@ -53,7 +53,7 @@ test('a weak current move triggers reassessment rather than automatic averaging 
   assert.match(plan.currentActions[0].reason,/不因排名靠前而追价|支撑位/);
 });
 
-test('previous picks remain assessable even when absent from today's top-ranked lists', () => {
+test('previous picks remain assessable even when absent from current top-ranked lists', () => {
   const previous = snap({
     id:'yesterday',
     rankings:{overall:[{rank:3,code:'600558',name:'大西洋',score:70}]}
