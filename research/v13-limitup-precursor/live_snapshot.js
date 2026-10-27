@@ -1000,7 +1000,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       coreSelection:coreSelectionResult.ranking,
       preBreakoutWatch:preBreakoutResult.ranking,
       limitUpIgnitionWatch:limitUpIgnitionResult.ranking,
-      nextDayLimitUpWatch:limitUpIgnitionResult.ranking,
+      nextDayLimitUpWatch:limitUpIgnitionResult.ranking.map(row=>({...row})),
       overall,
       catalystConfirmed,
       policyConfirmed,
