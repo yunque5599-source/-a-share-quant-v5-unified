@@ -99,6 +99,8 @@ jobs:
                   themeCount:b.themeCount,
                   flowFailures:b.flowFailures,
                   researchFailures:b.researchFailures,
+                  themeMemberFailures:b.themeMemberFailures,
+                  themeNewsFailures:b.themeNewsFailures,
                   sourceFailures:b.sourceFailures.slice(0,2)
                 }))
               } : null,
