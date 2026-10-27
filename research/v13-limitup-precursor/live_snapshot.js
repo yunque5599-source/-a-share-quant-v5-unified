@@ -66,6 +66,7 @@ export function summarizePsychologySourceDiagnostics(rows=[]) {
       researchFailures:Number(item.researchFailures)||0,
       themeMemberFailures:Number(item.themeMemberFailures)||0,
       themeNewsFailures:Number(item.themeNewsFailures)||0,
+      themeRequestFailureSamples:Array.isArray(item.themeRequestFailureSamples)?item.themeRequestFailureSamples.slice(0,10):[],
       sourceFailures:Array.isArray(item.sourceFailures)?item.sourceFailures.slice(0,5):[],
       sourceWarnings:Array.isArray(item.sourceWarnings)?item.sourceWarnings.slice(0,10):[]
     }))
@@ -658,6 +659,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
         researchFailures:Number(psychDiagnostics.researchFailures)||0,
         themeMemberFailures:Number(psychDiagnostics.themeMemberFailures)||0,
         themeNewsFailures:Number(psychDiagnostics.themeNewsFailures)||0,
+        themeRequestFailureSamples:Array.isArray(psychDiagnostics.themeRequestFailureSamples)?psychDiagnostics.themeRequestFailureSamples:[],
         sourceFailures:Array.isArray(psychDiagnostics.sourceFailures)?psychDiagnostics.sourceFailures:[],
         sourceWarnings:Array.isArray(psychDiagnostics.sourceWarnings)?psychDiagnostics.sourceWarnings:[]
       });
@@ -693,6 +695,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
         researchFailures:0,
         themeMemberFailures:0,
         themeNewsFailures:0,
+        themeRequestFailureSamples:[],
         sourceFailures:[String(batch.psychError??'unknown psychology endpoint failure')],
         sourceWarnings:[]
       });
