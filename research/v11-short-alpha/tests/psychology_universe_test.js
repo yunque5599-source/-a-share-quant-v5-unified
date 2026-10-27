@@ -14,7 +14,8 @@ const {
   normalizeThemeName,
   parseThsStockConcepts,
   parseSinaConceptNodes,
-  parseSinaNodeMembers
+  parseSinaNodeMembers,
+  decodeResponseText
 } = universe;
 
 test('concept ranking accepts Eastmoney BK concept-board codes and requires price change', () => {
@@ -211,4 +212,13 @@ test('source coverage reports partial stock-theme membership failures', () => {
   });
   assert.equal(result.degraded, true);
   assert.ok(result.warnings.includes('stock-theme-membership-partial-failures:2/10'));
+});
+
+
+test('text response decoder handles GBK-encoded Chinese and valid UTF-8', () => {
+  const legacyGbk = Uint8Array.from([0xD2, 0xF8, 0xD0, 0xD0]);
+  assert.equal(decodeResponseText(legacyGbk.buffer, 'text/html; charset=gbk'), '银行');
+  const utf8 = new TextEncoder().encode('人工智能');
+  assert.equal(decodeResponseText(utf8, 'text/html; charset=utf-8'), '人工智能');
+  assert.equal(decodeResponseText(legacyGbk.buffer, 'text/html; charset=utf-8'), '银行');
 });
