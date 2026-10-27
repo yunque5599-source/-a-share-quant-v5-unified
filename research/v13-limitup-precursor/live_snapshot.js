@@ -991,7 +991,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
   return finalSnapshot;
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){
-  const a=process.argv.slice(2);let out=null,candidateLimit=120,asOf=null,wideNewsScan=false;
-  for(let i=0;i<a.length;i++){if(a[i]==='--out'&&a[i+1])out=a[++i];else if(a[i]==='--limit'&&a[i+1])candidateLimit=Math.max(50,Math.min(180,Number(a[++i])||120));else if(a[i]==='--as-of'&&a[i+1])asOf=a[++i];else if(a[i]==='--wide-news-scan')wideNewsScan=true;}
-  await captureV13LiveSnapshot({out,candidateLimit,asOf,wideNewsScan});
+  const a=process.argv.slice(2);let out=null,candidateLimit=120,asOf=null,wideNewsScan=false,previousSnapshotPath=null;
+  for(let i=0;i<a.length;i++){if(a[i]==='--out'&&a[i+1])out=a[++i];else if(a[i]==='--limit'&&a[i+1])candidateLimit=Math.max(50,Math.min(180,Number(a[++i])||120));else if(a[i]==='--as-of'&&a[i+1])asOf=a[++i];else if(a[i]==='--previous-snapshot'&&a[i+1])previousSnapshotPath=a[++i];else if(a[i]==='--wide-news-scan')wideNewsScan=true;}
+  await captureV13LiveSnapshot({out,candidateLimit,asOf,wideNewsScan,previousSnapshotPath});
 }
