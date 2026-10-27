@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseRows, isDailyBarCompleteAt, mapUniverseRowsToRankCandidates, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, buildWideNewsCandidate, flattenNewsPayload, buildStockNewsFallback, selectWideNewsScanUniverse } from '../research/v13-limitup-precursor/live_snapshot.js';
+import { parseRows, isDailyBarCompleteAt, mapUniverseRowsToRankCandidates, selectCandidateFunnel, deriveLiveIndustryContext, normalizeDatedNews, classifyHeadlineCatalyst, buildPsychologySector, validateLiveSnapshot, applySnapshotQualityGate, isPreLimitUpCandidate, interleaveCodes, interleaveCatalystCodes, scoreCatalystConfirmed, buildWideNewsCandidate, flattenNewsPayload, buildStockNewsFallback, selectWideNewsScanUniverse, summarizePsychologySourceDiagnostics } from '../research/v13-limitup-precursor/live_snapshot.js';
 
 test('parsers exclude future-dated rows and sort history',()=>{
  const bars=parseRows(['2026-10-21,10,10.5,10.6,9.9,200,2100000,0,0,0,4.2','2026-10-19,9,9.2,9.3,8.9,100,920000,0,0,0,2.1','2026-10-22,10.5,11,11.1,10.4,300,3300000,0,0,0,5.1'],'bar','2026-10-21T05:00:00Z');
@@ -263,4 +263,28 @@ test('candidate funnel reserves capacity for main-board names when growth-board 
  assert.equal(result.length,60);
  assert.ok(mainBoard.length>=10,'main-board candidates should retain dedicated funnel capacity');
  assert.ok(mainBoard.some(row=>row.funnelLanes.some(lane=>lane.startsWith('main-board-'))));
+});
+
+
+test('psychology source diagnostics aggregate providers and preserve degraded batch warnings',()=>{
+ const summary=summarizePsychologySourceDiagnostics([
+  {batchIndex:1,codes:['000001','600000'],status:'SOURCE_COVERAGE_AVAILABLE',degraded:false,
+   conceptSource:'eastmoney',membershipSource:'eastmoney',quoteSource:'eastmoney',
+   requestedCodes:2,conceptRows:100,quoteRows:2,themeCount:4,researchThemes:3,
+   membershipFailures:0,flowFailures:0,researchFailures:1,sourceFailures:[],sourceWarnings:[]},
+  {batchIndex:2,codes:['600519'],status:'DEGRADED_SOURCE_COVERAGE',degraded:true,
+   conceptSource:'sina-node-aggregate',membershipSource:'10jqka-stock-concepts-mapped-to-sina',quoteSource:'tencent',
+   requestedCodes:1,conceptRows:5,quoteRows:1,themeCount:2,researchThemes:2,
+   membershipFailures:1,flowFailures:2,researchFailures:1,
+   sourceFailures:['concept-ranking-eastmoney: unavailable'],sourceWarnings:['sampled board constituents']}
+ ]);
+ assert.equal(summary.batchCount,2);
+ assert.equal(summary.degradedBatchCount,1);
+ assert.deepEqual(summary.sourceCounts.concept,{eastmoney:1,'sina-node-aggregate':1});
+ assert.deepEqual(summary.sourceCounts.quotes,{eastmoney:1,tencent:1});
+ assert.equal(summary.totals.requestedCodes,3);
+ assert.equal(summary.totals.conceptRows,105);
+ assert.equal(summary.totals.flowFailures,2);
+ assert.equal(summary.batches[0].candidateCount,2);
+ assert.deepEqual(summary.batches[1].sourceWarnings,['sampled board constituents']);
 });
