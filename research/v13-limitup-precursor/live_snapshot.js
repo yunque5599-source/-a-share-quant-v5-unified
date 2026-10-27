@@ -758,7 +758,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       fullUniverseSnapshot=null;
     }
   }
-  const rankingSourceDegraded=(!fullUniverseFallback.used&&(Boolean(rankedSourceError)||ranked?.data?.degraded===true))
+  const rankingSourceDegraded=(!fullUniverseFallback.used&&(Boolean(rankedSourceError)||ranked?.data?.degraded===true||Boolean(fullUniverseFallback.error)))
     ||fullUniverseFallback.failedPageCount>0;
   const rankingSourceStale=!fullUniverseFallback.used&&ranked?.data?.serverStale===true;
   const rankingSourceMethod=fullUniverseFallback.used?'eastmoney-full-universe-live-quote-fallback':ranked?.data?.method??null;
