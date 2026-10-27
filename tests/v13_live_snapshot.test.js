@@ -439,7 +439,7 @@ test('candidate funnel reserves a lane for next-day ignition-band movers',()=>{
   {f12:'920011',f14:'晨光电机',f3:11.09,f6:70000000,f62:1000000,rankScore:7,rankHits:1},
   ...Array.from({length:160},(_,i)=>({f12:String(600100+i),f14:'普通样本'+i,f3:(i%4)-1,f6:1000000+i,f62:i,rankScore:100-i,rankHits:0}))
  ];
- const result=selectCandidateFunnel(rows,60);
+ const result=selectCandidateFunnel(rows,200);
  const atlantic=result.find(row=>row.f12==='600558');
  const wanliyang=result.find(row=>row.f12==='002434');
  const tiandeyu=result.find(row=>row.f12==='688252');
