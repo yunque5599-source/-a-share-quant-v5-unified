@@ -324,3 +324,21 @@ The follow-up repair:
 The latest V13 automated test run passed **125 tests, 0 failures**: https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40460783598. V12 research validation also passed: https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40460783622.
 
 This repair addresses obvious ranking and signal-timing defects, but it is **not yet proof of improved next-day limit-up precision or recall**. The required next step is a chronological post-close walk-forward comparison on untouched dates; do not promote the watchlist to executable trading logic until the new lane beats the previous ignition, raw-momentum and supervised baselines on T+1 metrics and risk.
+
+
+## Next-session limit-up recall repair (2026-10-27)
+
+The prior next-session rank had a structural recall defect: it treated `already-at-daily-limit` as a hard rejection in the *next-session forecast* itself. That is appropriate for avoiding a same-day breakout/entry recommendation, but wrong for a next-session continuation target. A stock that closes at limit-up is a major candidate for tomorrow's continuation/second board, even though it may be impossible or unsafe to enter at today's locked price. The live funnel also had no dedicated quota for current limit-up stocks, so these names could be omitted before the scorer ever saw them.
+
+The repair separates the question **"could this stock continue tomorrow?"** from **"can this stock be entered today?"**:
+
+- Added a `limit-up-continuation` candidate-funnel lane with a 14% quota. It is separate from the pre-breakout and general momentum lanes, and is tracked in `quality.funnelLaneCounts` / `quality.limitUpContinuationFunnelCount`.
+- The next-session scorer no longer automatically rejects a stock merely because today's return is at the board limit. It routes board-normalized 10%, 20%, and 30% limit-up observations into `LIMITUP_CONTINUATION`, scores close/volume/trend/sector/flow/leader/catalyst evidence separately, and marks it observation-only for the next session.
+- A locked limit-up receives a clear warning about one-word limit-up liquidity, opening gaps, failed boards and next-day divergence. This does **not** authorize buying at today's limit price.
+- The continuation route must have at least two independent supporting evidence families in addition to the current limit-up event; missing data is not filled with an assumed positive score.
+- The next-day summary now reports the count of today's limit-up stocks assessed and passing, path counts, score-threshold rejections and per-gate failure counts. This makes it possible to tell whether a missed stock was excluded by the universe funnel, by evidence gates, or by score/rank cutoff.
+- Regression tests cover 10%/20%/30% board normalization, continuation candidates already at limit-up, evidence-poor locked stocks, and funnel inclusion of low-consensus limit-up names.
+
+**Validation:** V13 automated tests passed on commit `0941fce9bfa84ef4233d08b3869c4248cdc4d05b` and V12 research validation passed on the same commit: https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40461850955 and https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40461850997.
+
+This is a logical recall repair, not proof of a higher live hit rate. The existing held-out audit already showed that three known next-session limit-up targets were missed by the main top-30 lists. The next required step is to rerun a chronological exact-T+1 evaluation on untouched dates and compare top-10/top-30 precision, recall, turnover/liquidity, T+1 close return, adverse excursion, and performance by board and market regime. Do not tune weights against the known screenshot targets or treat this observation rank as a calibrated probability or trade instruction.
