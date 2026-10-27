@@ -184,16 +184,19 @@ export async function fetchUniverse({ concurrency = 4, pageSize = 100, priorityC
     for (let page = 2; page <= pages; page++) tasks.push({ segment, page });
   }
   const pageResults = await mapLimit(tasks, concurrency,
-    async task => ({ segmentKey: task.segment.key, page: task.page, ...(await fetchUniversePage(task.page, pageSize, task.segment.fs, task.segment.key, {timeoutMs,maxAttempts})) }),
+    async task => {
+      try {
+        return {segmentKey:task.segment.key,page:task.page,
+          ...(await fetchUniversePage(task.page,pageSize,task.segment.fs,task.segment.key,{timeoutMs,maxAttempts}))};
+      } catch (error) {
+        return {segmentKey:task.segment.key,page:task.page,error:String(error?.message??error)};
+      }
+    },
     (done, all) => { if (done % 20 === 0 || done === all) console.log('[universe] pages ' + done + '/' + all); });
   const failedPages = pageResults.filter(result => result?.error);
-  if (failedPages.length) {
-    throw new Error('universe page collection incomplete: ' + failedPages.length + '/' + tasks.length +
-      ' pages failed; sample=' + JSON.stringify(failedPages.slice(0, 5)));
-  }
   for (const result of pageResults) {
     const target = segmentRows.get(result.segmentKey);
-    if (target) target.rows.push(...(result.rows ?? []));
+    if (target && !result.error) target.rows.push(...(result.rows ?? []));
   }
   for (const segment of MARKET_SEGMENTS) {
     const collected = segmentRows.get(segment.key);
@@ -228,7 +231,8 @@ export async function fetchUniverse({ concurrency = 4, pageSize = 100, priorityC
       return rankA - rankB || a.code.localeCompare(b.code);
     }),
     providerTotal, pageCount,
-    segmentTotals: Object.fromEntries([...segmentRows.entries()].map(([key, value]) => [key, { total: value.total, collected: value.rows.length }]))
+    failedPages:failedPages.map(({segmentKey,page,error})=>({segmentKey,page,error})),
+    segmentTotals: Object.fromEntries([...segmentRows.entries()].map(([key, value]) => [key, { total: value.total, collected: value.rows.length, coveragePct:Number((value.rows.length/Math.max(1,value.total)*100).toFixed(2)) }]))
   };
 }
 
