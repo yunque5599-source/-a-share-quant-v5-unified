@@ -6,7 +6,9 @@ import { assessLimitUpIgnitionCandidate, rankLimitUpIgnitionCandidates } from '.
 
 function makeRow({
   code='600558', name='大西洋', board='SH_MAIN', currentPct=2.4,
-  r3Pct=4.8, r5Pct=8.1, closeLocation=0.88, volumeExpansion=1.7,
+  r3Pct=4.8, r5Pct=8.1, r10Pct=12.5,
+  recentLimitUp5Count=0, recentLimitUp10Count=0,
+  closeLocation=0.88, volumeExpansion=1.7,
   sector=74, marketFit=70, flow=72, flowCount=5, flowPositiveShare=0.8,
   mainNet5=12000000, leaderVerified=true, candidateRank=1
 }={}) {
@@ -14,7 +16,7 @@ function makeRow({
     code,name,board,asOf:'2026-10-26',
     quote:{pct:currentPct},
     components:{trend:78,volumePrice:82,flow,sector,marketFit},
-    features:{r3Pct,r5Pct,closeLocation,volumeExpansion,flowCount,flowPositiveShare,mainNet5},
+    features:{r3Pct,r5Pct,r10Pct,recentLimitUp5Count,recentLimitUp10Count,closeLocation,volumeExpansion,flowCount,flowPositiveShare,mainNet5},
     leaderEvidence:leaderVerified?{
       isLeader:true,leaderStatus:'leader',candidateRank,themeName:'工业设备'
     }:{isLeader:false,leaderStatus:'unknown',themeName:null},
@@ -79,4 +81,28 @@ test('ranking returns only passing candidates and exposes observation-only summa
   assert.equal(result.summary.observationOnly,true);
   assert.equal(result.summary.calibratedProbability,false);
   assert.equal(result.summary.entrySignal,false);
+});
+
+
+test('recent limit-up activity improves continuation ranking but adds a divergence-risk warning', () => {
+  const noPriorLimit = assessLimitUpIgnitionCandidate(makeRow({
+    recentLimitUp5Count:0, recentLimitUp10Count:0
+  }));
+  const activePriorLimit = assessLimitUpIgnitionCandidate(makeRow({
+    recentLimitUp5Count:2, recentLimitUp10Count:3
+  }));
+  assert.equal(noPriorLimit.passed,true);
+  assert.equal(activePriorLimit.passed,true);
+  assert.ok(activePriorLimit.score > noPriorLimit.score);
+  assert.ok(activePriorLimit.components.priorLimitUpActivity > noPriorLimit.components.priorLimitUpActivity);
+  assert.ok(activePriorLimit.riskFlags.some(flag => flag.includes('多次涨停')));
+  assert.equal(activePriorLimit.evidence.recentLimitUp5Count,2);
+});
+
+test('first-time ignition remains eligible when prior limit-up history is unavailable', () => {
+  const row = makeRow({recentLimitUp5Count:null,recentLimitUp10Count:null});
+  const result = assessLimitUpIgnitionCandidate(row);
+  assert.equal(result.passed,true);
+  assert.equal(result.evidence.priorLimitUpScore,null);
+  assert.ok(result.score > 0);
 });
