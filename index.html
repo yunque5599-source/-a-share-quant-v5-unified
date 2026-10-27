@@ -328,7 +328,9 @@ function limitUpIgnitionRow(row,index){
   const risks=(Array.isArray(row.riskFlags)?row.riskFlags:[]).slice(0,4);
   const checklist=(Array.isArray(row.nextSessionChecklist)?row.nextSessionChecklist:[]).slice(0,2);
   const provisional=row.forecastStatus==='PROVISIONAL_INTRADAY'||row.signalBarComplete===false;
-  const readiness=provisional?'<div class="note danger" style="margin-top:6px">盘中临时观察：信号日K线未收盘，排名和特征可能变化，不可视为次日涨停预测。</div>':'';
+  const dataDegraded=row.forecastStatus==='CLOSED_BAR_DATA_DEGRADED';
+  const readiness=provisional?'<div class="note danger" style="margin-top:6px">盘中临时观察：信号日K线未收盘，排名和特征可能变化，不可视为次日涨停预测。</div>':
+    dataDegraded?'<div class="note danger" style="margin-top:6px">收盘已完成，但关键行情/题材/资金数据覆盖不足；仅作降级观察，不可视为可靠次日涨停预测。</div>':'';
   return '<div class="cand"><div><b>#'+(Number(row.rank)||index+1)+' '+preEsc(row.name||row.code)+' '+preEsc(row.code||'')+'</b>'+
     '<div class="kicker">'+preEsc(row.board||'板块待核验')+' · 当日 '+pctText+' · 次日观察分 '+(Number.isFinite(score)?score.toFixed(1):'—')+
     ' · 证据置信 '+(Number.isFinite(Number(row.confidence))?Number(row.confidence).toFixed(0):'—')+'</div>'+
@@ -475,10 +477,12 @@ async function runPreLimitupWatch(){
       (qualityOk&&Array.isArray(j.limitUpIgnitionRanking)?j.limitUpIgnitionRanking:[]);
     const ignitionSummary=j.nextDayLimitUpSummary||j.limitUpIgnitionSummary||{};
     const forecastStatus=j.nextDayForecastStatus||'UNKNOWN';
-    const forecastLabel=forecastStatus==='CLOSED_BAR_READY'?'信号日收盘完成':
+    const forecastLabel=forecastStatus==='CLOSED_BAR_READY'?'收盘完成/数据可用':
+      forecastStatus==='CLOSED_BAR_DATA_DEGRADED'?'收盘完成/数据覆盖不足':
       forecastStatus==='PROVISIONAL_INTRADAY'?'盘中临时观察':'信号时间待核验';
     $('limitUpIgnitionStatus').textContent='评估 '+Number(ignitionSummary.assessedCount??coverage.scoredCandidates??0)+' 只 · 延续路径 '+Number(ignitionSummary.continuationCount??0)+' 只 · 启动前路径 '+Number(ignitionSummary.prebreakoutCount??0)+' 只 · 输出 '+ignitionRows.length+' 只 · '+forecastLabel+
-      (forecastStatus==='PROVISIONAL_INTRADAY'?'。盘中排名不得当作次日最终预测。':'。此榜是启发式观察，不是涨停概率。');
+      (forecastStatus==='PROVISIONAL_INTRADAY'?'。盘中排名不得当作次日最终预测。':
+        forecastStatus==='CLOSED_BAR_DATA_DEGRADED'?'。数据覆盖不足，排名已降级。':'。此榜是启发式观察，不是涨停概率。');
     $('limitUpIgnitionList').innerHTML=!qualityOk?
       '<div class="note danger">数据质量门槛未通过，次日观察榜已隐藏；不使用缺失或过期数据生成候选。</div>':
       ignitionRows.length?ignitionRows.map(limitUpIgnitionRow).join(''):
