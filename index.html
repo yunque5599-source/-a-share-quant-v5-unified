@@ -303,6 +303,11 @@ function preLimitupRow(row,index){
   const rsRaw=row.relativeStrengthPercentile,rs=rsRaw===null||rsRaw===undefined||rsRaw===''?NaN:Number(rsRaw);
   const policyThemes=Array.isArray(row.policyThemes)?row.policyThemes:[];
   const selection=row.selection||{},leader=row.leaderEvidence||{},rr=row.riskReward||{};
+  const actionLabel=row.nextDayActionLabel|| (row.entryEligible?'等待入场触发':'入场许可未确认');
+  const actionTone=row.nextDayAction==='ENTRY_TRIGGER_WATCH'?'green':'amber';
+  const actionHtml=row.nextDayActionReason?'<div class="small" style="margin-top:5px">下一步：'+preEsc(row.nextDayActionReason)+'</div>':'';
+  const gateHtml=Array.isArray(row.entryGateReasons)&&row.entryGateReasons.length
+    ?'<div class="small" style="margin-top:5px">入场门槛：'+row.entryGateReasons.slice(0,5).map(preEsc).join(' · ')+'</div>':'';
   const pctText=pctRaw!==null&&pctRaw!==undefined&&pctRaw!==''&&Number.isFinite(pct)?(pct>0?'+':'')+pct.toFixed(2)+'%':'涨跌幅待核验';
   const priceText=priceRaw!==null&&priceRaw!==undefined&&priceRaw!==''&&Number.isFinite(price)&&price>0?price.toFixed(2):'价格待核验';
   const scoreText=scoreRaw!==null&&scoreRaw!==undefined&&scoreRaw!==''&&Number.isFinite(score)?'四层分 '+score.toFixed(1):'评分缺失';
@@ -315,6 +320,7 @@ function preLimitupRow(row,index){
   const passed=Array.isArray(selection.passedGates)?selection.passedGates:[];
   const chips=[
     '<span class="chip green">'+preEsc(selection.decisionLabel||'核心观察')+'</span>',
+    '<span class="chip '+actionTone+'">'+preEsc(actionLabel)+'</span>',
     '<span class="chip">'+preEsc(leader.label||'龙头证据不足')+'</span>',
     row.setup?'<span class="chip">'+preEsc(row.setup)+'</span>':'',
     row.primaryTheme?'<span class="chip">'+preEsc(row.primaryTheme)+'</span>':'',
@@ -344,7 +350,7 @@ function preLimitupRow(row,index){
   const riskHtml=risk.length?'<div class="small" style="margin-top:5px">风险：'+risk.map(preEsc).join(' · ')+'</div>':'';
   return '<div class="cand"><div><b>#'+(Number(row.rank)||index+1)+' '+preEsc(row.name||row.code)+' '+preEsc(row.code||'')+'</b>'+
     '<div class="kicker">'+board+' · 参考价 '+priceText+' · 当日 '+pctText+' · '+scoreText+'</div>'+
-    '<div class="chips">'+chips+'</div>'+selectionHtml+policyHtml+evidenceHtml+riskHtml+
+    '<div class="chips">'+chips+'</div>'+selectionHtml+actionHtml+gateHtml+policyHtml+evidenceHtml+riskHtml+
     '</div><div class="score">'+(Number.isFinite(score)?score.toFixed(1):'—')+'</div></div>';
 }
 async function runPreLimitupWatch(){
