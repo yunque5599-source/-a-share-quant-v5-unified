@@ -283,3 +283,21 @@ test('sampled Sina fallback members cannot claim verified theme leader status or
   assert.equal(result.leaderPremiumPct, null);
   assert.equal(result.source.leaderEvidenceQuality, 'sample-only-not-qualified');
 });
+
+
+test('theme without a verified member list does not default to follower leadership status', () => {
+  const result = enrichTheme({
+    code:'BK12345',
+    name:'人工智能',
+    changePct:1.8,
+    mainNetCny:null,
+    mainNetPct:null,
+    upCount:30,
+    downCount:10,
+    flatCount:5,
+    memberCount:45
+  }, [], [], [], 5, '000001', '平安银行', '2026-10-27T03:00:00Z');
+  assert.equal(result.leaderStatus, null);
+  assert.equal(result.candidateRank, null);
+  assert.equal(result.source.leaderEvidenceQuality, 'unavailable');
+});
