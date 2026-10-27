@@ -306,3 +306,21 @@ The complete V13 automated test suite passed on the latest code commit `8ca01eeb
 The latest V13 CI run must pass after the final integration commit. More importantly, a new chronological walk-forward run must compare the new dedicated lane against the prior ignition lane, raw momentum and the supervised next-day classifier on untouched signal dates. Report top-10/top-30 T+1 limit-up precision and recall, number of universe limit-ups captured, T+1 close return, adverse excursion, board-wise results, and source-coverage rates. The existing 60-date T+5 table and the held-out October 21 screenshot audit do **not** prove that this repair improves next-day hit rate.
 
 This remains a research-only watchlist. It is not a calibrated probability, a buy instruction, or an authorization to trade; do not tune weights to force the known screenshot names to rank highly.
+
+
+## Intraday contamination and false-positive repair (2026-10-27)
+
+A live capture at **14:14 China time** on October 27 ran before the regular-session close. Its `dailyBarCompleteAtCapture` field was false, but the next-day watch lane was still presented alongside closed-bar research outputs. The same capture ranked several low-explosiveness, non-verified-leader names highly on the prebreakout path (for example, bank stocks with weak flow evidence). This exposed two additional problems: intraday features were being treated like a final signal-day close, and proxy trend/resistance scores could overwhelm the absence of recent limit-up, high turnover, or verified catalyst/leader evidence.
+
+The follow-up repair:
+
+- Caps unverified industry/theme proxy leadership at 55; a proxy score is no longer treated as verified leadership.
+- Adds an impulse-potential component from turnover, volume expansion and recent limit-up activity.
+- Applies explicit score penalties for weak flow, weak sector evidence, and the combination of no verified leader/recent limit-up/strong positive catalyst; very low turnover plus weak volume expansion incurs an additional penalty.
+- Reduces confidence when leader evidence is unverified or flow evidence is weak.
+- Marks the next-day lane `PROVISIONAL_INTRADAY` before the daily bar is complete, reduces its confidence, and adds a visible warning. Only after the signal-day bar is complete is it marked `CLOSED_BAR_READY`.
+- Adds a **15:15 China-time weekday capture** to the live workflow so a post-close snapshot can be generated for next-session analysis. Intraday scheduled captures remain useful for monitoring, but they are not presented as final next-day forecasts.
+
+The latest V13 automated test run passed **125 tests, 0 failures**: https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40460783598. V12 research validation also passed: https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40460783622.
+
+This repair addresses obvious ranking and signal-timing defects, but it is **not yet proof of improved next-day limit-up precision or recall**. The required next step is a chronological post-close walk-forward comparison on untouched dates; do not promote the watchlist to executable trading logic until the new lane beats the previous ignition, raw-momentum and supervised baselines on T+1 metrics and risk.
