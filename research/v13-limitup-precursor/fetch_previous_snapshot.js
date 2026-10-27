@@ -9,7 +9,7 @@ const token = process.env.GITHUB_TOKEN ?? process.env.GH_TOKEN;
 const api = process.env.GITHUB_API_URL ?? 'https://api.github.com';
 const currentRunId = Number(process.env.GITHUB_RUN_ID ?? 0);
 const branch = process.env.GITHUB_REF_NAME ?? 'research/v13-limitup-precursor';
-const outputPath = resolve(process.env.PREVIOUS_SNAPSHOT_OUTPUT ?? 'output/v13-live-snapshots/previous/snapshot.json');
+const outputPath = resolve(process.env.PREVIOUS_SNAPSHOT_OUTPUT ?? 'output/previous-snapshot/snapshot.json');
 
 function chinaDate() {
   const parts = new Intl.DateTimeFormat('en-CA', {
