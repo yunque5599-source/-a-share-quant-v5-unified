@@ -1,0 +1,69 @@
+name: V13 historical limit-up replay
+
+on:
+  push:
+    branches: [research/v13-limitup-precursor]
+    paths:
+      - 'research/v13-limitup-precursor/historical_replay.js'
+  workflow_dispatch:
+    inputs:
+      as_of:
+        description: 'Signal cutoff date (YYYY-MM-DD)'
+        required: true
+        default: '2026-10-20'
+      concurrency:
+        description: 'Concurrent public data requests (1-32)'
+        required: true
+        default: '6'
+
+permissions:
+  contents: read
+
+jobs:
+  replay:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Collect point-in-time bars and replay V13
+        env:
+          AS_OF: ${{ github.event.inputs.as_of || '2026-10-20' }}
+        run: |
+          node research/v13-limitup-precursor/historical_replay.js --as-of "$AS_OF" --out-dir output/v13-history-replay --concurrency ${{ github.event.inputs.concurrency || '6' }}
+      - name: Evaluate point-in-time walk-forward performance
+        if: success() && hashFiles('output/v13-history-replay/replay_candidates.ndjson') != ''
+        run: |
+          node research/v13-limitup-precursor/walk_forward_eval.js --input output/v13-history-replay/replay_candidates.ndjson --quality-report output/v13-history-replay/replay_report.json --signal-days 15
+      - name: Enforce historical source-quality gate
+        if: success() && hashFiles('output/v13-history-replay/replay_report.json') != ''
+        run: |
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          const report = JSON.parse(readFileSync('output/v13-history-replay/replay_report.json', 'utf8'));
+          const coverage = Number(report.coverage?.barCoveragePct);
+          const status = report.validation?.status;
+          console.log(JSON.stringify({ status, coverage, missingTargets: report.validation?.missingTargets ?? [] }));
+          if (status !== 'MEASURABLE' || !Number.isFinite(coverage) || coverage < 90) {
+            console.error('Replay source quality is not sufficient for a valid ranking.');
+            process.exit(1);
+          }
+          NODE
+      - name: Upload replay dataset and report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v13-historical-replay-${{ github.event.inputs.as_of || '2026-10-20' }}
+          path: output/v13-history-replay/
+          if-no-files-found: warn
+          retention-days: 30
+      - name: Upload small replay quality report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: v13-replay-quality-${{ github.event.inputs.as_of || '2026-10-20' }}
+          path: output/v13-history-replay/replay_report.json
+          if-no-files-found: warn
+          retention-days: 30

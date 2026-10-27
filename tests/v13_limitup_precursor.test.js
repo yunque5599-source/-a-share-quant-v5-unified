@@ -1,0 +1,303 @@
+'use strict';
+
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { boardForCode, isRestrictedListingName, scoreCandidate, rankCandidates } from '../research/v13-limitup-precursor/precursor_score.js';
+
+function makeCandidate({ code = '600001', name = '样本股', strong = true, pct = 4.2, future = false } = {}) {
+  const bars = [];
+  for (let i = 0; i < 34; i++) {
+    let close;
+    if (strong) {
+      if (i < 22) close = 10.2 - i * 0.018;
+      else if (i < 29) close = 9.78 + (i - 22) * 0.006;
+      else close = [9.83, 9.86, 9.91, 9.98, 10.02, 10.06, 10.08, 10.10, 10.10, 10.10, 10.10, 10.10][i - 29] || 10.10;
+    } else {
+      close = 10.4 - i * 0.027;
+    }
+    if (i === 33) close = bars[bars.length - 1].close * (1 + pct / 100);
+    const prev = bars.length ? bars[bars.length - 1].close : close;
+    const day = new Date(Date.UTC(2026, 7, 1 + i)).toISOString().slice(0, 10);
+    const volume = strong ? (i === 33 ? 260 : i >= 28 ? 80 : 100) : 65;
+    bars.push({
+      date: day, open: prev * 0.998,
+      high: Math.max(prev, close) * (i === 33 ? 1.012 : 1.006),
+      low: Math.min(prev, close) * 0.994, close, volume,
+      amount: strong ? 120000000 : 45000000, turnoverRate: strong ? 6.8 : 1.2
+    });
+  }
+  const flows = bars.slice(-7).map((bar, i) => ({
+    date: bar.date, mainNet: strong ? (i + 1) * 2000000 : -1500000,
+    mainPct: strong ? 2.4 : -1.2, amount: bar.amount
+  }));
+  const sector = strong
+    ? { return3Pct: 3.2, return5Pct: 5.8, upRatio: 0.72, limitUpCount: 3, leaderScore: 76, catalystScore: 72, themeHeat: 68 }
+    : { return3Pct: -1.4, return5Pct: -3.2, upRatio: 0.31, limitUpCount: 0, leaderScore: 38, catalystScore: 42, themeHeat: 35 };
+  if (future) {
+    bars.push({ date: '2026-10-01', open: 11.2, high: 12.2, low: 11.1, close: 12.0, volume: 1000, amount: 900000000, turnoverRate: 22 });
+    flows.push({ date: '2026-10-01', mainNet: 500000000, mainPct: 30, amount: 900000000 });
+  }
+  return { code, name, bars, flows, sector };
+}
+
+test('board classification keeps ChiNext names in research universe but separates execution eligibility', () => {
+  assert.equal(boardForCode('301159'), 'CHINEXT');
+  assert.equal(boardForCode('300006'), 'CHINEXT');
+  assert.equal(boardForCode('600707'), 'SH_MAIN');
+  assert.equal(boardForCode('920025'), 'BSE');
+  const result = scoreCandidate(makeCandidate({ code: '301159', name: '三维天地' }));
+  assert.ok(result);
+  assert.equal(result.discoveryEligible, true);
+  assert.equal(result.executionEligible, false);
+  assert.match(result.tradeabilityReason, /BOARD_OR_ACCOUNT_PERMISSION/);
+});
+
+test('early-turning / expanding-volume candidate ranks above a weak downtrend', () => {
+  const strong = makeCandidate({ code: '301159', name: '三维天地', strong: true });
+  const weak = makeCandidate({ code: '600002', name: '弱势样本', strong: false, pct: -1.0 });
+  const ranked = rankCandidates([weak, strong]);
+  assert.equal(ranked[0].code, '301159');
+  assert.ok(ranked[0].score > ranked[1].score);
+  assert.ok(ranked[0].components.volumePrice > ranked[1].components.volumePrice);
+});
+
+test('a near-limit-up daily move remains discoverable but fails the pre-breakout entry gate', () => {
+  const result = scoreCandidate(makeCandidate({ code: '600003', pct: 9.6 }));
+  assert.ok(result);
+  assert.equal(result.discoveryEligible, true);
+  assert.ok(result.riskPenalty > 0);
+  assert.ok(result.score >= 0);
+  assert.equal(result.entryEligible, false);
+  assert.ok(result.entryGateReasons.includes('daily-move-too-extended'));
+});
+
+test('asOf cutoff excludes future bars and future fund-flow records', () => {
+  const plain = makeCandidate({ code: '301102', name: '兆讯传媒', future: false });
+  const withFuture = makeCandidate({ code: '301102', name: '兆讯传媒', future: true });
+  const a = scoreCandidate(plain, { asOf: '2026-09-03' });
+  const b = scoreCandidate(withFuture, { asOf: '2026-09-03' });
+  assert.ok(a && b);
+  assert.equal(a.score, b.score);
+  assert.equal(a.asOf, b.asOf);
+});
+
+test('missing sector or flow data keeps discovery alive but blocks entry eligibility', () => {
+  const candidate = makeCandidate({ code: '300006', name: '莱美药业' });
+  candidate.flows = [];
+  candidate.sector = {};
+  const result = scoreCandidate(candidate);
+  assert.ok(result);
+  assert.equal(result.discoveryEligible, true);
+  assert.ok(result.confidence < 75);
+  assert.ok(result.riskFlags.some(flag => flag.includes('资金流历史不足')));
+  assert.equal(result.entryEligible, false);
+  assert.ok(result.entryGateReasons.includes('sector-evidence-insufficient'));
+  assert.ok(result.entryGateReasons.includes('sustained-flow-confirmation-insufficient'));
+});
+
+test('ST and delisting-risk symbols are excluded from discovery', () => {
+  const result = scoreCandidate({ ...makeCandidate({ code: '600004' }), name: '*ST风险' });
+  assert.equal(result.discoveryEligible, false);
+  assert.equal(result.tradeabilityReason, 'ST_OR_DELISTING');
+  assert.equal(rankCandidates([{ ...makeCandidate({ code: '600004' }), name: '*ST风险' }]).length, 0);
+});
+
+test('score output exposes a 1–5 day horizon and a component audit trail', () => {
+  const result = scoreCandidate(makeCandidate({ code: '301486', name: '致尚科技' }));
+  assert.deepEqual(result.horizonTradingDays, [1, 5]);
+  for (const key of ['trend', 'volumePrice', 'flow', 'sector', 'momentum', 'base']) {
+    assert.ok(Number.isFinite(result.components[key]));
+    assert.ok(result.components[key] >= 0 && result.components[key] <= 100);
+  }
+});
+
+
+test('a sharp flush after a recent limit-up is surfaced through the separate emotion-repair lane', () => {
+  const candidate = makeCandidate({ code: '300006', name: '莱美药业', strong: true, pct: -15.49 });
+  const priorLimitBar = candidate.bars[31];
+  const priorBar = candidate.bars[30];
+  priorLimitBar.close = priorBar.close * 1.20;
+  priorLimitBar.open = priorBar.close * 1.01;
+  priorLimitBar.high = priorLimitBar.close * 1.01;
+  priorLimitBar.low = priorBar.close * 0.99;
+  const result = scoreCandidate(candidate);
+  assert.ok(result);
+  assert.ok(result.features.recentLimitUp10Count >= 1);
+  assert.equal(result.scorePath, 'emotion-repair');
+  assert.equal(result.setup, '情绪反核观察');
+  assert.ok(result.components.emotionRepair >= 75);
+});
+
+
+test('oversold stabilization is surfaced as a separate research lane without a recent limit-up', () => {
+  const candidate = makeCandidate({ code: '301102', name: '样本反转股', strong: false, pct: 1.2 });
+  const closes = [12.0, 11.8, 11.55, 11.2, 10.85, 10.55, 10.3, 10.05, 10.17];
+  const segmentStart = candidate.bars.length - closes.length;
+  for (let j = segmentStart - 11; j < segmentStart; j++) {
+    const leadIn = candidate.bars[j];
+    leadIn.close = 12.1;
+    leadIn.open = 12.1;
+    leadIn.high = 12.2;
+    leadIn.low = 12.0;
+  }
+  for (let i = 0; i < closes.length; i++) {
+    const index = candidate.bars.length - closes.length + i;
+    const bar = candidate.bars[index];
+    const previous = index > 0 ? candidate.bars[index - 1].close : closes[i];
+    bar.close = closes[i];
+    bar.open = i === closes.length - 1 ? previous * 0.992 : previous;
+    bar.high = Math.max(bar.open, bar.close) * 1.012;
+    bar.low = Math.min(bar.open, bar.close) * 0.988;
+    bar.volume = i === closes.length - 1 ? 60 : 100;
+    bar.amount = 120000000;
+    bar.turnoverRate = 4.2;
+  }
+  candidate.flows = candidate.bars.slice(-7).map((bar, i) => ({
+    date: bar.date, mainNet: i < 4 ? -1800000 : -300000,
+    mainPct: i < 4 ? -1.5 : -0.2, amount: bar.amount
+  }));
+  candidate.sector = { return3Pct: -1, return5Pct: -2, upRatio: 0.4, limitUpCount: 0, leaderScore: 50 };
+  const result = scoreCandidate(candidate);
+  assert.ok(result);
+  assert.equal(result.features.recentLimitUp10Count, 0);
+  assert.equal(result.scorePath, 'oversold-reversal');
+  assert.equal(result.setup, '超跌修复观察');
+  assert.ok(result.components.oversoldReversal >= 65);
+  assert.ok(result.features.closeLocation >= 0 && result.features.closeLocation <= 1);
+});
+
+
+test('core-only ranking keeps emotion-repair and oversold scores as diagnostics, not alpha score boosts', () => {
+  const candidate = makeCandidate({ code: '300006', name: '莱美药业', strong: true, pct: -15.49 });
+  const priorLimitBar = candidate.bars[31];
+  const priorBar = candidate.bars[30];
+  priorLimitBar.close = priorBar.close * 1.20;
+  priorLimitBar.open = priorBar.close * 1.01;
+  priorLimitBar.high = priorLimitBar.close * 1.01;
+  priorLimitBar.low = priorBar.close * 0.99;
+
+  const blended = scoreCandidate(candidate);
+  const coreOnly = scoreCandidate(candidate, { modelVariant: 'v13-core-only' });
+  assert.ok(blended.score > coreOnly.score);
+  assert.equal(coreOnly.modelVariant, 'v13-core-only');
+  assert.equal(coreOnly.scorePath, 'trend-transition');
+  assert.notEqual(coreOnly.setup, '情绪反核观察');
+  assert.ok(coreOnly.components.emotionRepair >= 65);
+});
+
+test('early-turn variant has an auditable score and never uses observation lanes as its rank score', () => {
+  const candidate = makeCandidate({ code: '301159', name: '样本低位转强股', strong: true, pct: 4.2 });
+  const earlyTurn = scoreCandidate(candidate, { modelVariant: 'v13-early-turn' });
+  assert.ok(earlyTurn);
+  assert.equal(earlyTurn.modelVariant, 'v13-early-turn');
+  assert.ok(Number.isFinite(earlyTurn.components.earlyTurn));
+  assert.ok(['early-turn', 'trend-transition'].includes(earlyTurn.scorePath));
+  assert.ok(!['emotion-repair', 'oversold-reversal'].includes(earlyTurn.scorePath));
+});
+
+
+test('momentum-hybrid variant exposes its score without mixing observation-only lanes', () => {
+  const candidate = makeCandidate({ code: '300006', name: '样本动量股', strong: true, pct: 3.1 });
+  const hybrid = scoreCandidate(candidate, { modelVariant: 'v13-momentum-hybrid' });
+  assert.ok(hybrid);
+  assert.equal(hybrid.modelVariant, 'v13-momentum-hybrid');
+  assert.equal(hybrid.scorePath, 'momentum-hybrid');
+  assert.ok(Number.isFinite(hybrid.components.momentumHybrid));
+  assert.ok(!['emotion-repair', 'oversold-reversal'].includes(hybrid.scorePath));
+});
+
+
+test('cross-sectional rank ensemble preserves relative momentum while using setup confirmation', () => {
+  const strong = makeCandidate({ code: '301159', name: '强势样本', strong: true, pct: 4.2 });
+  const weak = makeCandidate({ code: '600002', name: '弱势样本', strong: false, pct: -1.0 });
+  const ranked = rankCandidates([weak, strong], { modelVariant: 'v13-rank-ensemble' });
+  assert.equal(ranked[0].code, '301159');
+  assert.equal(ranked[0].modelVariant, 'v13-rank-ensemble');
+  assert.equal(ranked[0].scorePath, 'momentum-confirmed-rank');
+  assert.equal(ranked[0].components.crossSectionalMomentum, 100);
+  assert.ok(ranked[0].score > ranked[1].score);
+  assert.ok(ranked[0].score <= 100 && ranked[0].score >= 0);
+});
+
+
+test('scorer returns the same point-in-time score for sorted and unsorted histories', () => {
+  const ordered = makeCandidate({ code: '600009', name: '排序样本', strong: true, pct: 2.5 });
+  const cutoff = ordered.bars.at(-1).date;
+  const unsorted = {
+    ...ordered,
+    bars: [...ordered.bars].reverse(),
+    flows: [...ordered.flows].reverse()
+  };
+  const a = scoreCandidate(ordered, { asOf: cutoff });
+  const b = scoreCandidate(unsorted, { asOf: cutoff });
+  assert.ok(a && b);
+  assert.equal(a.score, b.score);
+  assert.deepEqual(a.components, b.components);
+});
+
+
+test('PT, ST, and delisting-status names are excluded from discovery',()=>{
+ assert.equal(isRestrictedListingName('PT南洋'),true);
+ assert.equal(isRestrictedListingName('PT金田A'),true);
+ assert.equal(isRestrictedListingName('*ST风险'),true);
+ assert.equal(isRestrictedListingName('退市某公司'),true);
+ assert.equal(isRestrictedListingName('正常股份'),false);
+ for(const name of ['PT南洋','PT金田A']){
+  const result=scoreCandidate({...makeCandidate({code:'000556',name}),name});
+  assert.equal(result.discoveryEligible,false);
+  assert.equal(result.tradeabilityReason,'ST_OR_DELISTING');
+ }
+});
+
+
+test('policy-aware ranking exposes policy evidence and adapts to market regime without replacing the core score', () => {
+  const candidate = makeCandidate({ code: '301159', name: '三维天地', strong: true });
+  candidate.policyAlignment = {
+    score: 96,
+    evidenceAvailable: true,
+    matchedThemes: [{ label: '人工智能/算力', score: 96, policy: { title: '官方政策', url: 'https://example.gov.cn/policy' } }]
+  };
+  candidate.marketRegime = { regime: 'risk-on', label: '风险偏好回升', dataQuality: 'multi-index-with-ranked-candidate-sample' };
+  const core = scoreCandidate(candidate, { modelVariant: 'v13-core-only' });
+  const aware = scoreCandidate(candidate, { modelVariant: 'v13-policy-aware' });
+  assert.ok(core && aware);
+  assert.equal(aware.modelVariant, 'v13-policy-aware');
+  assert.equal(aware.policyAlignment.evidenceAvailable, true);
+  assert.equal(aware.marketRegime.regime, 'risk-on');
+  assert.ok(Number.isFinite(aware.components.policyAlignment));
+  assert.ok(Number.isFinite(aware.components.marketFit));
+  assert.ok(aware.score >= core.score);
+  const rankedAware = rankCandidates([candidate], { modelVariant: 'v13-policy-aware' })[0];
+  assert.ok(rankedAware);
+  assert.equal(rankedAware.score, aware.score);
+  assert.equal(rankedAware.scorePath, aware.scorePath);
+});
+
+
+test('entry eligibility requires a non-extended move and corroborating sector and flow evidence', () => {
+  const candidate = makeCandidate({ code: '600558', name: '大西洋', pct: 10.1 });
+  const result = scoreCandidate(candidate);
+  assert.ok(result);
+  assert.equal(result.discoveryEligible, true);
+  assert.equal(result.entryEligible, false);
+  assert.ok(result.entryGateReasons.includes('daily-move-too-extended'));
+
+  const huashuLike = makeCandidate({ code: '000156', name: '华数传媒', pct: 3.76 });
+  huashuLike.sector = {};
+  huashuLike.flows = huashuLike.flows.map(flow => ({
+    ...flow, mainNet: -1_000_000
+  }));
+  const weakEvidence = scoreCandidate(huashuLike);
+  assert.ok(weakEvidence);
+  assert.equal(weakEvidence.entryEligible, false);
+  assert.ok(weakEvidence.entryGateReasons.includes('sector-evidence-insufficient'));
+  assert.ok(weakEvidence.entryGateReasons.includes('sustained-flow-confirmation-insufficient'));
+});
+
+test('a supported non-extended main-board candidate can pass entry eligibility', () => {
+  const result = scoreCandidate(makeCandidate({ code: '600007', pct: 4.2 }));
+  assert.ok(result);
+  assert.equal(result.executionEligible, true);
+  assert.equal(result.entryEligible, true);
+  assert.deepEqual(result.entryGateReasons, []);
+});

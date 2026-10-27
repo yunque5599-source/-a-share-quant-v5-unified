@@ -8,7 +8,16 @@ const {
   normalizeThemeMemberRow,
   isThemeMemberRow,
   isNarrativeTheme,
-  themeStrength
+  themeStrength,
+  summarizeSourceCoverage,
+  parseTencentCandidateQuotes,
+  normalizeThemeName,
+  parseThsStockConcepts,
+  parseSinaConceptNodes,
+  parseSinaNodeMembers,
+  decodeResponseText,
+  fetchConceptRankingForCapture,
+  enrichTheme
 } = universe;
 
 test('concept ranking accepts Eastmoney BK concept-board codes and requires price change', () => {
@@ -64,10 +73,231 @@ test('theme member normalization rejects malformed codes and missing change', ()
 });
 
 test('narrative theme selector rejects valuation, holder-style and momentum classification boards', () => {
-  for (const name of ['百元股','低市净率','机构重仓','昨日涨停','高股息']) {
+  for (const name of [
+    '百元股','低市净率','机构重仓','昨日涨停','高股息',
+    '东方财富热股','题材股','人气股','热门板块','市场热点','主力资金'
+  ]) {
     assert.equal(isNarrativeTheme({code:'BK12345',name}), false, name);
   }
   assert.equal(isNarrativeTheme({code:'BK12345',name:'人工智能'}), true);
   assert.equal(isNarrativeTheme({code:'BK12345',name:'机器人概念'}), true);
   assert.equal(themeStrength({changePct:5,mainNetPct:3,upCount:80,downCount:20,flatCount:0}) > 75, true);
+});
+
+
+test('source coverage reports missing concept and quote feeds as degraded', () => {
+  const result = summarizeSourceCoverage({
+    requestedCodes: 20, conceptRows: 0, quoteRows: 0, themeCount: 0,
+    researchThemes: 0, sourceFailures: ['concept-ranking: HTTP 502']
+  });
+  assert.equal(result.degraded, true);
+  assert.equal(result.status, 'DEGRADED_SOURCE_COVERAGE');
+  assert.ok(result.warnings.includes('concept-ranking: HTTP 502'));
+  assert.ok(result.warnings.includes('candidate-quotes-empty'));
+});
+
+test('source coverage degrades when every theme flow request fails', () => {
+  const result = summarizeSourceCoverage({
+    requestedCodes: 10, conceptRows: 80, quoteRows: 10, themeCount: 12,
+    researchThemes: 6, membershipFailures: 0, flowFailures: 6,
+    researchFailures: 0, sourceFailures: []
+  });
+  assert.equal(result.degraded, true);
+  assert.ok(result.warnings.includes('all-theme-flow-requests-failed'));
+});
+
+test('source coverage remains available with populated source families and partial research warnings absent', () => {
+  const result = summarizeSourceCoverage({
+    requestedCodes: 10, conceptRows: 80, quoteRows: 10, themeCount: 12,
+    researchThemes: 6, membershipFailures: 0, flowFailures: 1,
+    researchFailures: 2, sourceFailures: []
+  });
+  assert.equal(result.degraded, false);
+  assert.equal(result.status, 'SOURCE_COVERAGE_AVAILABLE');
+});
+
+
+test('Tencent quote fallback parses requested symbols, computes return and retains quote timestamp', () => {
+  const raw = [
+    'v_sz000001="1~平安银行~000001~10.50~10.00~10.01~100000~50000~50000~10.49~100~10.48~200~10.51~100~10.52~200~10.53~300~10.54~100~10.55~200~10.56~300~10.57~400~2026/10/26~15:00:00~00";',
+    'v_sh600000="1~浦发银行~600000~8.20~8.00~8.01~100000~50000~50000~8.19~100~8.18~200~8.21~100~8.22~200~8.23~300~8.24~100~8.25~200~8.26~300~8.27~400~2026/10/26~15:00:00~00";',
+    'v_sz300001="1~不请求的股票~300001~20.00~19.00~19.01~100000~50000~50000~19.99~100~19.98~200~20.01~100~20.02~200~20.03~300~20.04~100~20.05~200~20.06~300~20.07~400~2026/10/26~15:00:00~00";'
+  ].join('');
+  const result = parseTencentCandidateQuotes(raw, ['000001','600000']);
+  assert.equal(result.size, 2);
+  assert.equal(result.get('000001').name, '平安银行');
+  assert.equal(result.get('000001').pct, 5);
+  assert.equal(result.get('000001').source, 'tencent');
+  assert.equal(result.get('000001').quoteTimestamp, Math.floor(Date.parse('2026-10-26T15:00:00+08:00') / 1000));
+  assert.equal(result.has('300001'), false);
+});
+
+test('Tencent quote fallback ignores rows with missing or invalid previous close', () => {
+  const raw = [
+    'v_sz000001="1~平安银行~000001~10.50~0~10.01~100000~2026/10/26~15:00:00~00";',
+    'v_sh600000="1~浦发银行~600000~N/A~8.00~8.01~100000~2026/10/26~15:00:00~00";'
+  ].join('');
+  assert.equal(parseTencentCandidateQuotes(raw, ['000001','600000']).size, 0);
+});
+
+test('source coverage degrades when quote fallback only covers part of the requested universe', () => {
+  const result = summarizeSourceCoverage({
+    requestedCodes: 10, conceptRows: 80, quoteRows: 7, themeCount: 12,
+    researchThemes: 6, membershipFailures: 0, flowFailures: 1,
+    researchFailures: 2, sourceFailures: []
+  });
+  assert.equal(result.degraded, true);
+  assert.ok(result.warnings.includes('candidate-quotes-partial:7/10'));
+});
+
+
+test('10jqka concept parser extracts numbered table rows and deduplicates normalized names', () => {
+  const html = `
+    <table>
+      <tr><th>序号</th><th>概念名称</th><th>龙头股</th></tr>
+      <tr><td>1</td><td><a href="/gn/detail/code/301496/">白酒概念</a></td><td>贵州茅台</td></tr>
+      <tr><td>2</td><td><a href="/gn/detail/code/300001/">人工智能</a></td><td>示例科技</td></tr>
+      <tr><td>3</td><td><a href="/gn/detail/code/301496/">白酒</a></td><td>贵州茅台</td></tr>
+      <tr><td>4</td><td>概念解析</td><td>说明</td></tr>
+    </table>`;
+  const concepts = parseThsStockConcepts(html);
+  assert.equal(concepts.length, 2);
+  assert.equal(concepts[0].name, '白酒概念');
+  assert.equal(concepts[0].normalizedName, normalizeThemeName('白酒'));
+  assert.equal(concepts[1].name, '人工智能');
+});
+
+test('Sina concept node parser discovers gn and chgn leaves from nested tree', () => {
+  const tree = ['行情中心', [
+    ['A股', [
+      ['概念板块', [
+        ['人工智能', '', 'gn_hwzn'],
+        ['物理AI', '', 'chgn_701381']
+      ]],
+      ['行业', [['计算机', '', 'new_jsj']]]
+    ]]
+  ]];
+  const nodes = parseSinaConceptNodes(tree);
+  assert.equal(nodes.size, 2);
+  assert.equal(nodes.get(normalizeThemeName('人工智能')).code, 'gn_hwzn');
+  assert.equal(nodes.get(normalizeThemeName('物理AI')).code, 'chgn_701381');
+});
+
+test('Sina node member parser validates stock codes and numeric change values', () => {
+  const rows = parseSinaNodeMembers([
+    {symbol:'sh600519', code:'600519', name:'贵州茅台', trade:'1500', changepercent:'2.5', amount:'1000000', ticktime:'15:00:00'},
+    {symbol:'sz000001', code:'000001', name:'平安银行', trade:'10', changepercent:'-1.2', amount:'200000', ticktime:'15:00:00'},
+    {symbol:'bj430001', code:'430001', name:'北交所样本', trade:'5', changepercent:'3', amount:'10000'},
+    {symbol:'sh600000', code:'600000', name:'无效涨幅', trade:'9', changepercent:'-', amount:'10000'}
+  ]);
+  assert.equal(rows.length, 2);
+  assert.equal(rows[0].code, '600519');
+  assert.equal(rows[0].pct, 2.5);
+  assert.equal(rows[1].pct, -1.2);
+});
+
+test('theme normalization matches concept labels with and without the generic suffix', () => {
+  assert.equal(normalizeThemeName('人工智能 概念'), normalizeThemeName('人工智能'));
+  assert.equal(normalizeThemeName('CPO（共封装光学）'), normalizeThemeName('CPO-共封装光学'));
+});
+
+
+test('Sina-derived narrative themes are eligible only when theme names pass the evidence filter', () => {
+  assert.equal(isNarrativeTheme({code:'SINA:gn_hwzn',name:'人工智能'}), true);
+  assert.equal(isNarrativeTheme({code:'SINA:gn_yesterday_limitup',name:'昨日涨停'}), false);
+  assert.equal(isNarrativeTheme({code:'SINA:gn_holder',name:'机构重仓'}), false);
+  assert.equal(isNarrativeTheme({code:'UNKNOWN:gn_hwzn',name:'人工智能'}), false);
+});
+
+test('source coverage reports partial stock-theme membership failures', () => {
+  const result = summarizeSourceCoverage({
+    requestedCodes: 10, conceptRows: 80, quoteRows: 10, themeCount: 12,
+    researchThemes: 6, membershipFailures: 2, flowFailures: 1,
+    researchFailures: 0, sourceFailures: []
+  });
+  assert.equal(result.degraded, true);
+  assert.ok(result.warnings.includes('stock-theme-membership-partial-failures:2/10'));
+});
+
+
+test('text response decoder handles GBK-encoded Chinese and valid UTF-8', () => {
+  const legacyGbk = Uint8Array.from([0xD2, 0xF8, 0xD0, 0xD0]);
+  assert.equal(decodeResponseText(legacyGbk.buffer, 'text/html; charset=gbk'), '银行');
+  const utf8 = new TextEncoder().encode('人工智能');
+  assert.equal(decodeResponseText(utf8, 'text/html; charset=utf-8'), '人工智能');
+  assert.equal(decodeResponseText(legacyGbk.buffer, 'text/html; charset=utf-8'), '银行');
+});
+
+
+test('concept ranking cache reuses the same capture timestamp across candidate batches', async () => {
+  const originalFetch = globalThis.fetch;
+  let requestCount = 0;
+  globalThis.fetch = async () => {
+    requestCount += 1;
+    return new Response(JSON.stringify({
+      data:{total:1,diff:[{f12:'BK12345',f14:'人工智能',f3:'2.5'}]}
+    }), {status:200,headers:{'content-type':'application/json'}});
+  };
+  try {
+    const first = await fetchConceptRankingForCapture(1, 'unit-test-capture-2026-10-27T00:00:00Z');
+    const second = await fetchConceptRankingForCapture(1, 'unit-test-capture-2026-10-27T00:00:00Z');
+    assert.equal(first.rows.length, 1);
+    assert.equal(first.cacheHit, false);
+    assert.equal(second.rows.length, 1);
+    assert.equal(second.cacheHit, true);
+    assert.equal(requestCount, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+
+test('sampled Sina fallback members cannot claim verified theme leader status or official index premium', () => {
+  const result = enrichTheme({
+    code:'SINA:gn_test',
+    name:'人工智能',
+    provider:'sina+10jqka',
+    changePct:2.5,
+    mainNetCny:null,
+    mainNetPct:null,
+    upCount:70,
+    downCount:20,
+    flatCount:10,
+    memberCount:100,
+    leaderCode:'600001',
+    leaderName:'样本领涨股',
+    leaderChangePct:9,
+    changePctMethod:'sample-member-average',
+    memberCoverage:'first-two-pages-up-to-160'
+  }, [], [
+    {code:'600001',name:'样本领涨股',pct:9},
+    {code:'600002',name:'样本成分股',pct:4}
+  ], [], 10, '600001', '样本领涨股', '2026-10-27T03:00:00Z');
+
+  assert.equal(result.candidateRank, null);
+  assert.equal(result.leaderCode, null);
+  assert.equal(result.leaderName, null);
+  assert.equal(result.leaderChangePct, null);
+  assert.equal(result.leaderStatus, null);
+  assert.equal(result.candidatePremiumPct, null);
+  assert.equal(result.leaderPremiumPct, null);
+  assert.equal(result.source.leaderEvidenceQuality, 'sample-only-not-qualified');
+});
+
+
+test('theme without a verified member list does not default to follower leadership status', () => {
+  const result = enrichTheme({
+    code:'BK12345',
+    name:'人工智能',
+    changePct:1.8,
+    mainNetCny:null,
+    mainNetPct:null,
+    upCount:30,
+    downCount:10,
+    flatCount:5,
+    memberCount:45
+  }, [], [], [], 5, '000001', '平安银行', '2026-10-27T03:00:00Z');
+  assert.equal(result.leaderStatus, null);
+  assert.equal(result.candidateRank, null);
+  assert.equal(result.source.leaderEvidenceQuality, 'unavailable');
 });
