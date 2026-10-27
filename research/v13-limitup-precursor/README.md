@@ -342,3 +342,14 @@ The repair separates the question **"could this stock continue tomorrow?"** from
 **Validation:** V13 automated tests passed on commit `0941fce9bfa84ef4233d08b3869c4248cdc4d05b` and V12 research validation passed on the same commit: https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40461850955 and https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40461850997.
 
 This is a logical recall repair, not proof of a higher live hit rate. The existing held-out audit already showed that three known next-session limit-up targets were missed by the main top-30 lists. The next required step is to rerun a chronological exact-T+1 evaluation on untouched dates and compare top-10/top-30 precision, recall, turnover/liquidity, T+1 close return, adverse excursion, and performance by board and market regime. Do not tune weights against the known screenshot targets or treat this observation rank as a calibrated probability or trade instruction.
+
+
+## Ranked-source outage fallback repair (2026-10-27)
+
+A live capture exposed a separate hard failure before scoring began: `/api/market?action=ranked_candidates` returned HTTP 502 with `rank sources insufficient: 0/6`. The snapshot code previously parsed this response before entering its full-universe fallback condition, so an exception aborted the run and the fallback was never attempted. In that state, the model did not "pick the wrong stocks"; it never reached candidate scoring.
+
+The capture now catches and records the ranked-source error, then attempts the independent full-universe quote collection whenever the ranked endpoint errors, is degraded/stale, or returns fewer than 300 candidates. If the fallback succeeds, the funnel can continue from validated full-universe quote rows; if it fails, the snapshot remains failed closed rather than fabricating a ranking. The source error is retained in `quality.rankedSourceError` and `quality.fullUniverseFallback.rankedSourceError` for diagnosis.
+
+Regression tests verify that an HTTP error triggers fallback, as do degraded/stale responses and undersized candidate lists, while a healthy full candidate list does not trigger unnecessary fallback.
+
+**Validation:** the V13 automated test suite passed on commit `638950bd273a14210661b7005bac2e5561cf0a56`: https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40462289164. A new live capture is required to verify whether the full-universe quote endpoint is reachable in the same environment; passing unit tests do not prove that the external source is currently available.
