@@ -16,7 +16,8 @@ const {
   parseSinaConceptNodes,
   parseSinaNodeMembers,
   decodeResponseText,
-  fetchConceptRankingForCapture
+  fetchConceptRankingForCapture,
+  enrichTheme
 } = universe;
 
 test('concept ranking accepts Eastmoney BK concept-board codes and requires price change', () => {
@@ -248,4 +249,37 @@ test('concept ranking cache reuses the same capture timestamp across candidate b
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+
+test('sampled Sina fallback members cannot claim verified theme leader status or official index premium', () => {
+  const result = enrichTheme({
+    code:'SINA:gn_test',
+    name:'人工智能',
+    provider:'sina+10jqka',
+    changePct:2.5,
+    mainNetCny:null,
+    mainNetPct:null,
+    upCount:70,
+    downCount:20,
+    flatCount:10,
+    memberCount:100,
+    leaderCode:'600001',
+    leaderName:'样本领涨股',
+    leaderChangePct:9,
+    changePctMethod:'sample-member-average',
+    memberCoverage:'first-two-pages-up-to-160'
+  }, [], [
+    {code:'600001',name:'样本领涨股',pct:9},
+    {code:'600002',name:'样本成分股',pct:4}
+  ], [], 10, '600001', '样本领涨股', '2026-10-27T03:00:00Z');
+
+  assert.equal(result.candidateRank, null);
+  assert.equal(result.leaderCode, null);
+  assert.equal(result.leaderName, null);
+  assert.equal(result.leaderChangePct, null);
+  assert.equal(result.leaderStatus, null);
+  assert.equal(result.candidatePremiumPct, null);
+  assert.equal(result.leaderPremiumPct, null);
+  assert.equal(result.source.leaderEvidenceQuality, 'sample-only-not-qualified');
 });
