@@ -741,7 +741,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     }
   }
   const industryContextByCode=deriveLiveIndustryContext([...raw,...funnel]);
-  if(funnel.length<50)throw Error('ranked candidate funnel returned fewer than 50 symbols');
+  if(funnel.length<50)throw Error('ranked candidate funnel returned fewer than 50 symbols; rankedSourceError='+(rankedSourceError??'none')+'; fullUniverseFallbackError='+(fullUniverseFallback.error??'none'));
   const batches=await mapLimit(chunks(funnel,30),1,async group=>{
     const codes=group.map(r=>String(r.f12)),query=encodeURIComponent(codes.join(','));
     const [deepR,psychR]=await Promise.allSettled([
