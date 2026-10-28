@@ -380,3 +380,26 @@ The next historical replay showed the Beijing-board segment reported 6,804 rows 
 The latest completed live snapshot smoke run (captured at 14:49 China time on 2026-10-27, before the regular-session close) populated the new `nextDayLimitUpWatch` with 10 observations, including the `LIMITUP_CONTINUATION` path for today's limit-up/near-limit names. The run passed the workflow's quality gate with status `CAPTURED_WITH_FLOW_AND_NEWS_FALLBACK`; however, historical flow coverage was only 55%, three of four psychology batches were degraded, and the result was explicitly `PROVISIONAL_INTRADAY`. It proves that the new path is wired into the live pipeline, **not** that the selected stocks subsequently hit limit-up or that the ranking is profitable. Run: https://github.com/yunque5599-source/-a-share-quant-v5-unified/actions/runs/40463320720.
 
 A chronological historical replay using reverse pagination was still running when this note was written. Until that replay reaches `MEASURABLE` with sufficient signal/outcome coverage, the effect on exact T+1 limit-up recall remains unverified.
+
+
+## Candidate recall and case audit (2026-10-27)
+
+This research-only patch addresses a recall bottleneck found in the healthy ranked path. The market API's ranked response is the union of six ranked lists (typically a few hundred symbols), but the prior capture only requested the full-universe discovery fallback when the ranked request failed, was degraded/stale, or returned fewer than 300 rows. A healthy response around 374 rows therefore excluded stocks that were absent from all six lists before the funnel, deep scan, and next-session lanes.
+
+The capture now attempts the existing bounded full-universe discovery whenever the ranked pool is below the expected full-universe coverage threshold, including a healthy ranked response. A failed or under-covered discovery is retained as rankedSourceDegraded; it never gets replaced with invented values. Each capture also stores funnelAudit, including input/valid/selected counts, lane counts, per-symbol rejection reasons, and quote/flow/volume evidence availability. This makes quota truncation and source gaps reviewable.
+
+The precursor and next-session research scorers now keep missing capital-flow and sector evidence as missing. They no longer turn an absent flow/sector block into a neutral finite score. A quote-only flow observation is labeled separately and remains weaker evidence. Entry eligibility remains independent from discovery/continuation observation, and a limit-up continuation observation never authorizes a same-day chase or averaging down.
+
+The 2026-10-26 point-in-time inputs needed to replay the reported 2026-10-27 cases (华数传媒 000156, 海洋王 002724, 襄阳轴承 000678) are not present in this repository's replay artifacts. Their stage-by-stage diagnosis is therefore NOT_MEASURABLE; the 2026-10-27 close must not be inserted into a 2026-10-26 signal. Existing historical replay is also not promoted as improved: the latest fresh replay was not measurable because the SZ_MAIN segment covered 1300/1642 symbols, and the successful walk-forward used an older qualified artifact without trading costs.
+
+
+## V14 limit-up prewarning layer (2026-10-28)
+
+This branch adds a research-only point-in-time label and ranking layer. It does not replace the V13 production or observation paths.
+
+- v14_limitup_labels.js computes dynamic board/ST rules and labels the first future T+1/T+2/T+3 limit-up touch. It excludes any symbol that had already touched its limit before the signal and records MFE/MAE. New-listing rule uncertainty is marked SPECIAL_RULE_UNAVAILABLE.
+- v14_prewarning_score.js is a separate heuristic for 1–3 day pre-limit-up research. Missing flow and sector evidence remains missing; it is never converted into a positive or neutral signal. The score is not a calibrated probability and does not authorize entry.
+- v14_walk_forward.js evaluates chronological Top10/Top30/Top50 precision, recall, lead horizon, returns, MFE/MAE, and an explicit transaction-cost proxy against momentum and breakout baselines. It uses no random split and freezes heuristic parameters.
+- v14_intraday_warning.js fails closed with DATA_CAPABILITY_INSUFFICIENT unless point-in-time minute bars are supplied. The current market API exposes daily K-lines and daily fund flow only; it has no historical minute, order-book, or cancellation data. Daily close data is never substituted for 09:35/10:00/10:30/11:00/13:30/14:00/14:30 warnings.
+
+The latest fresh historical replay remains NOT_MEASURABLE because the SZ_MAIN segment covered 1300/1642 symbols. No post-fix Top-K or cost-adjusted improvement is claimed. The 2026-10-27 cases 000156, 002724, and 000678 remain NOT_MEASURABLE without a validated 2026-10-26 point-in-time snapshot.

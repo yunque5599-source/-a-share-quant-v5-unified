@@ -103,8 +103,8 @@ export function assessLimitUpIgnitionCandidate(row = {}) {
       + Math.min(Math.max(0, (recentLimitUp10 ?? recentLimitUp5) - recentLimitUp5), 3) * 5
       - Math.max(0, recentLimitUp5 - 3) * 12)
     : recentLimitUp10 !== null ? clamp(45 + Math.min(recentLimitUp10, 3) * 8) : null;
-  const sectorScore = sector === null ? 45 : clamp(sector);
-  const flowScore = flow === null ? 45 : clamp(flow);
+  const sectorScore = sector === null ? null : clamp(sector);
+  const flowScore = flow === null ? null : clamp(flow);
   const leaderScore = leader.score;
   // A recent limit-up is a useful continuation prior, but not a hard requirement:
   // first-time leaders and catalyst-driven breakouts must remain discoverable.
@@ -113,7 +113,11 @@ export function assessLimitUpIgnitionCandidate(row = {}) {
     [trendScore, 0.17], [sectorScore, 0.13], [flowScore, 0.11],
     [leaderScore, 0.07], [priorLimitUpScore, 0.08]
   ];
-  const score = clamp(scorePieces.reduce((sum, [value, weight]) => sum + (value ?? 45) * weight, 0));
+  const availablePieces = scorePieces.filter(([value]) => Number.isFinite(value));
+  const availableWeight = availablePieces.reduce((sum, [, weight]) => sum + weight, 0);
+  const score = clamp(availableWeight > 0
+    ? availablePieces.reduce((sum, [value, weight]) => sum + value * weight, 0) / availableWeight
+    : 0);
   const evidenceCount = [
     moveScore, closeScore, volumeScore, trendScore,
     sector === null ? null : sectorScore,
