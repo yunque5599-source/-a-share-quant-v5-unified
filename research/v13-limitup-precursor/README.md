@@ -391,3 +391,15 @@ The capture now attempts the existing bounded full-universe discovery whenever t
 The precursor and next-session research scorers now keep missing capital-flow and sector evidence as missing. They no longer turn an absent flow/sector block into a neutral finite score. A quote-only flow observation is labeled separately and remains weaker evidence. Entry eligibility remains independent from discovery/continuation observation, and a limit-up continuation observation never authorizes a same-day chase or averaging down.
 
 The 2026-10-26 point-in-time inputs needed to replay the reported 2026-10-27 cases (华数传媒 000156, 海洋王 002724, 襄阳轴承 000678) are not present in this repository's replay artifacts. Their stage-by-stage diagnosis is therefore NOT_MEASURABLE; the 2026-10-27 close must not be inserted into a 2026-10-26 signal. Existing historical replay is also not promoted as improved: the latest fresh replay was not measurable because the SZ_MAIN segment covered 1300/1642 symbols, and the successful walk-forward used an older qualified artifact without trading costs.
+
+
+## V14 limit-up prewarning layer (2026-10-28)
+
+This branch adds a research-only point-in-time label and ranking layer. It does not replace the V13 production or observation paths.
+
+- v14_limitup_labels.js computes dynamic board/ST rules and labels the first future T+1/T+2/T+3 limit-up touch. It excludes any symbol that had already touched its limit before the signal and records MFE/MAE. New-listing rule uncertainty is marked SPECIAL_RULE_UNAVAILABLE.
+- v14_prewarning_score.js is a separate heuristic for 1–3 day pre-limit-up research. Missing flow and sector evidence remains missing; it is never converted into a positive or neutral signal. The score is not a calibrated probability and does not authorize entry.
+- v14_walk_forward.js evaluates chronological Top10/Top30/Top50 precision, recall, lead horizon, returns, MFE/MAE, and an explicit transaction-cost proxy against momentum and breakout baselines. It uses no random split and freezes heuristic parameters.
+- v14_intraday_warning.js fails closed with DATA_CAPABILITY_INSUFFICIENT unless point-in-time minute bars are supplied. The current market API exposes daily K-lines and daily fund flow only; it has no historical minute, order-book, or cancellation data. Daily close data is never substituted for 09:35/10:00/10:30/11:00/13:30/14:00/14:30 warnings.
+
+The latest fresh historical replay remains NOT_MEASURABLE because the SZ_MAIN segment covered 1300/1642 symbols. No post-fix Top-K or cost-adjusted improvement is claimed. The 2026-10-27 cases 000156, 002724, and 000678 remain NOT_MEASURABLE without a validated 2026-10-26 point-in-time snapshot.
