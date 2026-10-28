@@ -10,6 +10,13 @@ const EM_HOSTS = [
 const UA = 'Mozilla/5.0 AShareQuant/10.1.8-S';
 const MARKET_FS = 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048';
 const MARKET_FIELDS = 'f12,f14,f2,f3,f5,f6,f8,f9,f10,f20,f21,f23,f24,f25,f62,f184,f100';
+const INDEX_IDS = Object.freeze({
+  '000001': '1.000001',
+  '399001': '0.399001',
+  '399006': '0.399006',
+  '000688': '1.000688',
+  '000300': '1.000300'
+});
 
 function secid(code) {
   return /^(6|68)/.test(code) ? `1.${code}` : `0.${code}`;
@@ -66,6 +73,17 @@ function klineUrl(code) {
   });
   return `https://push2his.eastmoney.com/api/qt/stock/kline/get?${p}`;
 }
+function indexKlineUrl(indexCode) {
+  const id = INDEX_IDS[indexCode];
+  if (!id) throw new Error('unsupported index code');
+  const p = new URLSearchParams({
+    secid: id, klt: '101', fqt: '0', beg: ymdDaysAgo(420), end: '20500101', lmt: '220',
+    fields1: 'f1,f2,f3,f4,f5,f6',
+    fields2: 'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61'
+  });
+  return `https://push2his.eastmoney.com/api/qt/stock/kline/get?${p}`;
+}
+
 function flowUrl(code) {
   const p = new URLSearchParams({
     lmt: '30', klt: '101', secid: secid(code),
@@ -414,6 +432,12 @@ export default async function handler(req, res) {
         return { code: c, news };
       });
       return send(res, 200, { items: items.map((z, i) => z?.error ? { code: codes[i], error: z.error } : z) }, 120);
+    }
+
+    if (action === 'index_kline') {
+      const indexCode = String(u.searchParams.get('index') || '');
+      if (!Object.hasOwn(INDEX_IDS, indexCode)) return send(res, 400, { error: 'unsupported index code' }, 0);
+      return send(res, 200, await fetchParsed(indexKlineUrl(indexCode), 6000), 300);
     }
 
     if (!/^\d{6}$/.test(code)) return send(res, 400, { error: 'invalid stock code' }, 0);
