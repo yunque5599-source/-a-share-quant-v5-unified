@@ -1,0 +1,29 @@
+name: Research Offline Unit Tests
+on:
+  push:
+    branches:
+      - 'research/**'
+    paths:
+      - 'research/**'
+      - 'tests/**'
+      - '.github/workflows/research-unit-tests.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'research/**'
+      - 'tests/**'
+      - '.github/workflows/research-unit-tests.yml'
+permissions:
+  contents: read
+jobs:
+  unit-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Run offline unit tests
+        run: python -m unittest discover -s tests -v
