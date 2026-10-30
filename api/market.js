@@ -9,7 +9,7 @@ const EM_HOSTS = [
 
 const UA = 'Mozilla/5.0 AShareQuant/10.1.8-S';
 const MARKET_FS = 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048';
-const MARKET_FIELDS = 'f12,f14,f2,f3,f5,f6,f8,f9,f10,f20,f21,f23,f24,f25,f62,f184,f100';
+const MARKET_FIELDS = 'f12,f14,f2,f3,f5,f6,f8,f9,f10,f20,f21,f23,f24,f25,f62,f184,f100,f124';
 
 function secid(code) {
   return /^(6|68)/.test(code) ? `1.${code}` : `0.${code}`;
@@ -163,25 +163,20 @@ function neutralFlowFromKline(kline) {
 }
 
 async function fetchDeepOne(code) {
-  let kline = null;
-  let klineSource = 'eastmoney';
+  // Fetch primary daily bars and flow concurrently so a 30+5 scan does not
+  // spend the sum of both upstream timeouts for every symbol.
+  const [klinePrimary, flowPrimary] = await Promise.allSettled([
+    fetchParsed(klineUrl(code), 3200),
+    fetchParsed(flowUrl(code), 2600)
+  ]);
 
-  try {
-    kline = await fetchParsed(klineUrl(code), 3200);
-  } catch {
-    kline = await fetchTencentKline(code, 5500);
-    klineSource = 'tencent';
-  }
+  let kline = klinePrimary.status === 'fulfilled' ? klinePrimary.value : null;
+  let klineSource = kline ? 'eastmoney' : 'tencent';
+  if (!kline) kline = await fetchTencentKline(code, 5500);
 
-  let flow = null;
-  let flowSource = 'eastmoney';
-
-  try {
-    flow = await fetchParsed(flowUrl(code), 2600);
-  } catch {
-    flow = neutralFlowFromKline(kline);
-    flowSource = 'neutral';
-  }
+  let flow = flowPrimary.status === 'fulfilled' ? flowPrimary.value : null;
+  let flowSource = flow ? 'eastmoney' : 'neutral';
+  if (!flow) flow = neutralFlowFromKline(kline);
 
   return {
     code,
@@ -262,8 +257,10 @@ async function mapLimit(items, n, fn) {
   return out;
 }
 
-function parseCodes(raw, max) {
-  return String(raw || '').split(',').map(s => s.trim()).filter(s => /^\d{6}$/.test(s)).slice(0, max);
+export function parseCodes(raw, max = 30) {
+  const requested = Number.isFinite(Number(max)) ? Math.floor(Number(max)) : 30;
+  const cap = Math.max(0, Math.min(100, requested));
+  return [...new Set(String(raw || '').split(',').map(s => s.trim()).filter(s => /^\d{6}$/.test(s)))].slice(0, cap);
 }
 
 let rankedMemory = null;
@@ -271,7 +268,7 @@ let rankedMemory = null;
 async function rankedCandidates() {
   const now = Date.now();
 
-  if (rankedMemory && now - rankedMemory.t < 120000) {
+  if (rankedMemory && now - rankedMemory.t < 60000) {
     return rankedMemory.value;
   }
 
@@ -298,31 +295,56 @@ async function rankedCandidates() {
     })
   );
 
+  // Fetch up to three pages per ranked factor. A secondary-page failure
+  // preserves the valid first page and is reported instead of discarding the lane.
+  const maxPagesPerList = 3;
   const lists = await mapLimit(specs, 6, async (spec, i) => {
     const first = await fetchMarketRank(spec.fid, 1, 100, i);
-    return {
-      spec,
-      total: +first?.data?.total || 0,
-      rows: first?.data?.diff || []
-    };
+    if (!Array.isArray(first?.data?.diff)) throw new Error('malformed-ranked-page-1');
+    const total = +first?.data?.total || 0;
+    const pageCount = Math.min(maxPagesPerList, Math.max(1, Math.ceil(total / 100)));
+    const pageResults = [{page: 1, result: first}];
+    const pageFailures = [];
+    for (let page = 2; page <= pageCount; page++) {
+      try {
+        const result = await fetchMarketRank(spec.fid, page, 100, i + page - 1);
+        if (!Array.isArray(result?.data?.diff)) throw new Error('malformed-ranked-page');
+        if ((+result?.data?.total || 0) !== total) throw new Error('ranked-universe-total-drift');
+        pageResults.push({page, result});
+      } catch (error) {
+        pageFailures.push({page, error: String(error?.message || error)});
+        break;
+      }
+    }
+    const rows = pageResults.flatMap(({page, result}) =>
+      result.data.diff.map((row, offset) => ({
+        ...row,
+        _rankPosition: (page - 1) * 100 + offset + 1
+      }))
+    );
+    return {spec, total, rows, pagesFetched: pageResults.length, pageFailures};
   });
 
   const merged = new Map();
   let universeTotal = 0;
   let okLists = 0;
+  let pagesFetched = 0;
   const failures = [];
+  const pageFailures = [];
 
   for (let i = 0; i < lists.length; i++) {
     const z = lists[i];
     const spec = specs[i];
 
     if (!z || z.error) {
-      failures.push({ key: spec.key, error: z?.error || 'unknown' });
+      failures.push({key: spec.key, error: z?.error || 'unknown'});
       continue;
     }
 
     okLists++;
+    pagesFetched += Number(z.pagesFetched) || 1;
     universeTotal = universeTotal || z.total || 0;
+    for (const issue of z.pageFailures || []) pageFailures.push({key: spec.key, ...issue});
 
     for (let r = 0; r < z.rows.length; r++) {
       const row = z.rows[r];
@@ -336,10 +358,11 @@ async function rankedCandidates() {
         _ranks: {}
       };
 
-      const decay = Math.max(0, 1 - r / Math.max(1, z.rows.length));
+      const rankPosition = Number(row?._rankPosition) || (r + 1);
+      const decay = Math.max(0, 1 - (rankPosition - 1) / Math.max(1, Math.min(300, z.rows.length)));
       old._rankPoints += spec.weight * decay;
       old._rankHits += 1;
-      old._ranks[spec.key] = r + 1;
+      old._ranks[spec.key] = rankPosition;
       merged.set(code, old);
     }
   }
@@ -374,14 +397,17 @@ async function rankedCandidates() {
   const value = {
     data: {
       universeTotal,
-      candidates: rows.slice(0, 420),
+      candidates: rows.slice(0, 900),
       candidateCount: rows.length,
       listsOk: okLists,
       listsTotal: specs.length,
+      pagesFetched,
+      maxPagesPerList,
+      pageFailures,
       failures,
       indices,
       generatedAt: new Date().toISOString(),
-      method: 'full-universe-ranked-preselection-fast-v2',
+      method: 'ranked-multipage-discovery-v3',
       serverStale: false
     }
   };
@@ -396,13 +422,13 @@ export default async function handler(req, res) {
 
   try {
     if (action === 'ranked_candidates') {
-      return send(res, 200, await rankedCandidates(), 300);
+      return send(res, 200, await rankedCandidates(), 30);
     }
 
     if (action === 'deep_batch') {
-      const codes = parseCodes(u.searchParams.get('codes'), 30);
+      const codes = parseCodes(u.searchParams.get('codes'), 40);
       if (!codes.length) return send(res, 400, { error: 'no valid codes' }, 0);
-      const items = await mapLimit(codes, 6, async c => fetchDeepOne(c));
+      const items = await mapLimit(codes, 8, async c => fetchDeepOne(c));
       return send(res, 200, { items: items.map((z, i) => z?.error ? { code: codes[i], error: z.error } : z) }, 60);
     }
 

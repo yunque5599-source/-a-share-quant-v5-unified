@@ -119,6 +119,7 @@ test('sector resonance rewards candidate-pool strength, near-limit concentration
   assert.ok(leader);
   assert.ok(leader.observationReasons.some(reason=>reason.includes('涨停幅度附近')));
   assert.ok(leader.industryLeaderProxyScore > 0);
+  assert.ok(leader.industryRelativePctRank > 80);
   assert.ok(leader.observationReasons.some(reason=>reason.includes('行业内相对领涨代理')));
 });
 
@@ -234,12 +235,14 @@ test('the observation lane module is wired into the actual one-click flow', asyn
   assert.ok(index.includes('limit:10'));
   assert.ok(index.includes('mergeObservationUniverse(market,independentPool)'));
   assert.ok(index.includes('recordShadowSignal(shadowFinal)'));
+  assert.ok(index.includes('industryLeaderProxyScore:x.industryLeaderProxyScore??null'));
+  assert.ok(index.includes('industryRelativePctRank:x.industryRelativePctRank??null'));
+  assert.ok(index.includes('diversification:observationPlan.diversification||null'));
   assert.ok(index.includes('arr,...observations].slice(-1200)'));
   assert.ok(index.includes('const out=[],failures=[],chunkSize=20;'));
   assert.ok(index.includes("apiCall('deep_batch',{codes},28000,'no-store',1)"));
   assert.ok(index.includes('lastDeepBatchFailures=failures'));
-  assert.ok(index.includes('deepScanFailed=deepFailures'));
-  assert.ok(index.includes('深扫批次失败'));
+  assert.ok(index.includes('if(!out.length&&rows.length)throw Error'));
   assert.ok(market.includes('mapLimit(codes, 8, async c => fetchDeepOne(c))'));
   assert.ok(index.includes('function escapeHtml(value)'));
   assert.ok(index.includes('观察池情绪代理'));
