@@ -23,11 +23,13 @@ on:
       - 'api/discovery_candidates.js'
       - 'index.html'
       - 'research/v15_one_click_selection.js'
+      - 'research/v15_execution_rules.js'
       - 'research/v15_replay.js'
       - 'research/run_v15_replay.js'
       - 'research/fetch_v15_bars.js'
       - 'research/V15_RESEARCH_PROTOCOL.md'
       - 'tests/v15_one_click_selection.test.js'
+      - 'tests/v15_execution_rules.test.js'
       - '.github/workflows/v15-one-click-selection-tests.yml'
 
 permissions:
