@@ -193,29 +193,28 @@ export function evaluateHolding({
   let protectionStage = 'initial-atr-stop';
   let stopHit = null;
 
-  for (const bar of postEntryBars) {
-    const low = num(bar?.low) ?? num(bar?.close);
-    const high = num(bar?.high) ?? num(bar?.close);
-    if (low !== null) minLow = Math.min(minLow, low);
+  if (entryDateFound) {
+    for (const bar of postEntryBars) {
+      const low = num(bar?.low) ?? num(bar?.close);
+      const high = num(bar?.high) ?? num(bar?.close);
+      if (low !== null) minLow = Math.min(minLow, low);
 
-    // Apply the stop calculated from information available before this session's low.
-    const beforeSession = stopForPeak({entry: cost, initialStop, peakHigh, atrAtEntry});
-    if (low !== null && low <= beforeSession.stop) {
-      stopHit = {date: String(bar?.date ?? ''), level: roundPrice(beforeSession.stop), low: roundPrice(low)};
-      activeStop = beforeSession.stop;
-      protectionStage = beforeSession.stage;
-      break;
+      // Apply the stop calculated from information available before this session's low.
+      const beforeSession = stopForPeak({entry: cost, initialStop, peakHigh, atrAtEntry});
+      if (low !== null && low <= beforeSession.stop) {
+        stopHit = {date: String(bar?.date ?? ''), level: roundPrice(beforeSession.stop), low: roundPrice(low)};
+        activeStop = beforeSession.stop;
+        protectionStage = beforeSession.stage;
+        break;
+      }
+
+      if (high !== null) peakHigh = Math.max(peakHigh, high);
+      const afterSession = stopForPeak({entry: cost, initialStop, peakHigh, atrAtEntry});
+      activeStop = afterSession.stop;
+      protectionStage = afterSession.stage;
     }
-
-    if (high !== null) peakHigh = Math.max(peakHigh, high);
-    const afterSession = stopForPeak({entry: cost, initialStop, peakHigh, atrAtEntry});
-    activeStop = afterSession.stop;
-    protectionStage = afterSession.stage;
-  }
-
-  if (!entryDateFound) {
-    // Without the entry date, only estimate the peak from a short recent window;
-    // do not claim that a historical stop was or was not triggered.
+  } else {
+    // Without a valid entry date, estimate the peak only; never assert a past stop hit.
     for (const bar of postEntryBars) {
       const high = num(bar?.high) ?? num(bar?.close);
       const low = num(bar?.low) ?? num(bar?.close);
