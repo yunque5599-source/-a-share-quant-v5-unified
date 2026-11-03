@@ -120,9 +120,16 @@ test('profit protection uses post-entry highs and exits on a later giveback', ()
 });
 
 test('holding review warns when entry date is missing and does not claim historical stop reconstruction', () => {
-  const result = evaluateHolding({price: 10.2, entry: 10, atr: 0.04, days: 2, score: 75, flow5: 1});
+  const result = evaluateHolding({
+    price: 10.2, entry: 10, atr: 0.04, days: 2, score: 75, flow5: 1,
+    bars: [
+      {date: '2026-10-30', high: 10.1, low: 9.2, close: 9.8},
+      {date: '2026-11-02', high: 10.3, low: 9.7, close: 10.2}
+    ]
+  });
   assert.equal(result.stopHit, null);
   assert.equal(result.entryDateFound, false);
+  assert.equal(result.action, 'HOLD');
   assert.ok(result.reasons.some(reason => reason.includes('未填写买入日期')));
 });
 
