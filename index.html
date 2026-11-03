@@ -717,7 +717,7 @@ function quoteUrl(code){const p=new URLSearchParams({secid:secid(code),fields:'f
 async function reviewHolding(){
   const code=$('posCode').value.trim(),entry=+$('posEntry').value,entryDate=$('posEntryDate').value.trim();
   const shares=+$('posShares').value,manualDays=+$('posDays').value;
-  if(!/^\\d{6}$/.test(code)||!(entry>0)||!/^\\d{4}-\\d{2}-\\d{2}$/.test(entryDate)){
+  if(!/^\d{6}$/.test(code)||!(entry>0)||!/^\d{4}-\d{2}-\d{2}$/.test(entryDate)){
     $('positionStatus').textContent='请填写6位股票代码、买入价和买入日期。买入日期用于回溯此前是否触发过止损。';
     return;
   }
