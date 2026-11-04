@@ -13,10 +13,10 @@ test('drawdown and turnover without stabilization is observation-only',()=>{
  assert.equal(x.status,'EXTREME_DISAGREEMENT_UNCONFIRMED');assert.equal(x.reversalConfirmed,false);assert.equal(x.entryEligible,false);assert.ok(x.riskFlags.includes('capital-flow-evidence-missing'));
 });
 test('stabilization plus prior strength and evidence can confirm research reversal without entry permission',()=>{
- const x=assessExtremeDisagreement({code:'000530',name:'样本',asOf:'2026-10-28',currentPct:-1,quote:{pct:-1,turnoverRate:28},features:{r3Pct:2,r5Pct:12,r10Pct:20,volumeExpansion:1.8,closeLocation:.7,flowCount:5,flowPositiveShare:.8,mainNet5:100000,sectorFieldsPresent:3},components:{trend:70,volumePrice:70,flow:75,sector:72}});
+ const x=assessExtremeDisagreement({code:'000530',name:'样本',asOf:'2026-10-28',currentPct:-5,quote:{pct:-5,turnoverRate:28},features:{r3Pct:2,r5Pct:12,r10Pct:20,volumeExpansion:1.8,closeLocation:.7,flowCount:5,flowPositiveShare:.8,mainNet5:100000,sectorFieldsPresent:3},components:{trend:70,volumePrice:70,flow:75,sector:72}});
  assert.equal(x.status,'REVERSAL_CONFIRMED');assert.equal(x.reversalConfirmed,true);assert.equal(x.entryEligible,false);
 });
 test('duplicate channel candidates are ranked once',()=>{
  const x=rankExtremeDisagreement([{code:'000530',name:'A',currentPct:-8,features:{flowCount:0,volumeExpansion:3},components:{}} ,{code:'000530',name:'A',currentPct:-8,features:{flowCount:0,volumeExpansion:3},components:{}}],10);
- assert.equal(x.length,2);
+ assert.equal(x.length,1);
 });
