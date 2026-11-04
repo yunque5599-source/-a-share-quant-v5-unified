@@ -403,3 +403,12 @@ This branch adds a research-only point-in-time label and ranking layer. It does 
 - v14_intraday_warning.js fails closed with DATA_CAPABILITY_INSUFFICIENT unless point-in-time minute bars are supplied. The current market API exposes daily K-lines and daily fund flow only; it has no historical minute, order-book, or cancellation data. Daily close data is never substituted for 09:35/10:00/10:30/11:00/13:30/14:00/14:30 warnings.
 
 The latest fresh historical replay remains NOT_MEASURABLE because the SZ_MAIN segment covered 1300/1642 symbols. No post-fix Top-K or cost-adjusted improvement is claimed. The 2026-10-27 cases 000156, 002724, and 000678 remain NOT_MEASURABLE without a validated 2026-10-26 point-in-time snapshot.
+
+
+## V14.1 extreme disagreement reversal (2026-10-29)
+
+The production main page still has its original hardFilter and execution path. Code audit confirms that it removes daily moves below -4% and turnover above 25% before stage-one ranking; breakoutStage1Score also limits daily move to 4%..10.1%, turnover to 4%..25%, and requires positive flow fields. These production rules were not modified.
+
+The research live funnel now has a separate extreme-disagreement-reversal lane. It can discover large drawdowns, high-turnover and volume-shock candidates without granting them entry permission. The lane distinguishes EXTREME_DISAGREEMENT_UNCONFIRMED from REVERSAL_CONFIRMED, preserves missing flow/sector evidence, deduplicates candidates, and keeps entryEligible false for observation-only results.
+
+The 2026-10-28 point-in-time inputs for Iceberg Cold (000530) are absent. Its 2026-10-29 move cannot be used to reconstruct the prior day's signal. The case remains NOT_MEASURABLE; synthetic tests validate logic only.

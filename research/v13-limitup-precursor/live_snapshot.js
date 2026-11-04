@@ -13,6 +13,7 @@ import { rankLimitUpIgnitionCandidates } from './limitup_ignition.js';
 import { rankNextDayLimitUpCandidates } from './next_day_limitup.js';
 import { buildNextDayActionPlan } from './next_day_action_plan.js';
 import { buildNextSessionPlan } from './next_session_plan.js';
+import { assessExtremeDisagreement, rankExtremeDisagreement } from './extreme_disagreement_reversal.js';
 
 const MODEL_VERSION = 'V13-live-next-day-limitup-dual-path-v12';
 const n = v => v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Number(v);
@@ -207,8 +208,9 @@ export function selectCandidateFunnel(rows, limit=120) {
     const gapA=Math.abs(limitA-val(a,'f3')),gapB=Math.abs(limitB-val(b,'f3'));
     return gapA-gapB||val(b,'rankScore')-val(a,'rankScore')||val(b,'f6')-val(a,'f6');
   });
+  const extremeDisagreementRows=valid.filter(row=>val(row,'f3')<=-4||val(row,'f8')>25||val(row,'f10')>=2.5).sort((a,b)=>val(b,'f62')-val(a,'f62')||val(b,'f10')-val(a,'f10'));
   const lanes=[
-    {name:'consensus-rank',weight:0.21,rows:[...valid].sort((a,b)=>val(b,'rankScore')-val(a,'rankScore'))},
+    {name:'consensus-rank',weight:0.09,rows:[...valid].sort((a,b)=>val(b,'rankScore')-val(a,'rankScore'))},
     {name:'price-momentum',weight:0.09,rows:[...valid].sort((a,b)=>val(b,'f3')-val(a,'f3'))},
     {name:'capital-inflow',weight:0.08,rows:[...valid].sort((a,b)=>val(b,'f62')-val(a,'f62'))},
     {name:'main-board-consensus',weight:0.08,rows:[...mainBoardValid].sort((a,b)=>val(b,'rankScore')-val(a,'rankScore'))},
@@ -217,7 +219,8 @@ export function selectCandidateFunnel(rows, limit=120) {
     {name:'next-day-ignition-band',weight:0.16,rows:ignitionRows},
     {name:'prebreakout-volume-expansion',weight:0.07,rows:prebreakoutRows},
     {name:'cross-rank-consensus',weight:0.05,rows:[...valid].sort((a,b)=>val(b,'rankHits')-val(a,'rankHits'))},
-    {name:'limit-up-continuation',weight:0.14,rows:limitUpContinuationRows}
+    {name:'limit-up-continuation',weight:0.14,rows:limitUpContinuationRows},
+    {name:'extreme-disagreement-reversal',weight:0.12,rows:extremeDisagreementRows}
   ];
   const quotas=lanes.map(lane=>Math.floor(cap*lane.weight));
   let remainder=cap-quotas.reduce((sum,value)=>sum+value,0);
@@ -966,7 +969,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     const score=scoreCandidate(candidate,{asOf:requestedAsOf}),dq=deep?.dataQuality??{};
     records.push({code,name:candidate.name,board:boardForCode(code),funnelLanes:row.funnelLanes??[],
       quote:{price:n(row.f2),pct:n(row.f3),mainNetCny:n(row.f62),mainNetPct:n(row.f184),turnoverRate:n(row.f8),amount:n(row.f6),volumeRatio:n(row.f10),rankScore:n(row.rankScore),rankHits:n(row.rankHits),ranks:row.ranks??{}},
-      score,psychology:psychology.overlay,source:{quoteTimestamp:n(row.f124),rankedGeneratedAt:ranked?.data?.generatedAt??null,
+      score,extremeDisagreement:assessExtremeDisagreement({...row,...score,quote:{pct:n(row.f3),turnoverRate:n(row.f8),volumeRatio:n(row.f10),mainNetCny:n(row.f62),mainNetPct:n(row.f184)}}),psychology:psychology.overlay,source:{quoteTimestamp:n(row.f124),rankedGeneratedAt:ranked?.data?.generatedAt??null,
       klineSource:dq.klineSource??null,flowSource:flows.length>0&&flowUsable?'eastmoney':currentFlowSnapshot?'quote-snapshot':dq.flowSource??null,currentFlowSnapshotUsed:Boolean(currentFlowSnapshot),historicalFlowCount:flows.length,deepError:deep?.error??null,barCount:bars.length,flowCount:flows.length}});
   }
   const validRecords=records.filter(r=>r.score),recordByCode=new Map(validRecords.map(r=>[r.code,r]));
@@ -1093,7 +1096,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
     oversold:rankedScores.filter(r=>Number(r.components?.oversoldReversal)>=65).sort((a,b)=>Number(b.components.oversoldReversal)-Number(a.components.oversoldReversal)).slice(0,20),
     coreRanking:rankedScores.slice(0,30),technicalOnlyBaseline:coreRankedScores.slice(0,30),
     policyAlignment:rankedScores.filter(r=>r.policyAlignment?.evidenceAvailable).sort((a,b)=>(Number(b.components?.policyAlignment)||0)-(Number(a.components?.policyAlignment)||0)).slice(0,30),
-    earlyOpportunity:earlyRows.slice(0,30),catalystWatch,negativeCatalystRisk,
+    earlyOpportunity:earlyRows.slice(0,30),extremeDisagreementReversal:rankExtremeDisagreement(records.map(record=>({...record,...record.score,quote:record.quote})),30),catalystWatch,negativeCatalystRisk,
     coreSelectionAssessed:coreSelectionResult.assessed.slice(0,50)};
   const snapshot={schema:'v13-live-psychology-catalyst-snapshot-v1',modelVersion:MODEL_VERSION,
     snapshotId:'v13-'+capturedAt.replace(/[-:.TZ]/g,''),capturedAt,asOf:requestedAsOf,
@@ -1144,6 +1147,7 @@ export async function captureV13LiveSnapshot({out=null,candidateLimit=120,asOf=n
       preBreakoutWatch:preBreakoutResult.ranking,
       limitUpIgnitionWatch:limitUpIgnitionResult.ranking,
       nextDayLimitUpWatch:markNextDayRankingReadiness(nextDayLimitUpResult.ranking,nextDayReadiness),
+      extremeDisagreementReversal:rankExtremeDisagreement(records.map(record=>({...record,...record.score,quote:record.quote})),30),
       overall,
       catalystConfirmed,
       policyConfirmed,
