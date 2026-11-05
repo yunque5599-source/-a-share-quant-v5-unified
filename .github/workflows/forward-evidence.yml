@@ -1,0 +1,26 @@
+name: Forward Rank Evidence (Manual)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  capture:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run offline capture tests
+        run: python3 -m unittest discover -s tests -v
+      - name: Capture actual provider ranking and evidence manifest
+        run: python3 research/forward_capture.py forward-evidence
+      - name: Cross-check the captured raw evidence and manifest
+        if: always()
+        run: python3 research/verify_capture.py forward-evidence
+      - name: Preserve evidence even when provider fails
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: forward-rank-${{ github.run_id }}-${{ github.run_attempt }}
+          path: forward-evidence/
+          retention-days: 30
+          if-no-files-found: warn
