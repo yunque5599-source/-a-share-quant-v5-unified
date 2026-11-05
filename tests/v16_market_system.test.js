@@ -82,6 +82,13 @@ test('candidate-pool breadth is explicitly downgraded versus full-market breadth
   assert.ok(proxyResult.data_warnings.includes('breadth-is-not-full-market'));
 });
 
+test('approximate limit labels reduce sentiment confidence and are surfaced as warnings', () => {
+  const row = session('2026-11-05', 'strong');
+  row.sentiment.limitLabelQuality = 'APPROXIMATE_PROXY';
+  const result = evaluateMarketTransition({sessions: [row], asOf: '2026-11-05'});
+  assert.ok(result.data_warnings.includes('limit-up-down-counts-are-approximate-proxies'));
+});
+
 test('future sessions are excluded from point-in-time market classification', () => {
   const result = evaluateMarketTransition({
     sessions: [session('2026-11-04', 'weak'), session('2026-11-05', 'strong'), session('2026-11-06', 'strong')],
