@@ -15,7 +15,9 @@ on:
       - main
     paths:
       - 'research/v16/**'
+      - 'api/v16_market_context.js'
       - 'tests/v16_market_system.test.js'
+      - 'tests/v16_market_context.test.js'
       - '.github/workflows/v16-research-tests.yml'
 
 jobs:
