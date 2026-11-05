@@ -52,7 +52,9 @@ test('market transition requires multi-session confirmation before BULL', () => 
 });
 
 test('one-day index/breadth divergence is a watch state, not confirmed distribution', () => {
-  const result = evaluateMarketTransition({sessions: [session('2026-11-05', 'mixed')], asOf: '2026-11-05'});
+  const row = session('2026-11-05', 'mixed');
+  row.indices = row.indices.map(item => ({...item, changePct: 1.2, trend5Pct: 2.2, trend20Pct: 3, aboveMa5: true, aboveMa10: true, aboveMa20: true}));
+  const result = evaluateMarketTransition({sessions: [row], asOf: '2026-11-05'});
   assert.equal(result.regime, 'TRANSITION');
   assert.equal(result.classification_status, 'DIVERGENCE_WATCH');
 });
