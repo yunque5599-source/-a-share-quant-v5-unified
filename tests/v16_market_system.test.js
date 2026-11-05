@@ -51,6 +51,12 @@ test('market transition requires multi-session confirmation before BULL', () => 
   assert.equal(confirmed.trade_permission, 'SELECTIVE');
 });
 
+test('one-day index/breadth divergence is a watch state, not confirmed distribution', () => {
+  const result = evaluateMarketTransition({sessions: [session('2026-11-05', 'mixed')], asOf: '2026-11-05'});
+  assert.equal(result.regime, 'TRANSITION');
+  assert.equal(result.classification_status, 'DIVERGENCE_WATCH');
+});
+
 test('two weak full-market sessions classify BEAR and restrict new risk', () => {
   const result = evaluateMarketTransition({
     sessions: [session('2026-11-04', 'weak'), session('2026-11-05', 'weak')],
