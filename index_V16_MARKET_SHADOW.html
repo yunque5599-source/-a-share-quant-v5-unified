@@ -105,13 +105,13 @@ function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 }
 function pct(value) {
-  return Number.isFinite(Number(value)) ? Number(value).toFixed(2) + '%' : '—';
+  return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? Number(value).toFixed(2) + '%' : '—';
 }
 function score(value) {
-  return Number.isFinite(Number(value)) ? Number(value).toFixed(1) : '—';
+  return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? Number(value).toFixed(1) : '—';
 }
 function ratioOf(rows, key) {
-  const valid = rows.map(row => Number(row[key])).filter(Number.isFinite);
+  const valid = rows.map(row => row[key] === null || row[key] === undefined || row[key] === '' ? NaN : Number(row[key])).filter(Number.isFinite);
   return valid.length ? valid.filter(value => value > 0.5).length / valid.length : null;
 }
 function buildSnapshot(context, history) {
@@ -144,7 +144,7 @@ function buildSnapshot(context, history) {
       breadthRatio: ratioOf(sectors, 'advancersRatio'),
       positiveFlowRatio: ratioOf(sectors, 'positiveFlowRatio'),
       topSectorRepeatDays: repeatDays,
-      leaderRelativeStrengthPct: sectors.length ? Math.max(...sectors.map(row => Number(row.leaderRelativeStrengthPct)).filter(Number.isFinite)) : null,
+      leaderRelativeStrengthPct: sectors.some(row => row.leaderRelativeStrengthPct !== null && row.leaderRelativeStrengthPct !== undefined && Number.isFinite(Number(row.leaderRelativeStrengthPct))) ? Math.max(...sectors.map(row => row.leaderRelativeStrengthPct === null || row.leaderRelativeStrengthPct === undefined ? NaN : Number(row.leaderRelativeStrengthPct)).filter(Number.isFinite)) : null,
       sourceScope: 'industry-constituent-proxy'
     },
     leaders: context.aShare.leaders ?? []
