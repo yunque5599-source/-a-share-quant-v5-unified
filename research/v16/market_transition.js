@@ -82,7 +82,9 @@ function sentimentComponent(sentiment = {}) {
   const positive = ratio(sentiment.nextDayPositiveRatio);
   if (positive !== null) scores.push(positive * 100);
   if (!scores.length) return {score: null, raw: null, sourceQuality: 0, reason: 'sentiment-data-missing'};
-  return {score: mean(scores), raw: scores.length, sourceQuality: sentiment.brokenBoardRate === 'NOT_MEASURABLE' ? 0.7 : 0.9};
+  const sourceQuality = sentiment.limitLabelQuality === 'APPROXIMATE_PROXY' ? 0.55
+    : sentiment.brokenBoardRate === 'NOT_MEASURABLE' ? 0.7 : 0.9;
+  return {score: mean(scores), raw: scores.length, sourceQuality};
 }
 
 function sectorComponent(sectors = {}) {
@@ -267,6 +269,7 @@ export function evaluateMarketTransition({sessions = [], asOf = null} = {}) {
   const dataWarnings = [];
   if (!current) dataWarnings.push('no-qualified-market-session');
   if (current?.breadth_source_quality < 0.6) dataWarnings.push('breadth-is-not-full-market');
+  if (eligible.at(-1)?.sentiment?.limitLabelQuality === 'APPROXIMATE_PROXY') dataWarnings.push('limit-up-down-counts-are-approximate-proxies');
   if (current?.missing_components?.length) dataWarnings.push('missing-components:' + current.missing_components.join(','));
   if (confidence < 45) dataWarnings.push('confidence-below-actionable-threshold');
   return {
