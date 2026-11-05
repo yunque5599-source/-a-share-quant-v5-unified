@@ -28,6 +28,7 @@ export function buildV16DecisionOverlay({market = null, overnight = null, sector
     ? clamp(opportunityParts.reduce((sum, [value, weight]) => sum + value * weight, 0) / opportunityWeight)
     : null;
   const regime = String(market?.regime ?? 'TRANSITION');
+  const marketPermission = String(market?.trade_permission ?? 'WAIT_FOR_DATA');
   const confidence = num(market?.confidence) ?? 0;
   const mappingConfidence = num(industryImpact?.industry_mapping_confidence) ?? 0;
   const impactClass = String(industryImpact?.impact_classification ?? 'UNCERTAIN');
@@ -37,13 +38,13 @@ export function buildV16DecisionOverlay({market = null, overnight = null, sector
   let buyPermission = false;
   let singlePositionCapPct = 0;
 
-  if (regime === 'BEAR') {
+  if (regime === 'BEAR' || marketPermission === 'NO_NEW_RISK') {
     decision = 'NO_NEW_RISK';
     reasons.push('market-regime-BEAR');
-  } else if (regime === 'DISTRIBUTION') {
+  } else if (regime === 'DISTRIBUTION' || marketPermission === 'REDUCE_RISK') {
     decision = 'REDUCE_RISK';
     reasons.push('market-regime-DISTRIBUTION');
-  } else if (confidence < 45 || opportunityScore === null) {
+  } else if (confidence < 45 || opportunityScore === null || marketPermission === 'WAIT_FOR_DATA' || marketPermission === 'WAIT_FOR_CONFIRMATION') {
     decision = 'WAIT_FOR_DATA';
     reasons.push('market-confidence-or-opportunity-data-insufficient');
   } else if (!entryPass) {
@@ -55,12 +56,12 @@ export function buildV16DecisionOverlay({market = null, overnight = null, sector
   } else if (impactClass === 'NEGATIVE' && mappingConfidence >= 65 && openSignal !== 'RELATIVE_STRENGTH_CONFIRMED') {
     decision = 'WAIT_FOR_OVERSEAS_RISK';
     reasons.push('verified-high-confidence-negative-overnight-impact-not-offset-by-A-share-open');
-  } else if (regime === 'TRANSITION') {
+  } else if (regime === 'TRANSITION' && marketPermission === 'PROBE_ONLY') {
     decision = 'PROBE_ONLY';
     buyPermission = true;
     singlePositionCapPct = 8;
     reasons.push('market-transition-allows-only-small-probe');
-  } else if (regime === 'BULL') {
+  } else if (regime === 'BULL' && marketPermission === 'SELECTIVE') {
     decision = 'SELECTIVE_ENTRY';
     buyPermission = true;
     singlePositionCapPct = 15;
