@@ -1,0 +1,35 @@
+name: V16 research tests
+
+on:
+  push:
+    branches:
+      - research/v16-system-upgrade-20261104
+    paths:
+      - 'research/v16/**'
+      - 'tests/v16_market_system.test.js'
+      - '.github/workflows/v16-research-tests.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'research/v16/**'
+      - 'tests/v16_market_system.test.js'
+      - '.github/workflows/v16-research-tests.yml'
+
+jobs:
+  v16-research:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax check V16 modules
+        run: |
+          node --check research/v16/market_transition.js
+          node --check research/v16/overnight_global_impact.js
+          node --check research/v16/sector_rotation.js
+          node --check research/v16/decision_overlay.js
+          node --check research/v16/replay.js
+      - name: Run V16 deterministic tests
+        run: node --test tests/v16_market_system.test.js
