@@ -6,13 +6,14 @@ test('market universe summary labels complete breadth and approximate limit band
   const rows = [
     {f12:'600001',f14:'普通A',f3:10,f6:1000,f62:100,f100:'半导体'},
     {f12:'300001',f14:'创业板A',f3:20,f6:2000,f62:200,f100:'半导体'},
-    {f12:'600002',f14:'普通B',f3:-10,f6:1500,f62:-50,f100:'电力设备'},
-    {f12:'600003',f14:'ST样本',f3:5,f6:500,f62:10,f100:'电力设备'}
+    {f12:'600002',f14:'普通B',f3:-10,f6:1500,f62:-50,f100:'半导体'},
+    {f12:'600003',f14:'ST样本',f3:5,f6:500,f62:10,f100:'半导体'},
+    {f12:'600004',f14:'普通C',f3:1,f6:700,f62:30,f100:'半导体'}
   ];
-  const result = summarizeMarketUniverse({rows,total:4,coverage:1,complete:true,pagesFetched:1,pageCount:1,failures:[]});
+  const result = summarizeMarketUniverse({rows,total:5,coverage:1,complete:true,pagesFetched:1,pageCount:1,failures:[]});
   assert.equal(result.breadth.universe,'full-market');
   assert.equal(result.breadth.fullMarket,true);
-  assert.equal(result.breadth.up,3);
+  assert.equal(result.breadth.up,4);
   assert.equal(result.breadth.down,1);
   assert.equal(result.sentiment.limitUpCount,3);
   assert.equal(result.sentiment.limitLabelQuality,'APPROXIMATE_PROXY');
