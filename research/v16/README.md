@@ -8,6 +8,7 @@ This is an isolated research layer. It does not modify production `index.html`, 
 - `sector_rotation.js`: sector persistence, rotation acceleration, prior-day profit-taking risk, and independent entry-timing score.
 - `decision_overlay.js`: combines market, sector, overnight and entry gates. It never places orders.
 - `replay.js`: chronological point-in-time replay and Nov 4–5 validation status; future snapshots are excluded.
+- `api/v16_market_context.js`: separate research endpoint for Eastmoney A-share index/universe data and date-filtered Yahoo US daily returns. It reports coverage and source failures; it does not supply intraday/order-book or verified policy-news data.
 
 ## Score conventions
 - Scores are 0–100; 50 is neutral. Daily returns use percentage points (e.g. -1.5 means -1.5%).
@@ -21,7 +22,8 @@ This is an isolated research layer. It does not modify production `index.html`, 
 ## Data capability gates
 | Metric | Required evidence | Missing-data treatment |
 |---|---|---|
-| Full-market breadth | Complete point-in-time A-share universe | Candidate-pool proxy clearly labelled; not full-market |
+| Full-market breadth | Complete point-in-time A-share universe | Partial pages are labelled partial-market; not full-market |
+| US overnight factors | Yahoo daily bars dated strictly before China calendar date | Missing symbols reduce factor coverage; same-date US bars excluded |
 | Exact limit-up/down | Board/ST/new-listing-aware labels | Unknown labels excluded |
 | Broken-board rate | Intraday limit-touch/reopen or order-book history | NOT_MEASURABLE |
 | Next-day premium | Frozen signal-date list and matured next-session outcomes | NOT_MEASURABLE until matured |
