@@ -17,6 +17,7 @@ on:
     paths:
       - 'research/v16/**'
       - 'api/v16_market_context.js'
+      - 'index_V16_MARKET_SHADOW.html'
       - 'tests/v16_market_system.test.js'
       - 'tests/v16_market_context.test.js'
       - '.github/workflows/v16-research-tests.yml'
