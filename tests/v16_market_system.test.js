@@ -259,7 +259,7 @@ test('transition state with insufficient confirmation cannot bypass the market g
     market: marketState('TRANSITION', 'WAIT_FOR_CONFIRMATION'),
     sectorRotation: sectorResult(), overnight: overnightResult(), candidate: candidate(true)
   });
-  assert.equal(result.decision, 'WAIT_FOR_DATA');
+  assert.equal(result.decision, 'WAIT_FOR_MARKET_CONFIRMATION');
   assert.equal(result.buy_permission, false);
 });
 
