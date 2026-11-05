@@ -6,7 +6,9 @@ on:
       - research/v16-system-upgrade-20261104
     paths:
       - 'research/v16/**'
+      - 'api/v16_market_context.js'
       - 'tests/v16_market_system.test.js'
+      - 'tests/v16_market_context.test.js'
       - '.github/workflows/v16-research-tests.yml'
   pull_request:
     branches:
@@ -31,5 +33,6 @@ jobs:
           node --check research/v16/sector_rotation.js
           node --check research/v16/decision_overlay.js
           node --check research/v16/replay.js
+          node --check api/v16_market_context.js
       - name: Run V16 deterministic tests
-        run: node --test tests/v16_market_system.test.js
+        run: node --test tests/v16_market_system.test.js tests/v16_market_context.test.js
