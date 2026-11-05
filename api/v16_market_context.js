@@ -320,15 +320,15 @@ async function fetchUsMarket(aShareCalendarDate) {
 export default async function handler(req, res) {
   try {
     const calendarDate = chinaDate();
-    const [universeResult, indexResults] = await Promise.all([
+    const [universeResult, indexResults, us] = await Promise.all([
       fetchMarketUniverse(),
-      mapLimit(INDEXES, 5, fetchIndex)
+      mapLimit(INDEXES, 5, fetchIndex),
+      fetchUsMarket(calendarDate)
     ]);
     const universe = summarizeMarketUniverse(universeResult);
     const indices = indexResults.filter(row => row && row.status === 'AVAILABLE');
-    const indexFailures = indexResults.filter(row => !row || row.status !== 'AVAILABLE').map(row => row?.key ?? 'unknown');
+    const indexFailures = indexResults.filter((row, index) => !row || row.status !== 'AVAILABLE').map(row => row?.key ?? INDEXES[indexResults.indexOf(row)]?.key ?? 'unknown');
     const aShareSessionDate = indices.find(row => row.key === 'shanghai')?.date ?? null;
-    const us = await fetchUsMarket(calendarDate);
     const body = {
       schema: 'ashare-v16-market-context-v1',
       capturedAt: new Date().toISOString(),
