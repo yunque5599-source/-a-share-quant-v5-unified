@@ -309,6 +309,17 @@ function chinaDate() {
   const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
   return values.year + '-' + values.month + '-' + values.day;
 }
+function chinaClock() {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', hourCycle: 'h23'
+  }).formatToParts(new Date());
+  const values = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  const hour = Number(values.hour), minute = Number(values.minute);
+  return {
+    text: String(values.hour).padStart(2, '0') + ':' + String(values.minute).padStart(2, '0'),
+    closeFinalized: hour > 15 || (hour === 15 && minute >= 10)
+  };
+}
 async function fetchUsMarket(aShareCalendarDate) {
   const specs = Object.entries(US_SYMBOLS).flatMap(([group, values]) =>
     Object.entries(values).map(([key, symbol]) => ({group, key, symbol}))
@@ -334,6 +345,7 @@ async function fetchUsMarket(aShareCalendarDate) {
 export default async function handler(req, res) {
   try {
     const calendarDate = chinaDate();
+    const localClock = chinaClock();
     const [universeResult, indexResults, us] = await Promise.all([
       fetchMarketUniverse(),
       mapLimit(INDEXES, 5, fetchIndex),
@@ -347,6 +359,8 @@ export default async function handler(req, res) {
       schema: 'ashare-v16-market-context-v1',
       capturedAt: new Date().toISOString(),
       chinaCalendarDate: calendarDate,
+      chinaLocalTime: localClock.text,
+      chinaCloseFinalized: localClock.closeFinalized,
       aShareSessionDate,
       aShare: {
         indices,
@@ -357,7 +371,7 @@ export default async function handler(req, res) {
         leaders: universe.leaders,
         marketAveragePct: universe.marketAveragePct,
         source: universe.source,
-        dataStatus: aShareSessionDate === calendarDate ? 'CURRENT_SESSION' : 'LAST_AVAILABLE_SESSION',
+        dataStatus: aShareSessionDate === calendarDate ? (localClock.closeFinalized ? 'FINALIZED_SESSION' : 'INTRADAY_PROVISIONAL') : 'LAST_AVAILABLE_SESSION',
         indexFailures
       },
       us,
