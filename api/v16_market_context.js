@@ -327,7 +327,7 @@ export default async function handler(req, res) {
     ]);
     const universe = summarizeMarketUniverse(universeResult);
     const indices = indexResults.filter(row => row && row.status === 'AVAILABLE');
-    const indexFailures = indexResults.filter((row, index) => !row || row.status !== 'AVAILABLE').map(row => row?.key ?? INDEXES[indexResults.indexOf(row)]?.key ?? 'unknown');
+    const indexFailures = indexResults.flatMap((row, index) => !row || row.status !== 'AVAILABLE' ? [INDEXES[index]?.key ?? 'unknown'] : []);
     const aShareSessionDate = indices.find(row => row.key === 'shanghai')?.date ?? null;
     const body = {
       schema: 'ashare-v16-market-context-v1',
