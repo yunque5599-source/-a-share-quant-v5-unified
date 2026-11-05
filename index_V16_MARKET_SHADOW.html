@@ -88,18 +88,19 @@ import {evaluateOvernightGlobalImpact} from './research/v16/overnight_global_imp
 import {scoreSectorRotation} from './research/v16/sector_rotation.js';
 
 const $ = id => document.getElementById(id);
-const STORAGE_KEY = 'ashare_v16_market_snapshots_v1';
+const MARKET_KEY = 'ashare_v16_final_market_snapshots_v1';
+const OVERNIGHT_KEY = 'ashare_v16_overnight_snapshots_v1';
 let latestExport = null;
 let busy = false;
 
-function loadHistory() {
+function loadRows(key) {
   try {
-    const value = JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]');
-    return Array.isArray(value) ? value.filter(row => row && row.tradeDate).sort((a,b)=>a.tradeDate.localeCompare(b.tradeDate)).slice(-30) : [];
+    const value = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(value) ? value.filter(Boolean) : [];
   } catch { return []; }
 }
-function saveHistory(rows) {
-  try { localStorage.setItem(STORAGE_KEY, JSON.stringify(rows.slice(-30))); } catch {}
+function saveRows(key, rows) {
+  try { localStorage.setItem(key, JSON.stringify(rows.slice(-30))); } catch {}
 }
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
@@ -114,23 +115,30 @@ function ratioOf(rows, key) {
   const valid = rows.map(row => row[key] === null || row[key] === undefined || row[key] === '' ? NaN : Number(row[key])).filter(Number.isFinite);
   return valid.length ? valid.filter(value => value > 0.5).length / valid.length : null;
 }
-function buildSnapshot(context, history) {
-  const tradeDate = context.aShareSessionDate;
-  const previous = history.filter(row => row.tradeDate < tradeDate).at(-1) ?? null;
+function enrichSectors(context, marketHistory, tradeDate) {
+  const previous = marketHistory.filter(row => row.tradeDate < tradeDate).at(-1) ?? null;
   const previousByKey = new Map((previous?.sectors ?? []).map(row => [row.key, row]));
   const sectors = (context.aShare.sectors ?? []).map(row => ({
     ...row,
     previousDayReturnPct: previousByKey.get(row.key)?.d1Pct ?? null,
-    topSectorRepeatDays: null
+    topSectorRepeatDays: 0
   }));
   const topKey = sectors[0]?.key ?? null;
   let repeatDays = 0;
-  for (const old of [...history].reverse()) {
+  for (const old of [...marketHistory].reverse()) {
     if (old.tradeDate >= tradeDate) continue;
     if (old.sectors?.[0]?.key === topKey) repeatDays += 1;
     else break;
   }
   sectors.forEach(row => { row.topSectorRepeatDays = row.key === topKey ? repeatDays : 0; });
+  return {sectors, previous};
+}
+function buildMarketSnapshot(context, marketHistory) {
+  const tradeDate = context.aShareSessionDate;
+  const {sectors, previous} = enrichSectors(context, marketHistory, tradeDate);
+  const leaderStrengths = sectors
+    .map(row => row.leaderRelativeStrengthPct === null || row.leaderRelativeStrengthPct === undefined ? NaN : Number(row.leaderRelativeStrengthPct))
+    .filter(Number.isFinite);
   const marketSession = {
     date: tradeDate,
     breadth: context.aShare.breadth,
@@ -143,8 +151,8 @@ function buildSnapshot(context, history) {
     sectors: {
       breadthRatio: ratioOf(sectors, 'advancersRatio'),
       positiveFlowRatio: ratioOf(sectors, 'positiveFlowRatio'),
-      topSectorRepeatDays: repeatDays,
-      leaderRelativeStrengthPct: sectors.some(row => row.leaderRelativeStrengthPct !== null && row.leaderRelativeStrengthPct !== undefined && Number.isFinite(Number(row.leaderRelativeStrengthPct))) ? Math.max(...sectors.map(row => row.leaderRelativeStrengthPct === null || row.leaderRelativeStrengthPct === undefined ? NaN : Number(row.leaderRelativeStrengthPct)).filter(Number.isFinite)) : null,
+      topSectorRepeatDays: sectors.length ? sectors[0].topSectorRepeatDays : 0,
+      leaderRelativeStrengthPct: leaderStrengths.length ? Math.max(...leaderStrengths) : null,
       sourceScope: 'industry-constituent-proxy'
     },
     leaders: context.aShare.leaders ?? []
@@ -155,16 +163,15 @@ function buildSnapshot(context, history) {
     market: marketSession,
     marketSummary: {d1Pct: context.aShare.indices.find(row => row.key === 'shanghai')?.changePct ?? null},
     turnover: context.aShare.turnover,
-    sectors,
-    us: context.us,
-    chinaCalendarDate: context.chinaCalendarDate
+    sectors
   };
 }
 function regimeLabel(value) {
   return ({BEAR:'弱势',TRANSITION:'弱转强观察',BULL:'强势',DISTRIBUTION:'强转弱/退潮'})[value] ?? value ?? '—';
 }
-function renderTable(id, rows) { $(id).innerHTML = rows.join('') || '<tr><td colspan="6">暂无可用数据</td></tr>'; }
-
+function renderTable(id, rows) {
+  $(id).innerHTML = rows.join('') || '<tr><td colspan="6">暂无可用数据</td></tr>';
+}
 async function refresh() {
   if (busy) return;
   busy = true;
@@ -175,26 +182,42 @@ async function refresh() {
     const response = await fetch('/api/v16_market_context?refresh=' + Date.now(), {cache:'no-store'});
     const context = await response.json();
     if (!response.ok || context.status === 'SOURCE_UNAVAILABLE') throw new Error(context.error || '行情源不可用');
-    const history = loadHistory();
-    if (!context.aShareSessionDate) throw new Error('缺少有效A股交易日指数数据');
-    const snapshot = buildSnapshot(context, history);
-    const nextHistory = history.filter(row => row.tradeDate !== snapshot.tradeDate);
-    nextHistory.push(snapshot);
-    nextHistory.sort((a,b)=>a.tradeDate.localeCompare(b.tradeDate));
-    saveHistory(nextHistory);
-    latestExport = snapshot;
-    $('exportBtn').disabled = false;
+    const marketHistory = loadRows(MARKET_KEY).sort((a,b)=>a.tradeDate.localeCompare(b.tradeDate));
+    const overnightHistory = loadRows(OVERNIGHT_KEY).sort((a,b)=>a.targetDate.localeCompare(b.targetDate));
+    const sessionIsFinal = context.aShare.dataStatus !== 'INTRADAY_PROVISIONAL' && Boolean(context.aShareSessionDate);
+    let storedMarketHistory = marketHistory;
+    let marketSnapshot = marketHistory.find(row => row.tradeDate === context.aShareSessionDate) ?? null;
+    if (sessionIsFinal) {
+      marketSnapshot = buildMarketSnapshot(context, marketHistory);
+      storedMarketHistory = marketHistory.filter(row => row.tradeDate !== marketSnapshot.tradeDate);
+      storedMarketHistory.push(marketSnapshot);
+      storedMarketHistory.sort((a,b)=>a.tradeDate.localeCompare(b.tradeDate));
+      saveRows(MARKET_KEY, storedMarketHistory);
+    }
+    const overnightSnapshot = {
+      targetDate: context.chinaCalendarDate,
+      capturedAt: context.capturedAt,
+      us: context.us
+    };
+    const storedOvernightHistory = overnightHistory.filter(row => row.targetDate !== overnightSnapshot.targetDate);
+    storedOvernightHistory.push(overnightSnapshot);
+    storedOvernightHistory.sort((a,b)=>a.targetDate.localeCompare(b.targetDate));
+    saveRows(OVERNIGHT_KEY, storedOvernightHistory);
 
+    const marketAsOf = storedMarketHistory.at(-1)?.tradeDate ?? null;
     const market = evaluateMarketTransition({
-      sessions: nextHistory.map(row => row.market),
-      asOf: snapshot.tradeDate
+      sessions: storedMarketHistory.map(row => row.market),
+      asOf: marketAsOf
     });
     const overnight = evaluateOvernightGlobalImpact({us: context.us});
-    const previous = nextHistory.filter(row => row.tradeDate < snapshot.tradeDate).at(-1);
+    const displaySectors = sessionIsFinal && marketSnapshot
+      ? marketSnapshot.sectors
+      : enrichSectors(context, storedMarketHistory, context.aShareSessionDate).sectors;
+    const previousMarket = storedMarketHistory.filter(row => row.tradeDate < context.aShareSessionDate).at(-1) ?? null;
     const sector = scoreSectorRotation({
-      sectors: snapshot.sectors,
-      previousSectors: previous?.sectors ?? [],
-      market: snapshot.marketSummary
+      sectors: displaySectors,
+      previousSectors: previousMarket?.sectors ?? [],
+      market: {d1Pct: context.aShare.indices.find(row => row.key === 'shanghai')?.changePct ?? null}
     });
 
     $('regime').textContent = regimeLabel(market.regime);
@@ -207,16 +230,18 @@ async function refresh() {
     $('reversalRisk').textContent = score(market.market_reversal_risk);
     $('positionRange').textContent = '参考总仓位区间 ' + market.recommended_position_range_pct.join('%—') + '%';
 
-    $('sessionInfo').textContent = 'A股最近交易日：' + snapshot.tradeDate + ' · 数据状态：' + context.aShare.dataStatus + ' · 采集时间：' + context.capturedAt;
+    $('sessionInfo').textContent = 'A股最近交易日：' + context.aShareSessionDate + ' · 数据状态：' + context.aShare.dataStatus + ' · 中国时间：' + context.chinaLocalTime + ' · 市场状态评分截至：' + (marketAsOf ?? '无已归档收盘样本');
     renderTable('indexRows', (context.aShare.indices ?? []).map(row => {
       const ma = [row.aboveMa5 === true?'MA5上':row.aboveMa5===false?'MA5下':null,row.aboveMa10===true?'MA10上':row.aboveMa10===false?'MA10下':null,row.aboveMa20===true?'MA20上':row.aboveMa20===false?'MA20下':null].filter(Boolean).join(' / ');
       return '<tr><td>' + escapeHtml(row.name) + '</td><td>' + pct(row.changePct) + '</td><td>' + pct(row.trend5Pct) + '</td><td>' + pct(row.trend20Pct) + '</td><td>' + escapeHtml(ma || '数据不足') + '</td></tr>';
     }));
     const b = context.aShare.breadth;
     $('breadthInfo').textContent = '上涨 ' + b.up + ' · 下跌 ' + b.down + ' · 平盘 ' + b.flat + ' · 上涨占比 ' + pct((b.upRatio ?? 0) * 100) + ' · 全市场覆盖 ' + pct(b.coverage * 100) + ' · 涨停/跌停为近似阈值代理，不含新股特殊规则。';
-    $('regimeWarnings').textContent = (market.data_warnings ?? []).join('；') || '当前市场状态数据覆盖正常；仍需连续交易日确认。';
+    const warnings = [...(market.data_warnings ?? [])];
+    if (!sessionIsFinal) warnings.push('当前日线尚未最终确认；市场状态仅使用最近已完成交易日，不将盘中数据当作收盘信号。');
+    $('regimeWarnings').textContent = warnings.join('；') || '当前市场状态数据覆盖正常；仍需连续交易日确认。';
 
-    $('usInfo').textContent = '美股最近有效收盘：' + (context.us.asOf ?? '—') + ' · 本次映射面向中国日期：' + context.chinaCalendarDate + ' · 数据源可用 ' + context.us.source.available + '/' + context.us.source.requested;
+    $('usInfo').textContent = '美股最近有效收盘：' + (context.us.asOf ?? '—') + ' · 隔夜映射目标中国日期：' + context.chinaCalendarDate + ' · 数据源可用 ' + context.us.source.available + '/' + context.us.source.requested;
     const factors = [
       ['半导体',overnight.us_semiconductor_strength],
       ['AI基础设施',overnight.us_ai_infrastructure_strength],
@@ -236,7 +261,18 @@ async function refresh() {
       '<tr><td>' + escapeHtml(key) + '</td><td>' + escapeHtml(value) + '</td></tr>'
     );
     renderTable('capabilityRows', capabilityRows);
-    $('status').textContent = '完成。历史快照 ' + nextHistory.length + ' 个交易日；所有隔夜影响均按行业分别计算。';
+    latestExport = {
+      capturedAt: context.capturedAt,
+      chinaCalendarDate: context.chinaCalendarDate,
+      marketSnapshot: sessionIsFinal ? marketSnapshot : null,
+      overnightSnapshot,
+      sourceContext: context,
+      marketHistory: storedMarketHistory,
+      overnightHistory: storedOvernightHistory
+    };
+    $('exportBtn').disabled = false;
+    $('status').textContent = (sessionIsFinal ? '已归档完整A股日线快照。' : 'A股日线为盘中/上一交易日数据，未新增收盘样本。')
+      + ' 市场快照 ' + storedMarketHistory.length + ' 个交易日；隔夜快照 ' + storedOvernightHistory.length + ' 个中国日期。历史仅保存在当前浏览器。';
   } catch (error) {
     $('status').className = 'status error';
     $('status').textContent = '数据读取失败：' + String(error.message || error);
@@ -252,7 +288,7 @@ $('exportBtn').addEventListener('click', () => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;
-  link.download = 'v16-market-snapshot-' + latestExport.tradeDate + '.json';
+  link.download = 'v16-market-snapshot-' + latestExport.chinaCalendarDate + '.json';
   link.click();
   URL.revokeObjectURL(url);
 });
