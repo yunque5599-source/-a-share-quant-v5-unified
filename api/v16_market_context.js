@@ -168,7 +168,7 @@ export function summarizeMarketUniverse(universe) {
   const marketAveragePct = validMarketReturns.length ? validMarketReturns.reduce((sum, value) => sum + value, 0) / validMarketReturns.length : null;
   const leaders = rows.map(row => ({
     code: String(row?.f12 ?? ''), name: String(row?.f14 ?? ''), industry: String(row?.f100 ?? ''), pct: num(row?.f3)
-  })).filter(row => /^\\d{6}$/.test(row.code) && row.pct !== null && !/(?:\\*?ST|退)/i.test(row.name))
+  })).filter(row => /^\d{6}$/.test(row.code) && row.pct !== null && !/(?:\*?ST|退)/i.test(row.name))
     .sort((a, b) => b.pct - a.pct).slice(0, 20).map(row => ({
       ...row,
       relativeStrengthPct: marketAveragePct === null ? null : row.pct - marketAveragePct
