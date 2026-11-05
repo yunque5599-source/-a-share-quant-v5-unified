@@ -5,6 +5,11 @@ const mean = values => {
   const valid = values.filter(Number.isFinite);
   return valid.length ? valid.reduce((sum, value) => sum + value, 0) / valid.length : null;
 };
+const ratio = value => {
+  const n = num(value);
+  if (n === null) return null;
+  return clamp(n > 1 ? n / 100 : n, 0, 1);
+};
 const strengthFromPct = pct => pct === null ? null : clamp(50 + pct * 7.5);
 
 const FACTOR_WEIGHTS = Object.freeze({
