@@ -261,7 +261,9 @@ export function evaluateMarketTransition({sessions = [], asOf = null} = {}) {
     if (classification.regime === 'BEAR') permission = 'NO_NEW_RISK';
     else if (classification.regime === 'DISTRIBUTION') permission = 'REDUCE_RISK';
     else if (classification.regime === 'BULL') permission = 'SELECTIVE';
-    else permission = 'PROBE_ONLY';
+    else if (classification.status === 'DIVERGENCE_WATCH' || classification.status === 'INSUFFICIENT_CONFIRMATION') permission = 'WAIT_FOR_CONFIRMATION';
+    else if (transition.score !== null && transition.score >= 55 && transition.improvingCount >= 2) permission = 'PROBE_ONLY';
+    else permission = 'WAIT_FOR_CONFIRMATION';
   }
   const transitionStage = classification.regime === 'BULL' ? 'CONFIRMED'
     : transition.score !== null && transition.score >= 65 && transition.improvingCount >= 3 ? 'CONFIRMING'
