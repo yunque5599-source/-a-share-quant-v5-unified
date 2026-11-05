@@ -137,9 +137,9 @@ test('negative overnight signal can be overridden by measured low-open absorptio
   };
   const open = {
     gpu_chip_design: {
-      first15mComplete: true, auctionPct: -1.8, first15mReturnPct: 1.5,
-      first15mVolumeRatio: 1.4, sectorAdvancersRatio: 0.78,
-      leaderRelativeStrengthPct: 3.2, priceVsVwapPct: 0.8, gapRecoveryPct: 88
+      first15mComplete: true, auctionPct: -1.8, first15mReturnPct: 2.5,
+      first15mVolumeRatio: 2.0, sectorAdvancersRatio: 0.90,
+      leaderRelativeStrengthPct: 5.0, priceVsVwapPct: 2.5, gapRecoveryPct: 100
     }
   };
   const result = evaluateOvernightGlobalImpact({us: negative, aShareOpen: open});
