@@ -33,8 +33,8 @@ function breadthComponent(breadth = {}) {
   const score = clamp((upRatio - 0.25) / 0.50 * 100);
   const scope = String(breadth.universe ?? breadth.sourceScope ?? '').toLowerCase();
   const sourceQuality = scope === 'full-market' || breadth.fullMarket === true ? 1
-    : scope === 'candidate-pool' || breadth.isProxy === true ? 0.45 : 0.65;
-  return {score, raw: upRatio, sourceQuality, reason: sourceQuality < 0.6 ? 'candidate-pool-proxy' : null};
+    : scope === 'candidate-pool' || breadth.isProxy === true ? 0.45 : 0.55;
+  return {score, raw: upRatio, sourceQuality, reason: sourceQuality < 0.6 ? 'breadth-is-not-full-market' : null};
 }
 
 function indexTrendComponent(indices) {
