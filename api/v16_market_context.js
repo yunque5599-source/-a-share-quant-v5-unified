@@ -354,6 +354,8 @@ export default async function handler(req, res) {
         turnover: universe.turnover,
         sentiment: universe.sentiment,
         sectors: universe.sectors,
+        leaders: universe.leaders,
+        marketAveragePct: universe.marketAveragePct,
         source: universe.source,
         dataStatus: aShareSessionDate === calendarDate ? 'CURRENT_SESSION' : 'LAST_AVAILABLE_SESSION',
         indexFailures
