@@ -116,10 +116,14 @@ function scoreOpenConfirmation(open = {}) {
   const add = (key, score, weight) => { if (Number.isFinite(score)) pieces.push({key, score, weight}); };
   add('auction', strengthFromPct(num(open.auctionPct)), 0.10);
   add('first15mReturn', strengthFromPct(num(open.first15mReturnPct)), 0.10);
-  add('volume', clamp(45 + (Number(open.first15mVolumeRatio) - 1) * 25), 0.15);
-  add('sectorBreadth', ratio(open.sectorAdvancersRatio) * 100, 0.20);
-  add('leaderRelativeStrength', clamp(50 + Number(open.leaderRelativeStrengthPct) * 5), 0.20);
-  add('priceVsVwap', clamp(50 + Number(open.priceVsVwapPct) * 10), 0.25);
+  const volumeRatio = num(open.first15mVolumeRatio);
+  const sectorBreadthRatio = ratio(open.sectorAdvancersRatio);
+  const leaderRelativeStrength = num(open.leaderRelativeStrengthPct);
+  const priceVsVwap = num(open.priceVsVwapPct);
+  add('volume', volumeRatio === null ? null : clamp(45 + (volumeRatio - 1) * 25), 0.15);
+  add('sectorBreadth', sectorBreadthRatio === null ? null : sectorBreadthRatio * 100, 0.20);
+  add('leaderRelativeStrength', leaderRelativeStrength === null ? null : clamp(50 + leaderRelativeStrength * 5), 0.20);
+  add('priceVsVwap', priceVsVwap === null ? null : clamp(50 + priceVsVwap * 10), 0.25);
   const totalWeight = pieces.reduce((sum, piece) => sum + piece.weight, 0);
   const score = pieces.reduce((sum, piece) => sum + piece.score * piece.weight, 0) / totalWeight;
   const gapRecovery = num(open.gapRecoveryPct);
