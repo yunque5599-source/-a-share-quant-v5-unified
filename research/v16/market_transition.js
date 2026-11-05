@@ -219,11 +219,13 @@ function classifyRegime(scored, transition, risk) {
     && lastTwo.every(row => row.market_regime_score <= 38 && row.confidence >= 45)
     && Number.isFinite(breadth) && breadth <= 45;
   const previousHigh = Math.max(...scored.slice(0, -1).slice(-3).map(row => row.market_regime_score).filter(Number.isFinite));
-  const deteriorated = Number.isFinite(previousHigh)
+  const hadPriorStrength = scored.slice(0, -1).some(row => Number.isFinite(row.market_regime_score) && row.market_regime_score >= 60);
+  const deteriorated = Number.isFinite(previousHigh) && previousHigh >= 65
     && current.market_regime_score <= previousHigh - 12
     && (risk.score ?? 0) >= 50;
   const divergence = Number.isFinite(index) && Number.isFinite(breadth) && index >= 55 && breadth <= 40;
-  if (deteriorated || divergence) return {regime: 'DISTRIBUTION', status: 'RISK_DETERIORATION'};
+  if (deteriorated || (hadPriorStrength && divergence)) return {regime: 'DISTRIBUTION', status: 'RISK_DETERIORATION'};
+  if (divergence && !hadPriorStrength) return {regime: 'TRANSITION', status: 'DIVERGENCE_WATCH'};
   if (bear) return {regime: 'BEAR', status: 'CONFIRMED'};
   if (bull && confidence >= 55) return {regime: 'BULL', status: 'CONFIRMED'};
   return {regime: 'TRANSITION', status: scored.length < 2 || confidence < 40 ? 'INSUFFICIENT_CONFIRMATION' : 'WATCH'};
