@@ -9,6 +9,7 @@ This is an isolated research layer. It does not modify production `index.html`, 
 - `decision_overlay.js`: combines market, sector, overnight and entry gates. It never places orders.
 - `replay.js`: chronological point-in-time replay and Nov 4–5 validation status; future snapshots are excluded.
 - `api/v16_market_context.js`: separate research endpoint for Eastmoney A-share index/universe data and date-filtered Yahoo US daily returns. It reports coverage and source failures; it does not supply intraday/order-book or verified policy-news data.
+- `index_V16_MARKET_SHADOW.html`: standalone browser dashboard. It stores up to 30 daily snapshots in that browser's local storage; this is not a server-side archive and cannot be used as a complete shared backtest dataset.
 
 ## Score conventions
 - Scores are 0–100; 50 is neutral. Daily returns use percentage points (e.g. -1.5 means -1.5%).
