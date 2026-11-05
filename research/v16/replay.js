@@ -27,10 +27,11 @@ function finiteOrStatus(value) {
 
 export function replayV16Snapshots({snapshots = [], asOf = null} = {}) {
   const cutoff = dateKey(asOf);
+  const cutoffTimestamp = asOf ? (String(asOf).length > 10 ? String(asOf) : String(asOf) + 'T23:59:59') : null;
   const eligible = (Array.isArray(snapshots) ? snapshots : [])
     .filter(snapshot => snapshot && dateKey(snapshot.tradeDate ?? snapshot.date)
       && (!cutoff || dateKey(snapshot.tradeDate ?? snapshot.date) <= cutoff)
-      && (!snapshot.capturedAt || !asOf || String(snapshot.capturedAt) <= String(asOf).length > 10 ? String(asOf) : String(asOf) + 'T23:59:59'))
+      && (!snapshot.capturedAt || !cutoffTimestamp || (Number.isFinite(Date.parse(snapshot.capturedAt)) && Date.parse(snapshot.capturedAt) <= Date.parse(cutoffTimestamp))))
     .sort((a, b) => dateKey(a.tradeDate ?? a.date).localeCompare(dateKey(b.tradeDate ?? b.date)));
   const reports = [];
   const marketSessions = [];
