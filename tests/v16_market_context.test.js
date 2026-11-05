@@ -19,6 +19,9 @@ test('market universe summary labels complete breadth and approximate limit band
   assert.equal(result.sentiment.limitLabelQuality,'APPROXIMATE_PROXY');
   assert.equal(result.sentiment.brokenBoardRate,'NOT_MEASURABLE');
   assert.ok(result.sectors.length >= 1);
+  assert.equal(result.leaders.length,5);
+  assert.ok(result.leaders[0].relativeStrengthPct > 0);
+  assert.ok(result.sectors[0].leaderRelativeStrengthPct > 0);
 });
 
 test('partial market universe is never labelled full-market breadth', () => {
