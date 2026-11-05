@@ -164,14 +164,26 @@ export function summarizeMarketUniverse(universe) {
     totalReported: Number(universe?.total ?? 0),
     uniqueSymbols: rows.length
   };
+  const validMarketReturns = rows.map(row => num(row?.f3)).filter(Number.isFinite);
+  const marketAveragePct = validMarketReturns.length ? validMarketReturns.reduce((sum, value) => sum + value, 0) / validMarketReturns.length : null;
+  const leaders = rows.map(row => ({
+    code: String(row?.f12 ?? ''), name: String(row?.f14 ?? ''), industry: String(row?.f100 ?? ''), pct: num(row?.f3)
+  })).filter(row => /^\\d{6}$/.test(row.code) && row.pct !== null && !/(?:\\*?ST|退)/i.test(row.name))
+    .sort((a, b) => b.pct - a.pct).slice(0, 20).map(row => ({
+      ...row,
+      relativeStrengthPct: marketAveragePct === null ? null : row.pct - marketAveragePct
+    }));
   const sectorRows = [...industries.entries()].map(([name, members]) => {
     const validReturns = members.map(row => row.pct).filter(Number.isFinite);
     const validFlows = members.map(row => row.flow).filter(Number.isFinite);
+    const sectorAverage = validReturns.length ? validReturns.reduce((sum, value) => sum + value, 0) / validReturns.length : null;
+    const sectorLeader = validReturns.length ? Math.max(...validReturns) : null;
     return {
       key: name,
       label: name,
       constituentCount: members.length,
-      d1Pct: validReturns.length ? validReturns.reduce((sum, value) => sum + value, 0) / validReturns.length : null,
+      d1Pct: sectorAverage,
+      leaderRelativeStrengthPct: sectorLeader === null || sectorAverage === null ? null : sectorLeader - sectorAverage,
       advancersRatio: validReturns.length ? validReturns.filter(value => value > 0).length / validReturns.length : null,
       positiveFlowRatio: validFlows.length ? validFlows.filter(value => value > 0).length / validFlows.length : null,
       netFlowCny: validFlows.length ? validFlows.reduce((sum, value) => sum + value, 0) : null,
@@ -193,6 +205,8 @@ export function summarizeMarketUniverse(universe) {
       newListingRuleUncertainty: 'NOT_FILTERED'
     },
     sectors: sectorRows,
+    leaders,
+    marketAveragePct,
     source: {
       provider: 'Eastmoney',
       total: universe?.total ?? 0,
