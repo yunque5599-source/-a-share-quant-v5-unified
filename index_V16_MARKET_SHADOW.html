@@ -124,7 +124,7 @@ function buildSnapshot(context, history) {
     topSectorRepeatDays: null
   }));
   const topKey = sectors[0]?.key ?? null;
-  let repeatDays = topKey ? 1 : 0;
+  let repeatDays = 0;
   for (const old of [...history].reverse()) {
     if (old.tradeDate >= tradeDate) continue;
     if (old.sectors?.[0]?.key === topKey) repeatDays += 1;
