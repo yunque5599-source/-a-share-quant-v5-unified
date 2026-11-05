@@ -44,7 +44,10 @@ export function buildV16DecisionOverlay({market = null, overnight = null, sector
   } else if (regime === 'DISTRIBUTION' || marketPermission === 'REDUCE_RISK') {
     decision = 'REDUCE_RISK';
     reasons.push('market-regime-DISTRIBUTION');
-  } else if (confidence < 45 || opportunityScore === null || marketPermission === 'WAIT_FOR_DATA' || marketPermission === 'WAIT_FOR_CONFIRMATION') {
+  } else if (marketPermission === 'WAIT_FOR_CONFIRMATION') {
+    decision = 'WAIT_FOR_MARKET_CONFIRMATION';
+    reasons.push('market-transition-not-yet-confirmed');
+  } else if (confidence < 45 || opportunityScore === null || marketPermission === 'WAIT_FOR_DATA') {
     decision = 'WAIT_FOR_DATA';
     reasons.push('market-confidence-or-opportunity-data-insufficient');
   } else if (!entryPass) {
