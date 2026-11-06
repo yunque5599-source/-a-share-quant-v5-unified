@@ -28,7 +28,7 @@ This is an isolated research layer. It does not modify production `index.html`, 
 ## Data capability gates
 | Metric | Required evidence | Missing-data treatment |
 |---|---|---|
-| Full-market breadth | Complete point-in-time A-share universe | Partial pages are labelled partial-market; not full-market |
+| Full-market breadth | All expected pages fetched and at least 99% unique-code coverage | Otherwise labelled partial-market; not full-market |
 | US overnight factors | Yahoo daily bars dated strictly before China calendar date | Missing symbols reduce factor coverage; same-date US bars excluded |
 | Exact limit-up/down | Board/ST/new-listing-aware labels | Unknown labels excluded |
 | Broken-board rate | Intraday limit-touch/reopen or order-book history | NOT_MEASURABLE |
