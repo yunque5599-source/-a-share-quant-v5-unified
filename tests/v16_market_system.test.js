@@ -378,7 +378,69 @@ test('Nov 4–5 validation refuses to fabricate missing point-in-time snapshots'
   assert.deepEqual(result.missingPointInTimeSnapshotDates, ['2026-11-04']);
 });
 
+test('point-in-time replay includes name-theme heat but leaves diffusion and exhaustion unavailable without history', () => {
+  const snapshot = replaySnapshot('2026-11-05');
+  snapshot.narrativeSourceScope = 'full-market';
+  snapshot.narrativeStocks = [
+    {code:'002086',name:'东方海洋',pct:5,amount:100,nearLimitUpProxy:false},
+    {code:'600261',name:'阳光照明',pct:4,amount:90,nearLimitUpProxy:false},
+    {code:'002696',name:'百洋股份',pct:3,amount:80,nearLimitUpProxy:false}
+  ];
+  const result = replayV16Snapshots({snapshots:[snapshot],asOf:'2026-11-05'});
+  const report = result.reports[0];
+  const sheep = report.narrative.themes.find(row => row.theme_key === 'sheep_homophone');
+  assert.ok(sheep.name_theme_heat_score !== null);
+  assert.equal(sheep.theme_diffusion_speed,null);
+  assert.equal(sheep.speculative_exhaustion_risk,null);
+  assert.equal(report.capabilities.narrativeThemes,'PARTIAL');
+});
+
 test('candidate-pool and missing intraday data are labelled partial and NOT_MEASURABLE', () => {
+  const result = replayV16Snapshots({snapshots: [replaySnapshot('2026-11-05', 'candidate-pool')], asOf: '2026-11-05'});
+  const report = result.reports[0];
+  assert.equal(report.capabilities.fullMarketBreadth, 'NOT_MEASURABLE');
+  assert.equal(report.capabilities.aShareOpen, 'NOT_MEASURABLE');
+  assert.equal(report.status, 'PARTIAL');
+});
+
+
+  const row = session(date, 'strong');
+  row.breadth.universe = breadthScope;
+  return {
+    tradeDate: date,
+    capturedAt: date + 'T15:05:00+08:00',
+    market: row,
+    marketSummary: {d1Pct: 1.1},
+    us: usSplitMarket,
+    sectors: [{key: 'semiconductor', rankToday: 1, d1Pct: 2, d3Pct: 4, d5Pct: 5, advancersRatio: 0.7, positiveFlowRatio: 0.7, leaderRelativeStrengthPct: 2, topSectorRepeatDays: 2}]
+  };
+}
+
+test('replay excludes snapshots captured after the requested as-of date', () => {
+  const result = replayV16Snapshots({
+    snapshots: [replaySnapshot('2026-11-04'), replaySnapshot('2026-11-05'), replaySnapshot('2026-11-06')],
+    asOf: '2026-11-05'
+  });
+  assert.equal(result.replayedSnapshotCount, 2);
+  assert.equal(result.excludedFutureSnapshotCount, 1);
+  assert.equal(result.reports.at(-1).tradeDate, '2026-11-05');
+});
+
+test('Nov 4–5 validation refuses to fabricate missing point-in-time snapshots', () => {
+  const result = buildNov4Nov5ValidationReport({snapshots: [replaySnapshot('2026-11-05')]});
+  assert.equal(result.status, 'NOT_MEASURABLE');
+  assert.deepEqual(result.missingPointInTimeSnapshotDates, ['2026-11-04']);
+});
+
+test('candidate-pool and missing intraday data are labelled partial and NOT_MEASURABLE', () => {
+  const result = replayV16Snapshots({snapshots: [replaySnapshot('2026-11-05', 'candidate-pool')], asOf: '2026-11-05'});
+  const report = result.reports[0];
+  assert.equal(report.capabilities.fullMarketBreadth, 'NOT_MEASURABLE');
+  assert.equal(report.capabilities.aShareOpen, 'NOT_MEASURABLE');
+  assert.equal(report.status, 'PARTIAL');
+});
+
+
   const result = replayV16Snapshots({snapshots: [replaySnapshot('2026-11-05', 'candidate-pool')], asOf: '2026-11-05'});
   const report = result.reports[0];
   assert.equal(report.capabilities.fullMarketBreadth, 'NOT_MEASURABLE');
