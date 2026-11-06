@@ -67,7 +67,6 @@ function snapshotThemeMetrics(snapshot, theme, definitions = DEFAULT_NAME_THEME_
   const returns = stocks.map(row => row.pct).filter(Number.isFinite);
   const amounts = stocks.map(row => row.amount).filter(value => Number.isFinite(value) && value > 0).sort((a, b) => b - a);
   const totalAmount = amounts.reduce((sum, value) => sum + value, 0);
-  const top3Amount = amounts.slice(0, 3).reduce((sum, value) => sum + value, 0);
   const memberCount = stocks.length;
   const knownReturns = returns.length;
   const activeCount = returns.filter(value => value > 0).length;
