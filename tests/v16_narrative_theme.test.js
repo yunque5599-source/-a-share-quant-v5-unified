@@ -68,7 +68,7 @@ test('multi-session run-up, concentration and breadth reversal raise exhaustion 
   const day1 = snapshot('2026-11-04', sheepStocks.map(([code,name]) => stock(code,name,15,100,false)));
   const day2 = snapshot('2026-11-05', sheepStocks.map(([code,name]) => stock(code,name,15,100,false)));
   const day3 = snapshot('2026-11-06', sheepStocks.map(([code,name],index) =>
-    stock(code,name,index < 3 ? -2 : 10,[100,80,70,40,30][index],index >= 3)
+    stock(code,name,index < 3 ? -2 : 10,[500,80,70,40,30][index],index >= 3)
   ));
   const result = scoreNarrativeThemes({snapshots:[day1,day2,day3],asOf:'2026-11-06'});
   const sheep = result.themes.find(row => row.theme_key === 'sheep_homophone');
