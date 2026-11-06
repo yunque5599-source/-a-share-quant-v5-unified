@@ -45,10 +45,10 @@ export function extractNarrativeTags(name, definitions = DEFAULT_NAME_THEME_DEFI
     .map(theme => theme.key);
 }
 
-function normalizedStocks(snapshot, theme) {
+function normalizedStocks(snapshot, theme, definitions = DEFAULT_NAME_THEME_DEFINITIONS) {
   const stocks = Array.isArray(snapshot?.stocks) ? snapshot.stocks : [];
   return stocks.map(row => {
-    const tags = extractNarrativeTags(row?.name);
+    const tags = extractNarrativeTags(row?.name, definitions);
     return {
       code: String(row?.code ?? ''),
       name: String(row?.name ?? ''),
@@ -62,8 +62,8 @@ function normalizedStocks(snapshot, theme) {
   }).filter(row => row.code && row.eligibleForTrading && row.tags.includes(theme.key));
 }
 
-function snapshotThemeMetrics(snapshot, theme) {
-  const stocks = normalizedStocks(snapshot, theme);
+function snapshotThemeMetrics(snapshot, theme, definitions = DEFAULT_NAME_THEME_DEFINITIONS) {
+  const stocks = normalizedStocks(snapshot, theme, definitions);
   const returns = stocks.map(row => row.pct).filter(Number.isFinite);
   const amounts = stocks.map(row => row.amount).filter(value => Number.isFinite(value) && value > 0).sort((a, b) => b - a);
   const totalAmount = amounts.reduce((sum, value) => sum + value, 0);
@@ -103,11 +103,11 @@ function snapshotThemeMetrics(snapshot, theme) {
   };
 }
 
-function cohortReturn(history, theme, lookback) {
+function cohortReturn(history, theme, lookback, definitions = DEFAULT_NAME_THEME_DEFINITIONS) {
   if (history.length < lookback) return null;
   const recent = history.slice(-lookback);
   const maps = recent.map(snapshot => new Map(
-    normalizedStocks(snapshot, theme)
+    normalizedStocks(snapshot, theme, definitions)
       .filter(row => row.pct !== null)
       .map(row => [row.code, row])
   ));
@@ -208,16 +208,16 @@ export function scoreNarrativeThemes({
   const latest = history.at(-1) ?? null;
   const previousSnapshot = history.at(-2) ?? null;
   const themes = definitions.map(theme => {
-    const current = latest ? snapshotThemeMetrics(latest, theme) : snapshotThemeMetrics({}, theme);
-    const previous = previousSnapshot ? snapshotThemeMetrics(previousSnapshot, theme) : null;
+    const current = latest ? snapshotThemeMetrics(latest, theme, definitions) : snapshotThemeMetrics({}, theme, definitions);
+    const previous = previousSnapshot ? snapshotThemeMetrics(previousSnapshot, theme, definitions) : null;
     const diffusionDelta = previous && previous.memberCount > 0 && current.advancersRatio !== null && previous.advancersRatio !== null
       ? current.advancersRatio - previous.advancersRatio
       : null;
     const activeCountDelta = previous ? current.activeCount - previous.activeCount : null;
     const diffusion = diffusionDelta === null ? null
       : Number(clamp(50 + diffusionDelta * 120 + (activeCountDelta ?? 0) * 2).toFixed(2));
-    const median3d = cohortReturn(history, theme, 3);
-    const median5d = cohortReturn(history, theme, 5);
+    const median3d = cohortReturn(history, theme, 3, definitions);
+    const median5d = cohortReturn(history, theme, 5, definitions);
     const exhaustion = exhaustionRisk({history, theme, current, previous, median3d, median5d});
     const fundamental = verifiedFundamentalOverlap(theme, current.stocks, verifiedEvidence, cutoff || dateKey(latest?.tradeDate));
     const fullMarket = current.sourceScope === 'full-market';
