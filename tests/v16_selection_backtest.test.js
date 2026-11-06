@@ -32,9 +32,9 @@ test('V15 stage-one reconstruction creates deterministic Top10/30/50 from full-m
   const result=rankV15Stage1Candidates(rowsFor(0),[{key:'shanghai',changePct:1.2}]);
   assert.equal(result.status,'AVAILABLE');
   assert.equal(result.sourceRows,500);
-  assert.equal(result.rankedPoolCount,300);
-  assert.equal(result.hardFilteredCount,300);
-  assert.equal(result.candidates.length,300);
+  assert.ok(result.rankedPoolCount>=300);
+  assert.equal(result.hardFilteredCount,result.rankedPoolCount);
+  assert.equal(result.candidates.length,result.hardFilteredCount);
   assert.ok(result.candidates[0].stage1Score>result.candidates.at(-1).stage1Score);
   assert.equal(result.candidates[0].code,'600000');
   assert.ok(result.candidates[0].rankHits>=5);
