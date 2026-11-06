@@ -1,10 +1,11 @@
 import {evaluateMarketTransition} from './market_transition.js';
 import {evaluateOvernightGlobalImpact} from './overnight_global_impact.js';
 import {scoreSectorRotation} from './sector_rotation.js';
+import {scoreNarrativeThemes} from './narrative_theme.js';
 
 const dateKey = value => String(value ?? '').slice(0, 10);
 
-function capabilityStatus(snapshot, market, overnight, sector) {
+function capabilityStatus(snapshot, market, overnight, sector, narrative) {
   const fullBreadth = snapshot.market?.breadth?.universe === 'full-market'
     || snapshot.market?.breadth?.fullMarket === true;
   const openingMeasured = Object.values(overnight.industries ?? {})
@@ -18,7 +19,10 @@ function capabilityStatus(snapshot, market, overnight, sector) {
     aShareOpen: openingMeasured ? 'MEASURABLE' : 'NOT_MEASURABLE',
     fullMarketBreadth: fullBreadth ? 'MEASURABLE' : 'NOT_MEASURABLE',
     brokenBoardRate: finiteOrStatus(snapshot.market?.sentiment?.brokenBoardRate) ? 'MEASURABLE' : 'NOT_MEASURABLE',
-    nextDayPremium: finiteOrStatus(snapshot.market?.sentiment?.nextDayPremiumPct) ? 'MEASURABLE' : 'NOT_MEASURABLE'
+    nextDayPremium: finiteOrStatus(snapshot.market?.sentiment?.nextDayPremiumPct) ? 'MEASURABLE' : 'NOT_MEASURABLE',
+    narrativeThemes: narrative?.themes?.some(row => row.name_theme_heat_score !== null)
+      ? narrative.themes.some(row => row.theme_diffusion_speed !== null && row.speculative_exhaustion_status === 'MEASURABLE') ? 'MEASURABLE' : 'PARTIAL'
+      : 'NOT_MEASURABLE'
   };
 }
 function finiteOrStatus(value) {
@@ -36,6 +40,8 @@ export function replayV16Snapshots({snapshots = [], asOf = null} = {}) {
   const reports = [];
   const marketSessions = [];
   let previousSectors = [];
+  const narrativeSnapshots = [];
+  const narrativeEvidence = [];
   for (const snapshot of eligible) {
     const date = dateKey(snapshot.tradeDate ?? snapshot.date);
     const marketSession = {...(snapshot.market ?? {}), date};
@@ -51,7 +57,15 @@ export function replayV16Snapshots({snapshots = [], asOf = null} = {}) {
       previousSectors,
       market: snapshot.marketSummary ?? {}
     });
-    const capabilities = capabilityStatus(snapshot, market, overnight, sector);
+    narrativeSnapshots.push({
+      tradeDate: date,
+      capturedAt: snapshot.capturedAt ?? null,
+      sourceScope: snapshot.narrativeSourceScope ?? snapshot.market?.breadth?.universe ?? 'unknown',
+      stocks: snapshot.narrativeStocks ?? []
+    });
+    if (Array.isArray(snapshot.verifiedNarrativeEvidence)) narrativeEvidence.push(...snapshot.verifiedNarrativeEvidence);
+    const narrative = scoreNarrativeThemes({snapshots:narrativeSnapshots,asOf:date,verifiedEvidence:narrativeEvidence});
+    const capabilities = capabilityStatus(snapshot, market, overnight, sector, narrative);
     const statuses = Object.values(capabilities);
     const status = statuses.every(value => value === 'MEASURABLE') ? 'MEASURABLE'
       : statuses.some(value => value === 'MEASURABLE' || value === 'PARTIAL' || value === 'PARTIAL_OR_MEASURABLE') ? 'PARTIAL' : 'NOT_MEASURABLE';
@@ -62,6 +76,7 @@ export function replayV16Snapshots({snapshots = [], asOf = null} = {}) {
       market,
       overnight,
       sector,
+      narrative,
       capabilities
     });
     previousSectors = Array.isArray(snapshot.sectors) ? snapshot.sectors : [];
