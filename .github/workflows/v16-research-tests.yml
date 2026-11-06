@@ -21,6 +21,7 @@ on:
       - 'index_V16_MARKET_SHADOW.html'
       - 'tests/v16_market_system.test.js'
       - 'tests/v16_market_context.test.js'
+      - 'tests/v16_narrative_theme.test.js'
       - '.github/workflows/v16-research-tests.yml'
 
 jobs:
