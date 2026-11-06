@@ -105,6 +105,7 @@ function snapshotThemeMetrics(snapshot, theme, definitions = DEFAULT_NAME_THEME_
 function cohortReturn(history, theme, lookback, definitions = DEFAULT_NAME_THEME_DEFINITIONS) {
   if (history.length < lookback) return null;
   const recent = history.slice(-lookback);
+  if (!recent.every(snapshot => snapshot?.sourceScope === 'full-market')) return null;
   const maps = recent.map(snapshot => new Map(
     normalizedStocks(snapshot, theme, definitions)
       .filter(row => row.pct !== null)
