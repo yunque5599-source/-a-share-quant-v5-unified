@@ -205,10 +205,10 @@ export function summarizeMarketUniverse(universe) {
       mainNet:num(row?.f62),mainPct:num(row?.f184),industry:String(row?.f100 ?? '行业未知'),
       open:num(row?.f17),high:num(row?.f15),low:num(row?.f16),prevClose:num(row?.f18),
       quoteAt:timestampMs && Number.isFinite(timestampMs) ? new Date(timestampMs).toISOString() : null,
-      specialTreatment:/(?:\\*?ST|退)/i.test(name),
-      mainBoard:/^(00|60)\\d{4}$/.test(code)
+      specialTreatment:/(?:\*?ST|退)/i.test(name),
+      mainBoard:/^(00|60)\d{4}$/.test(code)
     };
-  }).filter(row => /^\\d{6}$/.test(row.code));
+  }).filter(row => /^\d{6}$/.test(row.code));
   const sectorRows = [...industries.entries()].map(([name, members]) => {
     const validReturns = members.map(row => row.pct).filter(Number.isFinite);
     const validFlows = members.map(row => row.flow).filter(Number.isFinite);
