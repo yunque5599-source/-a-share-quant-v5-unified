@@ -7,6 +7,7 @@ This is an isolated research layer. It does not modify production `index.html`, 
 - `overnight_global_impact.js`: separate US semiconductor, AI-infrastructure, mega-cap, memory and cloud factors; explicit A-share industry exposure map; opening confirmation is NOT_MEASURABLE without first-15-minute/VWAP inputs.
 - `sector_rotation.js`: sector persistence, rotation acceleration, prior-day profit-taking risk, and independent entry-timing score.
 - `decision_overlay.js`: combines market, sector, overnight and entry gates. It never places orders.
+- `narrative_theme.js`: lexical name-theme detection for 羊／洋／阳、狼 and 东方; computes heat, diffusion, turnover concentration and multi-session exhaustion risk. It does not infer a fundamental catalyst from a name.
 - `replay.js`: chronological point-in-time replay and Nov 4–5 validation status; future snapshots are excluded.
 - `api/v16_market_context.js`: separate research endpoint for Eastmoney A-share index/universe data and date-filtered Yahoo US daily returns. It reports coverage and source failures; it does not supply intraday/order-book or verified policy-news data.
 - `index_V16_MARKET_SHADOW.html`: standalone browser dashboard. It stores up to 30 daily snapshots in that browser's local storage; this is not a server-side archive and cannot be used as a complete shared backtest dataset.
@@ -19,6 +20,8 @@ This is an isolated research layer. It does not modify production `index.html`, 
 - US/industry impact scores use 0–100 with 50 neutral. Industry sensitivities are separate assumptions, not one universal technology coefficient.
 - `policy_event_risk` only uses verified events with a source URL, severity and direction. Without them it is NOT_MEASURABLE.
 - `opportunity_score` and `entry_timing_score` are independent. High opportunity does not authorize a buy.
+- Narrative `name_theme_heat_score` contributes only to a separate `attention_priority_score`; it never increases `opportunity_score` or independently authorizes entry. A measured `speculative_exhaustion_risk` of 75 or higher blocks a name-theme candidate in the decision overlay.
+- `fundamental_overlap_score` remains null unless a dated, verified source URL and explicit theme/stock mapping are provided. Name similarity is not an earnings or industry catalyst.
 
 ## Data capability gates
 | Metric | Required evidence | Missing-data treatment |
@@ -30,6 +33,10 @@ This is an isolated research layer. It does not modify production `index.html`, 
 | Next-day premium | Frozen signal-date list and matured next-session outcomes | NOT_MEASURABLE until matured |
 | Auction/first 15m/VWAP | Timestamped minute bars and sector/leader observations | NOT_MEASURABLE; daily close is not a substitute |
 | Policy/event risk | Verified event with source URL, timestamp, direction and severity | NOT_MEASURABLE |
+| Name-theme heat | Current full-universe names, returns and turnover amounts | Partial if universe coverage is incomplete |
+| Theme diffusion | At least two dated snapshots with stable name/code observations | NOT_MEASURABLE without prior snapshot |
+| Speculative exhaustion | At least three dated snapshots and a common constituent cohort | NOT_MEASURABLE without history |
+| Fundamental overlap | Dated verified source URL plus explicit stock/theme mapping | NOT_MEASURABLE; never infer from name alone |
 
 ## Replay and promotion
 - Replay only frozen snapshots captured on or before the requested cutoff.
@@ -38,4 +45,4 @@ This is an isolated research layer. It does not modify production `index.html`, 
 - This branch is research-only. No production merge/deployment until point-in-time validation passes and the user explicitly approves promotion.
 
 ## Tests
-Run `node --check` on the five modules, then `node --test tests/v16_market_system.test.js`.
+Run syntax checks on all V16 modules, then `node --test tests/v16_market_system.test.js tests/v16_market_context.test.js tests/v16_narrative_theme.test.js`.
