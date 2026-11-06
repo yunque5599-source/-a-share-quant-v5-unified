@@ -56,9 +56,10 @@ function normalizedStocks(snapshot, theme) {
       amount: num(row?.amount),
       turnoverPct: num(row?.turnoverPct),
       nearLimitUpProxy: row?.nearLimitUpProxy === true,
+      eligibleForTrading: row?.eligibleForTrading !== false,
       tags
     };
-  }).filter(row => row.code && row.tags.includes(theme.key));
+  }).filter(row => row.code && row.eligibleForTrading && row.tags.includes(theme.key));
 }
 
 function snapshotThemeMetrics(snapshot, theme) {
@@ -126,7 +127,8 @@ function verifiedFundamentalOverlap(theme, stocks, evidence, asOf) {
   const verified = (Array.isArray(evidence) ? evidence : []).filter(item => {
     if (item?.verified !== true || !/^https?:\/\//i.test(String(item?.sourceUrl ?? ''))) return false;
     const eventDate = dateKey(item.eventDate ?? item.publishedAt);
-    if (asOf && eventDate && eventDate > asOf) return false;
+    if (!eventDate) return false;
+    if (asOf && eventDate > asOf) return false;
     const themeMatch = String(item.themeKey ?? '') === theme.key;
     const stockMatch = Array.isArray(item.stockCodes) && item.stockCodes.some(code => codes.has(String(code)));
     return themeMatch || stockMatch;
@@ -255,7 +257,7 @@ export function scoreNarrativeThemes({
       stage,
       confidence: adjustedConfidence,
       source_scope: current.sourceScope,
-      status: current.memberCount ? 'AVAILABLE' : 'NO_MATCHES'
+      status: current.memberCount >= theme.minMembers ? 'AVAILABLE' : current.memberCount ? 'INSUFFICIENT_MEMBERS' : 'NO_MATCHES'
     };
   });
   return {
