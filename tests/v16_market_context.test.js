@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {summarizeMarketUniverse, summarizeIndexKline, parseYahooDailyChange} from '../api/v16_market_context.js';
+import {extractNarrativeTags} from '../research/v16/narrative_theme.js';
 
 test('market universe summary labels complete breadth and approximate limit bands', () => {
   const rows = [
@@ -74,4 +75,24 @@ test('Yahoo data with only one eligible prior session is NOT_MEASURABLE', () => 
   }]}};
   const result = parseYahooDailyChange(payload,'NVDA','2026-11-05');
   assert.equal(result.status,'NOT_MEASURABLE');
+});
+
+test('A-share context exports lexical name-theme observations without assigning industry logic', () => {
+  const result = summarizeMarketUniverse({
+    rows: [
+      {f12:'002086',f14:'东方海洋',f3:10,f6:100000,f8:12,f100:'渔业'},
+      {f12:'002029',f14:'七匹狼',f3:3,f6:50000,f8:5,f100:'服装'},
+      {f12:'600261',f14:'阳光照明',f3:-2,f6:40000,f8:4,f100:'照明'},
+      {f12:'600000',f14:'浦发银行',f3:0.5,f6:30000,f8:1,f100:'银行'}
+    ],
+    total:4,coverage:1,complete:true,pagesFetched:1,pageCount:1,failures:[]
+  });
+  const byCode = new Map(result.narrativeStocks.map(row => [row.code,row]));
+  assert.deepEqual(extractNarrativeTags('东方海洋'), ['sheep_homophone','oriental_name']);
+  assert.ok(byCode.has('002086'));
+  assert.ok(byCode.has('002029'));
+  assert.ok(byCode.has('600261'));
+  assert.equal(byCode.has('600000'),false);
+  assert.equal(byCode.get('002086').industry,'渔业');
+  assert.equal(result.narrativeSourceScope,'full-market');
 });
