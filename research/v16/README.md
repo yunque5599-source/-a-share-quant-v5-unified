@@ -9,9 +9,14 @@ This is an isolated research layer. It does not modify production `index.html`, 
 - `decision_overlay.js`: combines market, sector, overnight and entry gates. It never places orders.
 - `narrative_theme.js`: lexical name-theme detection for 羊／洋／阳、狼 and 东方; computes heat, diffusion, turnover concentration and multi-session exhaustion risk. It does not infer a fundamental catalyst from a name.
 - `narrative_theme_case_study_2026-11-03_06.md`: documents the Nov 3–6 public event reports and explicitly separates event description from predictive backtest evidence.
-- `replay.js`: chronological point-in-time replay and Nov 4–5 validation status; future snapshots are excluded.
-- `api/v16_market_context.js`: separate research endpoint for Eastmoney A-share index/universe data and date-filtered Yahoo US daily returns. It reports coverage and source failures; it does not supply intraday/order-book or verified policy-news data.
-- `index_V16_MARKET_SHADOW.html`: standalone browser dashboard. It stores up to 30 daily snapshots in that browser's local storage; this is not a server-side archive and cannot be used as a complete shared backtest dataset.
+- `replay.js`: chronological point-in-time market/narrative replay and Nov 4–5 validation status; future snapshots are excluded.
+- `selection_backtest.js`: deterministic reconstruction of the V15 six-factor rank pool and stage-one score, plus Top10/30/50 T+1/T+3/T+5 forward-return evaluation.
+- `snapshot_archive.js`: normalizes full-market daily rows and enforces close-finalization, universe coverage and quote-date quality gates before a snapshot can qualify for replay.
+- `api/v16_market_context.js`: separate research endpoint for Eastmoney A-share index/universe data and date-filtered Yahoo US daily returns. It now returns normalized full-market stock rows for server-side archiving; it does not supply intraday/order-book or verified policy-news data.
+- `api/v16_snapshot_archive.js`: authenticated post-close collector that writes immutable gzip snapshots to a private Vercel Blob store. It requires `CRON_SECRET` and a connected private Blob store.
+- `api/v16_backtest.js`: reads private archived snapshots and returns the Top10/30/50 forward-return report.
+- `vercel.json`: schedules the archive endpoint at 08:20 UTC (16:20 China time), Monday to Friday. Vercel Cron only runs on production deployments; this research PR does not activate it.
+- `index_V16_MARKET_SHADOW.html`: standalone browser dashboard. It still stores up to 30 local snapshots, and now also exposes a server Top-K backtest panel once private archive storage is configured.
 
 ## Score conventions
 - Scores are 0–100; 50 is neutral. Daily returns use percentage points (e.g. -1.5 means -1.5%).
@@ -45,8 +50,17 @@ This is an isolated research layer. It does not modify production `index.html`, 
 ## Replay and promotion
 - Replay only frozen snapshots captured on or before the requested cutoff.
 - Never use same-day close to reconstruct auction, first-15-minute, VWAP or order-book decisions.
-- Evaluate Top-K precision/recall with label coverage, T+1/T+3/T+5 returns, MFE/MAE, fees, slippage, T+1, limit locks and fill constraints against untouched momentum/breakout baselines.
+- The current Top10/30/50 backtest reconstructs the V15 six-factor rank pool and Stage-1 formula from full-market snapshots. It is a **preselection-funnel test**, not the final deep K-line/flow/news ranking. Forward labels are compounded close-to-close returns; the 9.5% near-limit-up event is only a proxy.
+- At least 20 matured signal dates are required before each Top-K/horizon metric is labelled MEASURABLE. The report remains promotion-ineligible until out-of-sample stability and execution-aware validation pass.
+- Evaluate final model Top-K precision/recall, T+1/T+3/T+5 returns, MFE/MAE, fees, slippage, T+1 sellability, limit locks and fill constraints against untouched momentum/breakout baselines.
 - This branch is research-only. No production merge/deployment until point-in-time validation passes and the user explicitly approves promotion.
 
+## Archive setup and operation
+1. Connect a **private** Vercel Blob store to the project. Private Blob requires authenticated access; do not use a public store for research snapshots.
+2. Configure a random `CRON_SECRET` in the Vercel project Production environment. The archive endpoint rejects requests when it is absent or invalid.
+3. Merge/deploy only after review. The cron schedule is 08:20 UTC / 16:20 China time on weekdays; Vercel Cron runs only on production deployments, not preview deployments.
+4. The collector skips non-trading days and pre-close calls. It archives incomplete snapshots for diagnostics, but the backtest only uses snapshots that pass the strict quality gate.
+5. Snapshot files are gzip-compressed and immutable. The backtest API reads the latest archive window and reports data gaps rather than filling missing outcomes with zero.
+
 ## Tests
-Run syntax checks on all V16 modules, then `node --test tests/v16_market_system.test.js tests/v16_market_context.test.js tests/v16_narrative_theme.test.js`.
+Run syntax checks on all V16 modules and API routes, then `node --test tests/v16_market_system.test.js tests/v16_market_context.test.js tests/v16_narrative_theme.test.js tests/v16_selection_backtest.test.js tests/v16_snapshot_archive.test.js`.
