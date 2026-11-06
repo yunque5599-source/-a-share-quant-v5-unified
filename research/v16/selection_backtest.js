@@ -102,13 +102,13 @@ export function rankV15Stage1Candidates(stockRows,indices=[],options={}) {
   const amounts=filtered.map(row=>Math.log10(Math.max(1,row.amount??1)));
   const pct60=filtered.map(row=>row.pct60),pcts=filtered.map(row=>row.pct);
   const scored=filtered.map(row=>{
-    const sector=sectors.get(row.industry)||{medPct:0,posFlow:0.5};
+    const sectorStatsForRow=sectors.get(row.industry)||{medPct:0,posFlow:0.5};
     const flow=0.55*upperPercentile(mainP,row.mainPct)+0.45*upperPercentile(mainN,row.mainNet);
     const liquidity=upperPercentile(amounts,Math.log10(Math.max(1,row.amount??1)));
     const relativeStrength60=upperPercentile(pct60,row.pct60);
     const momentum=upperPercentile(pcts,row.pct);
     const turnoverOptimal=100-Math.min(100,Math.abs((row.turn||5)-6)*8);
-    const sector=clamp(50+sector.medPct*1700+(sector.posFlow-0.5)*45,0,100);
+    const sector=clamp(50+sectorStatsForRow.medPct*1700+(sectorStatsForRow.posFlow-0.5)*45,0,100);
     const rank=clamp(row.rankScore||50,0,100);
     const heatPenalty=(row.pct>8?18:0)+(row.turn>18?10:0);
     const score=0.30*flow+0.14*liquidity+0.10*relativeStrength60+0.08*momentum
