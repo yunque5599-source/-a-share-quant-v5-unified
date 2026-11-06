@@ -86,7 +86,7 @@ test('A-share context exports lexical name-theme observations without assigning 
       {f12:'600005',f14:'*ST阳光',f3:5,f6:20000,f8:2,f100:'其他'},
       {f12:'600000',f14:'浦发银行',f3:0.5,f6:30000,f8:1,f100:'银行'}
     ],
-    total:4,coverage:1,complete:true,pagesFetched:1,pageCount:1,failures:[]
+    total:5,coverage:1,complete:true,pagesFetched:1,pageCount:1,failures:[]
   });
   const byCode = new Map(result.narrativeStocks.map(row => [row.code,row]));
   assert.deepEqual(extractNarrativeTags('东方海洋'), ['sheep_homophone','oriental_name']);
