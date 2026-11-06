@@ -407,11 +407,15 @@ export default async function handler(req, res) {
         vwap: 'NOT_MEASURABLE',
         orderBookAndCancellation: 'NOT_MEASURABLE',
         policyEvents: 'NOT_MEASURABLE',
-        themeMembership: 'NOT_MEASURABLE'
+        nameThemeMembership: 'LEXICAL_MATCH_ONLY',
+        industryThemeMembership: 'NOT_MEASURABLE',
+        fundamentalOverlap: 'NOT_MEASURABLE'
       },
       limitations: [
         'A-share limit-up/down counts are approximate percentage-band proxies; new-listing special rules are not filtered.',
         'Industry breadth is a constituent-sample proxy, not verified concept/theme membership.',
+        '羊／洋／阳, 狼 and 东方 name themes are lexical matches only; they do not establish industry or fundamental overlap.',
+        'Full-market universe status requires all expected pages and at least 99% unique-code coverage.',
         'Yahoo Finance daily bars are filtered to dates strictly before the China calendar date to prevent same-date US data leakage.',
         'No daily close is substituted for auction, first-15-minute, VWAP, broken-board or order-book evidence.'
       ]
