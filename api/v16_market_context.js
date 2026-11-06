@@ -1,3 +1,5 @@
+import {extractNarrativeTags} from '../research/v16/narrative_theme.js';
+
 export const config = {maxDuration: 30};
 
 const EM_HOSTS = [
@@ -173,6 +175,20 @@ export function summarizeMarketUniverse(universe) {
       ...row,
       relativeStrengthPct: marketAveragePct === null ? null : row.pct - marketAveragePct
     }));
+  const narrativeStocks = rows.map(row => {
+    const code = String(row?.f12 ?? '');
+    const name = String(row?.f14 ?? code);
+    const themeKeys = extractNarrativeTags(name);
+    if (!themeKeys.length || !/^\\d{6}$/.test(code)) return null;
+    const pct = num(row?.f3);
+    return {
+      code, name, themeKeys, pct,
+      amount: num(row?.f6),
+      turnoverPct: num(row?.f8),
+      industry: String(row?.f100 ?? ''),
+      nearLimitUpProxy: pct !== null && pct >= limitPct(code, name) - 0.15
+    };
+  }).filter(Boolean);
   const sectorRows = [...industries.entries()].map(([name, members]) => {
     const validReturns = members.map(row => row.pct).filter(Number.isFinite);
     const validFlows = members.map(row => row.flow).filter(Number.isFinite);
@@ -205,6 +221,8 @@ export function summarizeMarketUniverse(universe) {
       newListingRuleUncertainty: 'NOT_FILTERED'
     },
     sectors: sectorRows,
+    narrativeStocks,
+    narrativeSourceScope: universe?.complete === true ? 'full-market' : 'partial-market',
     leaders,
     marketAveragePct,
     source: {
@@ -368,6 +386,8 @@ export default async function handler(req, res) {
         turnover: universe.turnover,
         sentiment: universe.sentiment,
         sectors: universe.sectors,
+        narrativeStocks: universe.narrativeStocks,
+        narrativeSourceScope: universe.narrativeSourceScope,
         leaders: universe.leaders,
         marketAveragePct: universe.marketAveragePct,
         source: universe.source,
