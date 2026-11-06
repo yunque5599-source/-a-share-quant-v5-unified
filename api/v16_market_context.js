@@ -179,14 +179,14 @@ export function summarizeMarketUniverse(universe) {
     const code = String(row?.f12 ?? '');
     const name = String(row?.f14 ?? code);
     const themeKeys = extractNarrativeTags(name);
-    if (!themeKeys.length || !/^\\d{6}$/.test(code)) return null;
+    if (!themeKeys.length || !/^\d{6}$/.test(code)) return null;
     const pct = num(row?.f3);
     return {
       code, name, themeKeys, pct,
       amount: num(row?.f6),
       turnoverPct: num(row?.f8),
       industry: String(row?.f100 ?? ''),
-      eligibleForTrading: !/(?:\\*?ST|退)/i.test(name),
+      eligibleForTrading: !/(?:\*?ST|退)/i.test(name),
       nearLimitUpProxy: pct !== null && pct >= limitPct(code, name) - 0.15
     };
   }).filter(Boolean);
