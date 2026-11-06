@@ -22,6 +22,7 @@ This is an isolated research layer. It does not modify production `index.html`, 
 - `policy_event_risk` only uses verified events with a source URL, severity and direction. Without them it is NOT_MEASURABLE.
 - `opportunity_score` and `entry_timing_score` are independent. High opportunity does not authorize a buy.
 - Narrative `name_theme_heat_score` contributes only to a separate `attention_priority_score`; it never increases `opportunity_score` or independently authorizes entry. A measured `speculative_exhaustion_risk` of 75 or higher blocks a name-theme candidate in the decision overlay.
+- `leader_concentration` is the largest member's share of theme turnover amount, not an ownership statistic. Diffusion requires two comparable full-market snapshots; exhaustion requires at least three full-market snapshots and a common constituent cohort.
 - `fundamental_overlap_score` remains null unless a dated, verified source URL and explicit theme/stock mapping are provided. The upstream caller is responsible for setting `verified: true` only after source verification. Name similarity is not an earnings or industry catalyst.
 
 ## Data capability gates
@@ -35,8 +36,8 @@ This is an isolated research layer. It does not modify production `index.html`, 
 | Auction/first 15m/VWAP | Timestamped minute bars and sector/leader observations | NOT_MEASURABLE; daily close is not a substitute |
 | Policy/event risk | Verified event with source URL, timestamp, direction and severity | NOT_MEASURABLE |
 | Name-theme heat | Current full-universe names, returns and turnover amounts | Partial if universe coverage is incomplete |
-| Theme diffusion | At least two dated snapshots with stable name/code observations | NOT_MEASURABLE without prior snapshot |
-| Speculative exhaustion | At least three dated snapshots and a common constituent cohort | NOT_MEASURABLE without history |
+| Theme diffusion | At least two comparable full-market snapshots with stable name/code observations | NOT_MEASURABLE without comparable full-market history |
+| Speculative exhaustion | At least three full-market snapshots and a common constituent cohort | NOT_MEASURABLE without full-market history |
 | Fundamental overlap | Dated verified source URL plus explicit stock/theme mapping | NOT_MEASURABLE; never infer from name alone |
 
 ## Replay and promotion
