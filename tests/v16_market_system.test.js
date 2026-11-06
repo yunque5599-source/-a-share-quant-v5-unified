@@ -312,6 +312,7 @@ test('name-theme heat increases watch priority only and does not inflate opportu
     overnight: overnightResult(),
     narrative: {themes:[{
       theme_key:'oriental_name',
+      member_count:5,stage:'HOT',
       name_theme_heat_score:95,
       theme_diffusion_speed:88,
       leader_concentration:62,
@@ -335,6 +336,7 @@ test('high measured name-theme exhaustion risk blocks a candidate entry', () => 
     overnight: overnightResult(),
     narrative: {themes:[{
       theme_key:'sheep_homophone',
+      member_count:5,stage:'EXHAUSTION_RISK',
       name_theme_heat_score:91,
       theme_diffusion_speed:35,
       leader_concentration:82,
