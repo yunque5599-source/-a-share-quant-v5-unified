@@ -224,7 +224,8 @@ export function scoreNarrativeThemes({
     const fullMarket = current.sourceScope === 'full-market';
     const sourceQuality = fullMarket ? 1 : current.sourceScope === 'partial-market' ? 0.55 : 0.35;
     const confidence = current.memberCount >= 5 ? 90 : current.memberCount >= 3 ? 75 : current.memberCount >= theme.minMembers ? 60 : 0;
-    const adjustedConfidence = Number((confidence * sourceQuality).toFixed(2));
+    const observationCoverage = current.memberCount ? current.knownReturns / current.memberCount : 0;
+    const adjustedConfidence = Number((confidence * sourceQuality * observationCoverage).toFixed(2));
     let stage = 'INACTIVE';
     if (current.memberCount >= theme.minMembers && adjustedConfidence < 50) stage = 'INSUFFICIENT_COVERAGE';
     if (current.memberCount >= theme.minMembers && adjustedConfidence >= 50) {
@@ -258,6 +259,7 @@ export function scoreNarrativeThemes({
       median_5d_cohort_return_pct: median5d === null ? null : Number(median5d.toFixed(2)),
       stage,
       confidence: adjustedConfidence,
+      observation_coverage: Number(observationCoverage.toFixed(3)),
       source_scope: current.sourceScope,
       status: current.memberCount >= theme.minMembers ? 'AVAILABLE' : current.memberCount ? 'INSUFFICIENT_MEMBERS' : 'NO_MATCHES'
     };
