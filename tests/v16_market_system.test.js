@@ -318,7 +318,7 @@ test('name-theme heat increases attention priority only, not opportunity score',
     sectorRotation:sectorResult(),
     overnight:overnightResult(),
     narrative:{themes:[{
-      theme_key:'oriental_name',member_count:5,stage:'HOT',status:'AVAILABLE',
+      theme_key:'oriental_name',member_count:5,confidence:80,stage:'HOT',status:'AVAILABLE',
       name_theme_heat_score:95,theme_diffusion_speed:88,leader_concentration:62,
       fundamental_overlap_score:null,speculative_exhaustion_risk:null,
       speculative_exhaustion_status:'NOT_MEASURABLE'
@@ -355,7 +355,7 @@ test('high measured name-theme exhaustion risk blocks a candidate entry', () => 
     sectorRotation:sectorResult(),
     overnight:overnightResult(),
     narrative:{themes:[{
-      theme_key:'sheep_homophone',member_count:5,stage:'EXHAUSTION_RISK',status:'AVAILABLE',
+      theme_key:'sheep_homophone',member_count:5,confidence:80,stage:'EXHAUSTION_RISK',status:'AVAILABLE',
       name_theme_heat_score:91,theme_diffusion_speed:35,leader_concentration:82,
       fundamental_overlap_score:null,speculative_exhaustion_risk:88,
       speculative_exhaustion_status:'MEASURABLE'
