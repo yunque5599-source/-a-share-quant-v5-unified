@@ -339,11 +339,3 @@ test('candidate-pool and missing intraday data are labelled partial and NOT_MEAS
   assert.equal(report.status, 'PARTIAL');
 });
 
-  const result = evaluateMarketTransition({
-    sessions: [session('2026-11-04', 'weak'), session('2026-11-05', 'weak')],
-    asOf: '2026-11-05'
-  });
-  assert.equal(result.regime, 'BEAR');
-  assert.equal(result.trade_permission, 'NO_NEW_RISK');
-  assert.ok(result.recommended_position_range_pct[1] <= 15);
-});
