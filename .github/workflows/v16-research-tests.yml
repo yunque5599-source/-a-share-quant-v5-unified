@@ -10,6 +10,7 @@ on:
       - 'index_V16_MARKET_SHADOW.html'
       - 'tests/v16_market_system.test.js'
       - 'tests/v16_market_context.test.js'
+      - 'tests/v16_narrative_theme.test.js'
       - '.github/workflows/v16-research-tests.yml'
   pull_request:
     branches:
@@ -37,8 +38,9 @@ jobs:
           node --check research/v16/sector_rotation.js
           node --check research/v16/decision_overlay.js
           node --check research/v16/replay.js
+          node --check research/v16/narrative_theme.js
           node --check api/v16_market_context.js
           node -e "const fs=require('node:fs');const h=fs.readFileSync('index_V16_MARKET_SHADOW.html','utf8');const m=h.match(/<script type=\\\"module\\\">([\\s\\S]*?)<\\/script>/);if(!m)throw Error('V16 module script not found');fs.writeFileSync('/tmp/v16-shadow.mjs',m[1]);"
           node --check /tmp/v16-shadow.mjs
       - name: Run V16 deterministic tests
-        run: node --test tests/v16_market_system.test.js tests/v16_market_context.test.js
+        run: node --test tests/v16_market_system.test.js tests/v16_market_context.test.js tests/v16_narrative_theme.test.js
