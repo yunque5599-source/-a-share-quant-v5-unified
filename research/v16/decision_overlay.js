@@ -25,7 +25,8 @@ export function buildV16DecisionOverlay({market = null, overnight = null, sector
     ? candidate.nameThemeKeys.map(String) : extractNarrativeTags(candidate.name);
   const narrativeRows = Array.isArray(narrative?.themes) ? narrative.themes : [];
   const matchedNarrativeThemes = narrativeRows.filter(row => candidateThemeKeys.includes(String(row.theme_key))
-    && num(row.member_count) >= 2 && row.stage !== 'INACTIVE' && row.status !== 'INSUFFICIENT_MEMBERS');
+    && num(row.member_count) >= 2 && num(row.confidence) >= 50
+    && row.stage !== 'INACTIVE' && row.stage !== 'INSUFFICIENT_COVERAGE' && row.status !== 'INSUFFICIENT_MEMBERS');
   const narrativeHeatValues = matchedNarrativeThemes.map(row => num(row.name_theme_heat_score)).filter(Number.isFinite);
   const narrativeDiffusionValues = matchedNarrativeThemes.map(row => num(row.theme_diffusion_speed)).filter(Number.isFinite);
   const narrativeConcentrationValues = matchedNarrativeThemes.map(row => num(row.leader_concentration)).filter(Number.isFinite);
