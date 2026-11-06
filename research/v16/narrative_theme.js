@@ -97,7 +97,7 @@ function snapshotThemeMetrics(snapshot, theme, definitions = DEFAULT_NAME_THEME_
     strongRatio,
     nearLimitRatio,
     medianReturn,
-    leaderConcentration: totalAmount > 0 ? top3Amount / totalAmount : null,
+    leaderConcentration: totalAmount > 0 ? amounts[0] / totalAmount : null,
     heatScore: heat === null ? null : Number(clamp(heat).toFixed(2)),
     sourceScope: snapshot?.sourceScope ?? 'unknown'
   };
@@ -146,7 +146,7 @@ function verifiedFundamentalOverlap(theme, stocks, evidence, asOf) {
 }
 
 function exhaustionRisk({history, theme, current, previous, median3d, median5d}) {
-  if (history.length < 3 || median3d === null) {
+  if (history.length < 3 || median3d === null || !history.slice(-3).every(snapshot => snapshot?.sourceScope === 'full-market')) {
     return {score: null, status: 'NOT_MEASURABLE', components: {}};
   }
   const parts = [];
@@ -210,7 +210,8 @@ export function scoreNarrativeThemes({
   const themes = definitions.map(theme => {
     const current = latest ? snapshotThemeMetrics(latest, theme, definitions) : snapshotThemeMetrics({}, theme, definitions);
     const previous = previousSnapshot ? snapshotThemeMetrics(previousSnapshot, theme, definitions) : null;
-    const diffusionDelta = previous && previous.memberCount > 0 && current.advancersRatio !== null && previous.advancersRatio !== null
+    const comparableFullMarketSnapshots = current.sourceScope === 'full-market' && previous?.sourceScope === 'full-market';
+    const diffusionDelta = comparableFullMarketSnapshots && previous && previous.memberCount > 0 && current.advancersRatio !== null && previous.advancersRatio !== null
       ? current.advancersRatio - previous.advancersRatio
       : null;
     const activeCountDelta = previous ? current.activeCount - previous.activeCount : null;
