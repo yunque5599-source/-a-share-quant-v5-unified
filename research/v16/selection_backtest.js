@@ -171,6 +171,7 @@ function summarize(values) {
   };
 }
 function buildCohortMetric(signal,history,signalIndex,selected,horizon) {
+  if(!selected.length)return {status:'NOT_MEASURABLE',horizon,selectedCount:0,maturedCount:0};
   const future=history.slice(signalIndex,signalIndex+horizon+1);
   if(future.length!==horizon+1)return {status:'IMMATURE',horizon,selectedCount:selected.length,maturedCount:0};
   for(let i=1;i<future.length;i++){
@@ -226,12 +227,16 @@ export function evaluateV15TopKForwardReturns({snapshots=[],asOf=null,topKs=[10,
     .filter(snapshot=>snapshot&&/^\d{4}-\d{2}-\d{2}$/.test(String(snapshot.tradeDate??''))
       &&(!cutoff||snapshot.tradeDate<=cutoff))
     .sort((a,b)=>a.tradeDate.localeCompare(b.tradeDate));
-  const uniqueByDate=new Map();
+  const groupedByDate=new Map();
   for(const snapshot of ordered){
-    const existing=uniqueByDate.get(snapshot.tradeDate);
-    if(!existing||Date.parse(snapshot.capturedAt??'')<Date.parse(existing.capturedAt??''))uniqueByDate.set(snapshot.tradeDate,snapshot);
+    if(!groupedByDate.has(snapshot.tradeDate))groupedByDate.set(snapshot.tradeDate,[]);
+    groupedByDate.get(snapshot.tradeDate).push(snapshot);
   }
-  const history=[...uniqueByDate.values()];
+  const history=[...groupedByDate.values()].map(group=>{
+    const qualified=group.filter(snapshot=>snapshot.quality?.qualifiedForReplay===true&&snapshot.sourceScope==='full-market');
+    const candidates=qualified.length?qualified:group;
+    return candidates.slice().sort((a,b)=>Date.parse(a.capturedAt??'')-Date.parse(b.capturedAt??''))[0];
+  });
   const eligibleSignals=history.map((snapshot,index)=>({snapshot,index}))
     .filter(({snapshot})=>snapshot.quality?.qualifiedForReplay===true&&snapshot.sourceScope==='full-market'
       &&Array.isArray(snapshot.stockRows)&&snapshot.stockRows.length>=500);
@@ -284,6 +289,10 @@ export function evaluateV15TopKForwardReturns({snapshots=[],asOf=null,topKs=[10,
       };
     }
   }
+  const allHorizonSignalCounts=topKs.flatMap(topK=>horizons.map(horizon=>aggregate['top'+topK]['T+'+horizon].signalDateCount));
+  const minimumMaturedSignalDates=allHorizonSignalCounts.length?Math.min(...allHorizonSignalCounts):0;
+  const overallStatus=minimumMaturedSignalDates>=minSignalDates?'MEASURABLE'
+    :eligibleSignals.length?'PARTIAL':'NOT_MEASURABLE';
   return {
     schema:'ashare-v16-v15-topk-forward-backtest-v1',
     asOf:cutoff||history.at(-1)?.tradeDate||null,
@@ -300,7 +309,8 @@ export function evaluateV15TopKForwardReturns({snapshots=[],asOf=null,topKs=[10,
     },
     minimumSignalDatesForMetric:minSignalDates,
     promotionEligible:false,
-    status:eligibleSignals.length>=minSignalDates?'PARTIAL':'NOT_MEASURABLE',
+    status:overallStatus,
+    minimumMaturedSignalDates,
     aggregate,
     daily,
     limitations:[
