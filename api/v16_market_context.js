@@ -120,7 +120,7 @@ async function fetchMarketUniverse() {
     pageCount,
     failures,
     coverage: total ? byCode.size / total : 0,
-    complete: failures.length === 0 && pages.length === pageCount && byCode.size / total >= 0.95
+    complete: failures.length === 0 && pages.length === pageCount && byCode.size / total >= 0.99
   };
 }
 function limitPct(code, name) {
