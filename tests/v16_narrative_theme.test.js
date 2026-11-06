@@ -13,7 +13,7 @@ const sheepStocks = [
   ['600261','阳光照明'],
   ['002696','百洋股份'],
   ['002172','澳洋健康'],
-  ['600327','大东方']
+  ['002300','太阳电缆']
 ];
 
 test('lexical name-theme matching supports overlapping tags and avoids unrelated names', () => {
