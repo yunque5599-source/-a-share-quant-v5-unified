@@ -21,7 +21,8 @@ export function buildV16DecisionOverlay({market = null, overnight = null, sector
   const entryTiming = candidate.entryTiming ?? {};
   const entryTimingScore = num(entryTiming.entry_timing_score ?? entryTiming.score);
   const entryPass = entryTiming.pass === true;
-  const candidateThemeKeys = Array.isArray(candidate.nameThemeKeys) ? candidate.nameThemeKeys.map(String) : extractNarrativeTags(candidate.name);
+  const candidateThemeKeys = Array.isArray(candidate.nameThemeKeys) && candidate.nameThemeKeys.length
+    ? candidate.nameThemeKeys.map(String) : extractNarrativeTags(candidate.name);
   const narrativeRows = Array.isArray(narrative?.themes) ? narrative.themes : [];
   const matchedNarrativeThemes = narrativeRows.filter(row => candidateThemeKeys.includes(String(row.theme_key))
     && num(row.member_count) >= 2 && row.stage !== 'INACTIVE' && row.status !== 'INSUFFICIENT_MEMBERS');
