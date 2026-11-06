@@ -35,6 +35,8 @@ This is an isolated research layer. It does not modify production `index.html`, 
 | Next-day premium | Frozen signal-date list and matured next-session outcomes | NOT_MEASURABLE until matured |
 | Auction/first 15m/VWAP | Timestamped minute bars and sector/leader observations | NOT_MEASURABLE; daily close is not a substitute |
 | Policy/event risk | Verified event with source URL, timestamp, direction and severity | NOT_MEASURABLE |
+| Name-theme membership | Exact stock-name token match for 羊／洋／阳, 狼 and 东方 | `LEXICAL_MATCH_ONLY`; not verified industry membership |
+| Industry/concept theme membership | Verified point-in-time concept constituents | NOT_MEASURABLE until constituent data is supplied |
 | Name-theme heat | Current full-universe names, returns and turnover amounts | Partial if universe coverage is incomplete |
 | Theme diffusion | At least two comparable full-market snapshots with stable name/code observations | NOT_MEASURABLE without comparable full-market history |
 | Speculative exhaustion | At least three full-market snapshots and a common constituent cohort | NOT_MEASURABLE without full-market history |
