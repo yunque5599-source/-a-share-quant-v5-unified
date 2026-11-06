@@ -86,7 +86,31 @@ test('partial-universe observations reduce theme confidence', () => {
   assert.ok(partialScore < fullScore);
 });
 
+test('partial-market history cannot claim diffusion or exhaustion', () => {
+  const partialSnapshots = [
+    snapshot('2026-11-04',sheepStocks.map(([code,name])=>stock(code,name,12,100,true)),'partial-market'),
+    snapshot('2026-11-05',sheepStocks.map(([code,name])=>stock(code,name,12,100,true)),'partial-market'),
+    snapshot('2026-11-06',sheepStocks.map(([code,name])=>stock(code,name,-1,500,false)),'partial-market')
+  ];
+  const result = scoreNarrativeThemes({snapshots:partialSnapshots,asOf:'2026-11-06'});
+  const sheep = result.themes.find(row => row.theme_key === 'sheep_homophone');
+  assert.equal(sheep.theme_diffusion_speed,null);
+  assert.equal(sheep.speculative_exhaustion_risk,null);
+  assert.equal(sheep.speculative_exhaustion_status,'NOT_MEASURABLE');
+});
+
 test('future theme snapshots are excluded from an as-of replay', () => {
+  const result = scoreNarrativeThemes({
+    snapshots:[
+      snapshot('2026-11-06',[stock('002086','东方海洋',3)]),
+      snapshot('2026-11-07',[stock('002086','东方海洋',10)])
+    ],
+    asOf:'2026-11-06'
+  });
+  assert.equal(result.snapshot_count,1);
+  assert.equal(result.asOf,'2026-11-06');
+});
+
   const result = scoreNarrativeThemes({
     snapshots:[
       snapshot('2026-11-06',[stock('002086','东方海洋',3)]),
