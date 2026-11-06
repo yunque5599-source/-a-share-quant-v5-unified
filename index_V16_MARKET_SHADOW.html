@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#f5f7fb">
+<title>A股量化 V16 · 市场环境研究台</title>
+<style>
+:root{--bg:#f5f7fb;--card:#fff;--ink:#172033;--muted:#667085;--line:#e5eaf1;--green:#087f5b;--red:#c0392b;--amber:#9a6700;--blue:#2458a6}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}
+main{max-width:1080px;margin:0 auto;padding:22px 16px 60px}.hero{background:linear-gradient(135deg,#fff,#edf4ff);border:1px solid #dce7f8;border-radius:20px;padding:20px;margin-bottom:16px}
+h1{font-size:24px;margin:0 0 5px}.sub,.muted{color:var(--muted);font-size:13px}.actions{display:flex;gap:9px;flex-wrap:wrap;margin-top:14px}
+button{border:0;border-radius:12px;padding:11px 15px;font-weight:700;background:#e9eef6;color:#24324a;cursor:pointer}button.primary{background:#172033;color:#fff}button:disabled{opacity:.5;cursor:wait}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:17px;padding:16px;margin-bottom:14px;min-width:0}
+.metric span{display:block;color:var(--muted);font-size:12px}.metric strong{display:block;font-size:25px;margin:4px 0}.metric small{color:var(--muted);font-size:12px}
+.row{display:flex;gap:12px;align-items:center;justify-content:space-between;flex-wrap:wrap}.state{font-size:20px;font-weight:800}.pill{display:inline-block;border-radius:99px;padding:4px 9px;font-size:12px;font-weight:700;background:#eef2f7;color:#445066}
+.good{color:var(--green)}.bad{color:var(--red)}.warn{color:var(--amber)}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;padding:9px 7px;border-top:1px solid var(--line);vertical-align:top}th{color:var(--muted);font-weight:600}
+h2{font-size:17px;margin:0 0 10px}.note{background:#f3f6fb;border-radius:12px;padding:11px 12px;font-size:13px;color:#48566c;margin-top:10px}
+.status{font-size:13px;color:var(--muted);margin-top:8px}.status.error{color:var(--red)}
+@media(max-width:760px){.grid{grid-template-columns:repeat(2,minmax(0,1fr))}main{padding:14px 10px 40px}.card{padding:13px}h1{font-size:21px}}
+@media(max-width:420px){.grid{grid-template-columns:1fr 1fr}.metric strong{font-size:21px}table{font-size:12px}th,td{padding:8px 5px}}
+</style>
+</head>
+<body>
+<main>
+  <section class="hero">
+    <div class="row">
+      <div>
+        <h1>A股量化 V16 · 市场环境研究台</h1>
+        <div class="sub">市场强弱 / 弱转强 / 隔夜美股行业映射 / 行业轮动 · 研究影子版</div>
+      </div>
+      <span class="pill">RESEARCH ONLY</span>
+    </div>
+    <p>先判断市场，再判断行业，最后评估个股买点。市场机会评分与买入时机评分相互独立。本页面不下单，不替代人工风险控制。</p>
+    <div class="actions">
+      <button class="primary" id="refreshBtn">刷新市场数据</button>
+      <button id="exportBtn" disabled>导出本次快照</button>
+    </div>
+    <div id="status" class="status">正在读取行情源……</div>
+  </section>
+
+  <section class="grid">
+    <div class="card metric"><span>市场状态</span><strong id="regime">—</strong><small id="permission">等待数据</small></div>
+    <div class="card metric"><span>市场强弱评分</span><strong id="regimeScore">—</strong><small id="confidence">数据置信度 —</small></div>
+    <div class="card metric"><span>弱转强评分</span><strong id="transitionScore">—</strong><small id="transitionStage">尚未确认</small></div>
+    <div class="card metric"><span>市场反转风险</span><strong id="reversalRisk">—</strong><small id="positionRange">仓位区间 —</small></div>
+  </section>
+
+  <section class="card">
+    <h2>一、A股指数与市场广度</h2>
+    <div id="sessionInfo" class="muted">—</div>
+    <div style="overflow:auto"><table><thead><tr><th>指数</th><th>涨跌幅</th><th>5日趋势</th><th>20日趋势</th><th>均线状态</th></tr></thead><tbody id="indexRows"></tbody></table></div>
+    <div id="breadthInfo" class="note">市场广度尚未取得。</div>
+    <div id="regimeWarnings" class="status"></div>
+  </section>
+
+  <section class="card">
+    <h2>二、隔夜美股科技强弱</h2>
+    <div id="usInfo" class="muted">—</div>
+    <div style="overflow:auto"><table><thead><tr><th>因子</th><th>评分</th><th>含义</th></tr></thead><tbody id="usRows"></tbody></table></div>
+    <div class="note">评分50为中性。纳指、半导体、AI基础设施、存储和云平台分别计算，不把纳指涨跌直接等同于所有A股科技行业。</div>
+  </section>
+
+  <section class="card">
+    <h2>三、A股产业链隔夜映射</h2>
+    <div style="overflow:auto"><table><thead><tr><th>行业</th><th>隔夜影响</th><th>映射置信度</th><th>A股开盘确认</th></tr></thead><tbody id="industryRows"></tbody></table></div>
+    <div class="note">当前接口没有集合竞价、前15分钟、分时均价线和盘口撤单历史，因此开盘承接状态应显示 NOT_MEASURABLE。只有取得真实分钟数据后，才允许用低开修复信号覆盖隔夜风险。</div>
+  </section>
+
+  <section class="card">
+    <h2>四、A股行业轮动与获利盘风险</h2>
+    <div style="overflow:auto"><table><thead><tr><th>行业</th><th>持续性</th><th>轮动加速度</th><th>获利盘风险</th><th>机会评分</th></tr></thead><tbody id="sectorRows"></tbody></table></div>
+    <div class="note">行业数据来自成分股行业归类代理，不等于CPO、液冷、机器人等概念成分股的完整映射。首次采集没有前一日快照时，轮动加速度不测算。</div>
+  </section>
+
+  <section class="card">
+    <h2>五、名称题材与情绪扩散</h2>
+    <div style="overflow:auto"><table><thead><tr><th>名称题材</th><th>成分数</th><th>热度</th><th>扩散速度</th><th>龙头集中度</th><th>基本面重合</th><th>退潮风险</th><th>阶段</th></tr></thead><tbody id="narrativeRows"></tbody></table></div>
+    <div class="note">仅按股票简称中的“羊／洋／阳”“狼”“东方”进行词面匹配，不代表行业关联或基本面利好。热度只提高观察优先级，不提高机会评分；连续快照不足时，扩散速度和退潮风险显示为不可测。高退潮风险会阻断候选买入许可。</div>
+  </section>
+
+  <section class="card">
+    <h2>六、服务器历史样本与 Top10/30/50 回测</h2>
+    <div class="actions"><button id="backtestBtn">读取服务器归档并回测</button></div>
+    <div id="backtestStatus" class="status">服务器归档尚未连接；需要私有 Blob 存储和 CRON_SECRET 配置。</div>
+    <div style="overflow:auto"><table><thead><tr><th>候选池</th><th>周期</th><th>成熟信号日</th><th>样本覆盖</th><th>平均收益</th><th>超额收益</th><th>胜率</th><th>涨停代理捕捉率</th><th>状态</th></tr></thead><tbody id="backtestRows"><tr><td colspan="9">等待服务器回测</td></tr></tbody></table></div>
+    <div class="note">当前回测复原的是 V15 六因子预筛 Stage-1 排名，不是最终深度K线/资金/新闻评分。收益按信号日收盘至未来交易日收盘复利计算，不扣手续费与滑点，也不模拟真实成交、涨停封单或T+1卖出约束。至少20个合格信号日才标记为可测；不代表可以上线。</div>
+  </section>
+
+  <section class="card">
+    <h2>七、数据能力与限制</h2>
+    <div style="overflow:auto"><table><thead><tr><th>指标</th><th>状态</th></tr></thead><tbody id="capabilityRows"></tbody></table></div>
+    <div class="note">历史快照保存在当前浏览器本地，最多保留30个交易日。更换设备、清除浏览器数据或使用不同浏览器后，历史连续性会中断。要做正式回测，必须把原始行情和采集时间归档到服务器。</div>
+  </section>
+  <div class="muted">V16 shadow build · 不修改生产一键选股，不产生交易指令。</div>
+</main>
+<script type="module">
+import {evaluateMarketTransition} from './research/v16/market_transition.js';
+import {evaluateOvernightGlobalImpact} from './research/v16/overnight_global_impact.js';
+import {scoreSectorRotation} from './research/v16/sector_rotation.js';
+import {scoreNarrativeThemes} from './research/v16/narrative_theme.js';
+
+const $ = id => document.getElementById(id);
+const MARKET_KEY = 'ashare_v16_final_market_snapshots_v1';
+const OVERNIGHT_KEY = 'ashare_v16_overnight_snapshots_v1';
+let latestExport = null;
+let busy = false;
+
+function loadRows(key) {
+  try {
+    const value = JSON.parse(localStorage.getItem(key) || '[]');
+    return Array.isArray(value) ? value.filter(Boolean) : [];
+  } catch { return []; }
+}
+function saveRows(key, rows) {
+  try { localStorage.setItem(key, JSON.stringify(rows.slice(-30))); } catch {}
+}
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+}
+function pct(value) {
+  return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? Number(value).toFixed(2) + '%' : '—';
+}
+function score(value) {
+  return value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? Number(value).toFixed(1) : '—';
+}
+function ratioOf(rows, key) {
+  const valid = rows.map(row => row[key] === null || row[key] === undefined || row[key] === '' ? NaN : Number(row[key])).filter(Number.isFinite);
+  return valid.length ? valid.filter(value => value > 0.5).length / valid.length : null;
+}
+function enrichSectors(context, marketHistory, tradeDate) {
+  const previous = marketHistory.filter(row => row.tradeDate < tradeDate).at(-1) ?? null;
+  const previousByKey = new Map((previous?.sectors ?? []).map(row => [row.key, row]));
+  const sectors = (context.aShare.sectors ?? []).map(row => ({
+    ...row,
+    previousDayReturnPct: previousByKey.get(row.key)?.d1Pct ?? null,
+    topSectorRepeatDays: 0
+  }));
+  const topKey = sectors[0]?.key ?? null;
+  let repeatDays = 0;
+  for (const old of [...marketHistory].reverse()) {
+    if (old.tradeDate >= tradeDate) continue;
+    if (old.sectors?.[0]?.key === topKey) repeatDays += 1;
+    else break;
+  }
+  sectors.forEach(row => { row.topSectorRepeatDays = row.key === topKey ? repeatDays : 0; });
+  return {sectors, previous};
+}
+function buildMarketSnapshot(context, marketHistory) {
+  const tradeDate = context.aShareSessionDate;
+  const {sectors, previous} = enrichSectors(context, marketHistory, tradeDate);
+  const leaderStrengths = sectors
+    .map(row => row.leaderRelativeStrengthPct === null || row.leaderRelativeStrengthPct === undefined ? NaN : Number(row.leaderRelativeStrengthPct))
+    .filter(Number.isFinite);
+  const marketSession = {
+    date: tradeDate,
+    breadth: context.aShare.breadth,
+    indices: context.aShare.indices,
+    turnover: {
+      amountCny: context.aShare.turnover?.amountCny ?? null,
+      previousAmountCny: previous?.turnover?.amountCny ?? null
+    },
+    sentiment: context.aShare.sentiment,
+    sectors: {
+      breadthRatio: ratioOf(sectors, 'advancersRatio'),
+      positiveFlowRatio: ratioOf(sectors, 'positiveFlowRatio'),
+      topSectorRepeatDays: sectors.length ? sectors[0].topSectorRepeatDays : 0,
+      leaderRelativeStrengthPct: leaderStrengths.length ? Math.max(...leaderStrengths) : null,
+      sourceScope: 'industry-constituent-proxy'
+    },
+    leaders: context.aShare.leaders ?? []
+  };
+  return {
+    tradeDate,
+    capturedAt: context.capturedAt,
+    market: marketSession,
+    marketSummary: {d1Pct: context.aShare.indices.find(row => row.key === 'shanghai')?.changePct ?? null},
+    turnover: context.aShare.turnover,
+    sectors,
+    narrativeStocks: context.aShare.narrativeStocks ?? [],
+    narrativeSourceScope: context.aShare.narrativeSourceScope ?? context.aShare.breadth?.universe ?? 'unknown'
+  };
+}
+function regimeLabel(value) {
+  return ({BEAR:'弱势',TRANSITION:'弱转强观察',BULL:'强势',DISTRIBUTION:'强转弱/退潮'})[value] ?? value ?? '—';
+}
+function renderTable(id, rows) {
+  $(id).innerHTML = rows.join('') || '<tr><td colspan="6">暂无可用数据</td></tr>';
+}
+async function loadServerBacktest() {
+  const button = $('backtestBtn');
+  button.disabled = true;
+  $('backtestStatus').textContent = '正在读取私有服务器归档并计算 Top-K 前向收益……';
+  try {
+    const response = await fetch('/api/v16_backtest?days=120', {cache:'no-store'});
+    const body = await response.json();
+    if (!response.ok) throw new Error(body?.error || body?.status || ('HTTP ' + response.status));
+    const report = body.report;
+    const rows = [];
+    for (const topK of [10,30,50]) {
+      for (const horizon of [1,3,5]) {
+        const metric = report.aggregate?.['top' + topK]?.['T+' + horizon] ?? {};
+        rows.push('<tr><td>Top' + topK + '</td><td>T+' + horizon + '</td><td>' + (metric.signalDateCount ?? 0) + '</td><td>' + pct((metric.sampleCoverage ?? 0) * 100) + '</td><td>' + pct(metric.meanReturnPct) + '</td><td>' + pct(metric.meanExcessPct) + '</td><td>' + pct((metric.positiveRatio ?? 0) * 100) + '</td><td>' + pct((metric.nearLimitUpProxyCaptureRate ?? 0) * 100) + '</td><td>' + escapeHtml(metric.status ?? 'NOT_MEASURABLE') + '</td></tr>');
+      }
+    }
+    $('backtestRows').innerHTML = rows.join('');
+    $('backtestStatus').textContent = '服务器归档 ' + body.archive.blobCount + ' 个文件；成功读取 ' + body.archive.loadedSnapshotCount + ' 个交易日快照；信号日期 ' + report.eligibleSignalDates + ' 个；回测截至 ' + (report.asOf ?? '—') + '。研究状态：' + report.status + '；生产资格：否。';
+  } catch (error) {
+    $('backtestStatus').className = 'status error';
+    $('backtestStatus').textContent = '服务器回测不可用：' + String(error?.message ?? error) + '。请先配置私有 Blob 存储及归档任务。';
+    $('backtestRows').innerHTML = '<tr><td colspan="9">暂无服务器历史样本</td></tr>';
+  } finally {
+    button.disabled = false;
+  }
+}
+async function refresh() {
+  if (busy) return;
+  busy = true;
+  $('refreshBtn').disabled = true;
+  $('status').className = 'status';
+  $('status').textContent = '正在获取A股全市场、指数及隔夜美股数据……';
+  try {
+    const response = await fetch('/api/v16_market_context?refresh=' + Date.now(), {cache:'no-store'});
+    const context = await response.json();
+    if (!response.ok || context.status === 'SOURCE_UNAVAILABLE') throw new Error(context.error || '行情源不可用');
+    const marketHistory = loadRows(MARKET_KEY).sort((a,b)=>a.tradeDate.localeCompare(b.tradeDate));
+    const overnightHistory = loadRows(OVERNIGHT_KEY).sort((a,b)=>a.targetDate.localeCompare(b.targetDate));
+    const sessionIsFinal = context.aShare.dataStatus !== 'INTRADAY_PROVISIONAL' && Boolean(context.aShareSessionDate);
+    let storedMarketHistory = marketHistory;
+    let marketSnapshot = marketHistory.find(row => row.tradeDate === context.aShareSessionDate) ?? null;
+    if (sessionIsFinal) {
+      marketSnapshot = buildMarketSnapshot(context, marketHistory);
+      storedMarketHistory = marketHistory.filter(row => row.tradeDate !== marketSnapshot.tradeDate);
+      storedMarketHistory.push(marketSnapshot);
+      storedMarketHistory.sort((a,b)=>a.tradeDate.localeCompare(b.tradeDate));
+      saveRows(MARKET_KEY, storedMarketHistory);
+    }
+    const overnightSnapshot = {
+      targetDate: context.chinaCalendarDate,
+      capturedAt: context.capturedAt,
+      us: context.us
+    };
+    const storedOvernightHistory = overnightHistory.filter(row => row.targetDate !== overnightSnapshot.targetDate);
+    storedOvernightHistory.push(overnightSnapshot);
+    storedOvernightHistory.sort((a,b)=>a.targetDate.localeCompare(b.targetDate));
+    saveRows(OVERNIGHT_KEY, storedOvernightHistory);
+
+    const marketAsOf = storedMarketHistory.at(-1)?.tradeDate ?? null;
+    const market = evaluateMarketTransition({
+      sessions: storedMarketHistory.map(row => row.market),
+      asOf: marketAsOf
+    });
+    const overnight = evaluateOvernightGlobalImpact({us: context.us});
+    const displaySectors = sessionIsFinal && marketSnapshot
+      ? marketSnapshot.sectors
+      : enrichSectors(context, storedMarketHistory, context.aShareSessionDate).sectors;
+    const previousMarket = storedMarketHistory.filter(row => row.tradeDate < context.aShareSessionDate).at(-1) ?? null;
+    const sector = scoreSectorRotation({
+      sectors: displaySectors,
+      previousSectors: previousMarket?.sectors ?? [],
+      market: {d1Pct: context.aShare.indices.find(row => row.key === 'shanghai')?.changePct ?? null}
+    });
+    const narrative = scoreNarrativeThemes({
+      snapshots: storedMarketHistory.map(row => ({
+        tradeDate: row.tradeDate,
+        capturedAt: row.capturedAt,
+        sourceScope: row.narrativeSourceScope ?? row.market?.breadth?.universe ?? 'unknown',
+        stocks: row.narrativeStocks ?? []
+      })),
+      asOf: marketAsOf
+    });
+
+    $('regime').textContent = regimeLabel(market.regime);
+    $('regime').className = market.regime === 'BULL' ? 'good' : market.regime === 'BEAR' || market.regime === 'DISTRIBUTION' ? 'bad' : 'warn';
+    $('permission').textContent = market.trade_permission;
+    $('regimeScore').textContent = score(market.market_regime_score);
+    $('confidence').textContent = '数据置信度 ' + score(market.confidence) + ' · 覆盖 ' + score(market.coverage * 100) + '%';
+    $('transitionScore').textContent = score(market.market_transition_score);
+    $('transitionStage').textContent = market.transition_stage + ' · 改善因子 ' + market.improving_component_count;
+    $('reversalRisk').textContent = score(market.market_reversal_risk);
+    $('positionRange').textContent = '参考总仓位区间 ' + market.recommended_position_range_pct.join('%—') + '%';
+
+    $('sessionInfo').textContent = 'A股最近交易日：' + context.aShareSessionDate + ' · 数据状态：' + context.aShare.dataStatus + ' · 中国时间：' + context.chinaLocalTime + ' · 市场状态评分截至：' + (marketAsOf ?? '无已归档收盘样本');
+    renderTable('indexRows', (context.aShare.indices ?? []).map(row => {
+      const ma = [row.aboveMa5 === true?'MA5上':row.aboveMa5===false?'MA5下':null,row.aboveMa10===true?'MA10上':row.aboveMa10===false?'MA10下':null,row.aboveMa20===true?'MA20上':row.aboveMa20===false?'MA20下':null].filter(Boolean).join(' / ');
+      return '<tr><td>' + escapeHtml(row.name) + '</td><td>' + pct(row.changePct) + '</td><td>' + pct(row.trend5Pct) + '</td><td>' + pct(row.trend20Pct) + '</td><td>' + escapeHtml(ma || '数据不足') + '</td></tr>';
+    }));
+    const b = context.aShare.breadth;
+    $('breadthInfo').textContent = '上涨 ' + b.up + ' · 下跌 ' + b.down + ' · 平盘 ' + b.flat + ' · 上涨占比 ' + pct((b.upRatio ?? 0) * 100) + ' · 全市场覆盖 ' + pct(b.coverage * 100) + ' · 涨停/跌停为近似阈值代理，不含新股特殊规则。';
+    const warnings = [...(market.data_warnings ?? [])];
+    if (!sessionIsFinal) warnings.push('当前日线尚未最终确认；市场状态仅使用最近已完成交易日，不将盘中数据当作收盘信号。');
+    $('regimeWarnings').textContent = warnings.join('；') || '当前市场状态数据覆盖正常；仍需连续交易日确认。';
+
+    $('usInfo').textContent = '美股最近有效收盘：' + (context.us.asOf ?? '—') + ' · 隔夜映射目标中国日期：' + context.chinaCalendarDate + ' · 数据源可用 ' + context.us.source.available + '/' + context.us.source.requested;
+    const factors = [
+      ['半导体',overnight.us_semiconductor_strength],
+      ['AI基础设施',overnight.us_ai_infrastructure_strength],
+      ['大型科技股',overnight.us_mega_cap_tech_strength],
+      ['存储',overnight.us_memory_strength],
+      ['云平台',overnight.us_cloud_strength]
+    ];
+    renderTable('usRows', factors.map(([name,value]) => '<tr><td>' + name + '</td><td>' + score(value) + '</td><td>' + (value === null ? '数据不足' : value >= 58 ? '偏强' : value <= 42 ? '偏弱' : '中性') + '</td></tr>'));
+    const industries = Object.entries(overnight.industries ?? {}).map(([key,row]) =>
+      '<tr><td>' + escapeHtml(row.label) + '</td><td>' + score(row.overnight_impact_score) + ' · ' + escapeHtml(row.impact_classification) + '</td><td>' + score(row.industry_mapping_confidence) + '</td><td>' + escapeHtml(row.a_share_open_signal) + '</td></tr>'
+    );
+    renderTable('industryRows', industries);
+    renderTable('sectorRows', sector.sectors.slice(0,12).map(row =>
+      '<tr><td>' + escapeHtml(row.label) + '</td><td>' + score(row.sector_persistence_score) + '</td><td>' + score(row.sector_rotation_acceleration_score) + '</td><td>' + score(row.profit_taking_risk_score) + '</td><td>' + score(row.opportunity_score) + '</td></tr>'
+    ));
+    const narrativeRows = narrative.themes.filter(row => row.member_count > 0).map(row =>
+      '<tr><td>' + escapeHtml(row.theme_label) + '</td><td>' + row.member_count + '</td><td>' + score(row.name_theme_heat_score) + '</td><td>' + score(row.theme_diffusion_speed) + '</td><td>' + pct(row.leader_concentration) + '</td><td>' + score(row.fundamental_overlap_score) + '</td><td>' + score(row.speculative_exhaustion_risk) + '</td><td>' + escapeHtml(row.stage) + '</td></tr>'
+    );
+    $('narrativeRows').innerHTML = narrativeRows.join('') || '<tr><td colspan="8">暂无已归档的名称题材样本</td></tr>';
+    const capabilityRows = Object.entries(context.capabilities ?? {}).map(([key,value]) =>
+      '<tr><td>' + escapeHtml(key) + '</td><td>' + escapeHtml(value) + '</td></tr>'
+    );
+    renderTable('capabilityRows', capabilityRows);
+    latestExport = {
+      capturedAt: context.capturedAt,
+      chinaCalendarDate: context.chinaCalendarDate,
+      marketSnapshot: sessionIsFinal ? marketSnapshot : null,
+      overnightSnapshot,
+      narrative,
+      sourceContext: context,
+      marketHistory: storedMarketHistory,
+      overnightHistory: storedOvernightHistory
+    };
+    $('exportBtn').disabled = false;
+    $('status').textContent = (sessionIsFinal ? '已归档完整A股日线快照。' : 'A股日线为盘中/上一交易日数据，未新增收盘样本。')
+      + ' 市场快照 ' + storedMarketHistory.length + ' 个交易日；隔夜快照 ' + storedOvernightHistory.length + ' 个中国日期；名称题材历史 ' + narrative.snapshot_count + ' 个交易日。历史仅保存在当前浏览器。';
+  } catch (error) {
+    $('status').className = 'status error';
+    $('status').textContent = '数据读取失败：' + String(error.message || error);
+  } finally {
+    busy = false;
+    $('refreshBtn').disabled = false;
+  }
+}
+$('refreshBtn').addEventListener('click', refresh);
+$('backtestBtn').addEventListener('click', loadServerBacktest);
+$('exportBtn').addEventListener('click', () => {
+  if (!latestExport) return;
+  const blob = new Blob([JSON.stringify(latestExport,null,2)],{type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = 'v16-market-snapshot-' + latestExport.chinaCalendarDate + '.json';
+  link.click();
+  URL.revokeObjectURL(url);
+});
+refresh();
+</script>
+</body>
+</html>
