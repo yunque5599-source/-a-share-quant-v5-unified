@@ -80,7 +80,7 @@ test('Yahoo data with only one eligible prior session is NOT_MEASURABLE', () => 
 test('A-share context exports lexical name-theme observations without assigning industry logic', () => {
   const result = summarizeMarketUniverse({
     rows: [
-      {f12:'002086',f14:'东方海洋',f3:10,f6:100000,f8:12,f100:'渔业'},
+      {f12:'002086',f14:'东方海洋',f2:10.5,f3:10,f6:100000,f8:12,f15:10.6,f16:9.8,f17:9.9,f18:9.55,f20:3000000000,f21:2500000000,f24:15,f25:20,f62:500000,f184:8,f100:'渔业',f124:1793952000},
       {f12:'002029',f14:'七匹狼',f3:3,f6:50000,f8:5,f100:'服装'},
       {f12:'600261',f14:'阳光照明',f3:-2,f6:40000,f8:4,f100:'照明'},
       {f12:'600005',f14:'*ST阳光',f3:5,f6:20000,f8:2,f100:'其他'},
@@ -97,4 +97,15 @@ test('A-share context exports lexical name-theme observations without assigning 
   assert.equal(byCode.get('600005').eligibleForTrading,false);
   assert.equal(byCode.get('002086').industry,'渔业');
   assert.equal(result.narrativeSourceScope,'full-market');
+  const archived = result.stockRows.find(row => row.code === '002086');
+  assert.equal(archived.price,10.5);
+  assert.equal(archived.open,9.9);
+  assert.equal(archived.high,10.6);
+  assert.equal(archived.low,9.8);
+  assert.equal(archived.prevClose,9.55);
+  assert.equal(archived.pct60,15);
+  assert.equal(archived.mainNet,500000);
+  assert.equal(archived.mainPct,8);
+  assert.equal(archived.industry,'渔业');
+  assert.equal(archived.mainBoard,true);
 });
