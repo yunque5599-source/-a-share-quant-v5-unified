@@ -4,7 +4,7 @@ import {rankV15Stage1Candidates,evaluateV15TopKForwardReturns} from '../research
 
 const dates=['2026-10-26','2026-10-27','2026-10-28','2026-10-29','2026-10-30','2026-11-02','2026-11-03'];
 function rowsFor(dayIndex,{eventCode=null,partialCode=null}={}) {
-  return Array.from({length:60},(_,i)=>{
+  return Array.from({length:500},(_,i)=>{
     const code=String(600000+i).padStart(6,'0');
     let pct=dayIndex===0?1+(59-i)*0.01:1;
     if(eventCode===code&&dayIndex===1)pct=10;
@@ -31,10 +31,10 @@ function makeSnapshots({eventCode='600000',partialFuture=false}={}) {
 test('V15 stage-one reconstruction creates deterministic Top10/30/50 from full-market rows',()=>{
   const result=rankV15Stage1Candidates(rowsFor(0),[{key:'shanghai',changePct:1.2}]);
   assert.equal(result.status,'AVAILABLE');
-  assert.equal(result.sourceRows,60);
-  assert.equal(result.rankedPoolCount,60);
-  assert.equal(result.hardFilteredCount,60);
-  assert.equal(result.candidates.length,60);
+  assert.equal(result.sourceRows,500);
+  assert.equal(result.rankedPoolCount,300);
+  assert.equal(result.hardFilteredCount,300);
+  assert.equal(result.candidates.length,300);
   assert.ok(result.candidates[0].stage1Score>result.candidates.at(-1).stage1Score);
   assert.equal(result.candidates[0].code,'600000');
   assert.ok(result.candidates[0].rankHits>=5);
