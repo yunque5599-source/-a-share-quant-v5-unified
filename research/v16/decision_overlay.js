@@ -9,7 +9,7 @@ function findSector(sectorResult, key) {
     ?? null;
 }
 
-export function buildV16DecisionOverlay({market = null, overnight = null, sectorRotation = null, candidate = {}} = {}) {
+export function buildV16DecisionOverlay({market = null, overnight = null, sectorRotation = null, narrative = null, candidate = {}} = {}) {
   const industryKey = String(candidate.industryKey ?? candidate.industry ?? '');
   const sector = candidate.sectorOpportunity ?? findSector(sectorRotation, industryKey);
   const industryImpact = overnight?.industries?.[industryKey] ?? null;
@@ -19,6 +19,24 @@ export function buildV16DecisionOverlay({market = null, overnight = null, sector
   const entryTiming = candidate.entryTiming ?? {};
   const entryTimingScore = num(entryTiming.entry_timing_score ?? entryTiming.score);
   const entryPass = entryTiming.pass === true;
+  const candidateThemeKeys = Array.isArray(candidate.nameThemeKeys) ? candidate.nameThemeKeys.map(String) : [];
+  const narrativeRows = Array.isArray(narrative?.themes) ? narrative.themes : [];
+  const matchedNarrativeThemes = narrativeRows.filter(row => candidateThemeKeys.includes(String(row.theme_key)));
+  const narrativeHeatValues = matchedNarrativeThemes.map(row => num(row.name_theme_heat_score)).filter(Number.isFinite);
+  const narrativeDiffusionValues = matchedNarrativeThemes.map(row => num(row.theme_diffusion_speed)).filter(Number.isFinite);
+  const narrativeConcentrationValues = matchedNarrativeThemes.map(row => num(row.leader_concentration)).filter(Number.isFinite);
+  const narrativeFundamentalValues = matchedNarrativeThemes.map(row => num(row.fundamental_overlap_score)).filter(Number.isFinite);
+  const narrativeExhaustionValues = matchedNarrativeThemes
+    .filter(row => row.speculative_exhaustion_status === 'MEASURABLE')
+    .map(row => num(row.speculative_exhaustion_risk)).filter(Number.isFinite);
+  const narrativeHeat = narrativeHeatValues.length ? Math.max(...narrativeHeatValues) : null;
+  const narrativeDiffusion = narrativeDiffusionValues.length ? Math.max(...narrativeDiffusionValues) : null;
+  const narrativeConcentration = narrativeConcentrationValues.length ? Math.max(...narrativeConcentrationValues) : null;
+  const narrativeFundamental = narrativeFundamentalValues.length ? Math.max(...narrativeFundamentalValues) : null;
+  const narrativeExhaustion = narrativeExhaustionValues.length ? Math.max(...narrativeExhaustionValues) : null;
+  const attentionPriority = candidateStrength !== null && narrativeHeat !== null
+    ? clamp(candidateStrength * 0.70 + narrativeHeat * 0.30)
+    : candidateStrength ?? narrativeHeat;
   const opportunityParts = [];
   if (candidateStrength !== null) opportunityParts.push([candidateStrength, 0.45]);
   if (sectorScore !== null) opportunityParts.push([sectorScore, 0.35]);
@@ -50,6 +68,9 @@ export function buildV16DecisionOverlay({market = null, overnight = null, sector
   } else if (confidence < 45 || opportunityScore === null || marketPermission === 'WAIT_FOR_DATA') {
     decision = 'WAIT_FOR_DATA';
     reasons.push('market-confidence-or-opportunity-data-insufficient');
+  } else if (narrativeExhaustion !== null && narrativeExhaustion >= 75) {
+    decision = 'WAIT_FOR_NARRATIVE_EXHAUSTION';
+    reasons.push('measured-name-theme-speculative-exhaustion-risk-high');
   } else if (!entryPass) {
     decision = 'WAIT_FOR_ENTRY';
     reasons.push('entry-timing-not-confirmed');
@@ -93,6 +114,13 @@ export function buildV16DecisionOverlay({market = null, overnight = null, sector
     overnight_industry_impact_score: overnightScore,
     overnight_impact_classification: impactClass,
     industry_mapping_confidence: mappingConfidence,
+    name_theme_heat_score: narrativeHeat,
+    theme_diffusion_speed: narrativeDiffusion,
+    leader_concentration: narrativeConcentration,
+    fundamental_overlap_score: narrativeFundamental,
+    speculative_exhaustion_risk: narrativeExhaustion,
+    attention_priority_score: attentionPriority === null ? null : Number(attentionPriority.toFixed(2)),
+    narrative_theme_keys: candidateThemeKeys,
     a_share_open_signal: openSignal,
     decision,
     buy_permission: buyPermission,
