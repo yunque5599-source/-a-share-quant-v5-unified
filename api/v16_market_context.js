@@ -186,6 +186,7 @@ export function summarizeMarketUniverse(universe) {
       amount: num(row?.f6),
       turnoverPct: num(row?.f8),
       industry: String(row?.f100 ?? ''),
+      eligibleForTrading: !/(?:\\*?ST|退)/i.test(name),
       nearLimitUpProxy: pct !== null && pct >= limitPct(code, name) - 0.15
     };
   }).filter(Boolean);
