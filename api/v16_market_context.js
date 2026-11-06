@@ -9,7 +9,7 @@ const EM_HOSTS = [
   'https://89.push2.eastmoney.com'
 ];
 const MARKET_FS = 'm:0+t:6,m:0+t:80,m:1+t:2,m:1+t:23,m:0+t:81+s:2048';
-const MARKET_FIELDS = 'f12,f14,f2,f3,f6,f8,f10,f62,f100,f124';
+const MARKET_FIELDS = 'f12,f14,f2,f3,f5,f6,f8,f9,f10,f15,f16,f17,f18,f20,f21,f23,f24,f25,f62,f100,f124,f184';
 const INDEXES = [
   {key: 'shanghai', name: '上证指数', secid: '1.000001'},
   {key: 'shenzhen', name: '深证成指', secid: '0.399001'},
@@ -92,6 +92,7 @@ async function fetchMarketPage(page, pageSize = 500) {
   throw lastError ?? new Error('market data source unavailable');
 }
 async function fetchMarketUniverse() {
+  const collectionStartedAt = new Date().toISOString();
   const pageSize = 500;
   const first = await fetchMarketPage(1, pageSize);
   const total = Number(first?.data?.total) || 0;
@@ -120,7 +121,9 @@ async function fetchMarketUniverse() {
     pageCount,
     failures,
     coverage: total ? byCode.size / total : 0,
-    complete: failures.length === 0 && pages.length === pageCount && byCode.size / total >= 0.99
+    complete: failures.length === 0 && pages.length === pageCount && byCode.size / total >= 0.99,
+    collectionStartedAt,
+    collectionFinishedAt: new Date().toISOString()
   };
 }
 function limitPct(code, name) {
@@ -190,6 +193,22 @@ export function summarizeMarketUniverse(universe) {
       nearLimitUpProxy: pct !== null && pct >= limitPct(code, name) - 0.15
     };
   }).filter(Boolean);
+  const stockRows = rows.map(row => {
+    const code = String(row?.f12 ?? '');
+    const name = String(row?.f14 ?? code);
+    const timestamp = num(row?.f124);
+    const timestampMs = timestamp === null ? null : timestamp > 1e12 ? timestamp : timestamp * 1000;
+    return {
+      code,name,
+      price:num(row?.f2),pct:num(row?.f3),amount:num(row?.f6),turn:num(row?.f8),
+      mcap:num(row?.f20),floatCap:num(row?.f21),pct60:num(row?.f24),ytd:num(row?.f25),
+      mainNet:num(row?.f62),mainPct:num(row?.f184),industry:String(row?.f100 ?? '行业未知'),
+      open:num(row?.f17),high:num(row?.f15),low:num(row?.f16),prevClose:num(row?.f18),
+      quoteAt:timestampMs && Number.isFinite(timestampMs) ? new Date(timestampMs).toISOString() : null,
+      specialTreatment:/(?:\\*?ST|退)/i.test(name),
+      mainBoard:/^(00|60)\\d{4}$/.test(code)
+    };
+  }).filter(row => /^\\d{6}$/.test(row.code));
   const sectorRows = [...industries.entries()].map(([name, members]) => {
     const validReturns = members.map(row => row.pct).filter(Number.isFinite);
     const validFlows = members.map(row => row.flow).filter(Number.isFinite);
@@ -222,6 +241,7 @@ export function summarizeMarketUniverse(universe) {
       newListingRuleUncertainty: 'NOT_FILTERED'
     },
     sectors: sectorRows,
+    stockRows,
     narrativeStocks,
     narrativeSourceScope: universe?.complete === true ? 'full-market' : 'partial-market',
     leaders,
@@ -235,6 +255,8 @@ export function summarizeMarketUniverse(universe) {
       coveragePct: Number(((universe?.coverage ?? 0) * 100).toFixed(2)),
       complete: universe?.complete === true,
       failures: universe?.failures ?? [],
+      collectionStartedAt: universe?.collectionStartedAt ?? null,
+      collectionFinishedAt: universe?.collectionFinishedAt ?? null,
       latestQuoteTimestamp: quoteTimestampMs ? new Date(quoteTimestampMs).toISOString() : null
     }
   };
@@ -361,66 +383,71 @@ async function fetchUsMarket(aShareCalendarDate) {
   return output;
 }
 
+export async function collectV16MarketContext() {
+  const calendarDate = chinaDate();
+  const localClock = chinaClock();
+  const [universeResult, indexResults, us] = await Promise.all([
+    fetchMarketUniverse(),
+    mapLimit(INDEXES, 5, fetchIndex),
+    fetchUsMarket(calendarDate)
+  ]);
+  const universe = summarizeMarketUniverse(universeResult);
+  const indices = indexResults.filter(row => row && row.status === 'AVAILABLE');
+  const indexFailures = indexResults.flatMap((row, index) => !row || row.status !== 'AVAILABLE' ? [INDEXES[index]?.key ?? 'unknown'] : []);
+  const aShareSessionDate = indices.find(row => row.key === 'shanghai')?.date ?? null;
+  return {
+    schema: 'ashare-v16-market-context-v1',
+    capturedAt: new Date().toISOString(),
+    chinaCalendarDate: calendarDate,
+    chinaLocalTime: localClock.text,
+    chinaCloseFinalized: localClock.closeFinalized,
+    aShareSessionDate,
+    aShare: {
+      indices,
+      breadth: universe.breadth,
+      turnover: universe.turnover,
+      sentiment: universe.sentiment,
+      sectors: universe.sectors,
+      stockRows: universe.stockRows,
+      narrativeStocks: universe.narrativeStocks,
+      narrativeSourceScope: universe.narrativeSourceScope,
+      leaders: universe.leaders,
+      marketAveragePct: universe.marketAveragePct,
+      source: universe.source,
+      dataStatus: aShareSessionDate === calendarDate ? (localClock.closeFinalized ? 'FINALIZED_SESSION' : 'INTRADAY_PROVISIONAL') : 'LAST_AVAILABLE_SESSION',
+      indexFailures
+    },
+    us,
+    capabilities: {
+      fullMarketBreadth: universe.breadth.fullMarket ? 'MEASURABLE' : 'PARTIAL',
+      indexTrend: indices.length >= 3 ? 'MEASURABLE' : 'PARTIAL',
+      exactLimitUpDown: 'APPROXIMATE_PROXY',
+      brokenBoardRate: 'NOT_MEASURABLE',
+      nextDayPremium: 'NOT_MEASURABLE',
+      auction: 'NOT_MEASURABLE',
+      first15Minutes: 'NOT_MEASURABLE',
+      vwap: 'NOT_MEASURABLE',
+      orderBookAndCancellation: 'NOT_MEASURABLE',
+      policyEvents: 'NOT_MEASURABLE',
+      nameThemeMembership: 'LEXICAL_MATCH_ONLY',
+      industryThemeMembership: 'NOT_MEASURABLE',
+      fundamentalOverlap: 'NOT_MEASURABLE'
+    },
+    limitations: [
+      'A-share limit-up/down counts are approximate percentage-band proxies; new-listing special rules are not filtered.',
+      'Industry breadth is a constituent-sample proxy, not verified concept/theme membership.',
+      '羊／洋／阳, 狼 and 东方 name themes are lexical matches only; they do not establish industry or fundamental overlap.',
+      'Full-market universe status requires all expected pages and at least 99% unique-code coverage.',
+      'Yahoo Finance daily bars are filtered to dates strictly before the China calendar date to prevent same-date US data leakage.',
+      'No daily close is substituted for auction, first-15-minute, VWAP, broken-board or order-book evidence.',
+      'Full stock rows are included for private point-in-time research archiving; the snapshot is multi-page and not atomic.'
+    ]
+  };
+}
 export default async function handler(req, res) {
+  if (req.method !== 'GET') return send(res, 405, {error:'METHOD_NOT_ALLOWED'}, 0);
   try {
-    const calendarDate = chinaDate();
-    const localClock = chinaClock();
-    const [universeResult, indexResults, us] = await Promise.all([
-      fetchMarketUniverse(),
-      mapLimit(INDEXES, 5, fetchIndex),
-      fetchUsMarket(calendarDate)
-    ]);
-    const universe = summarizeMarketUniverse(universeResult);
-    const indices = indexResults.filter(row => row && row.status === 'AVAILABLE');
-    const indexFailures = indexResults.flatMap((row, index) => !row || row.status !== 'AVAILABLE' ? [INDEXES[index]?.key ?? 'unknown'] : []);
-    const aShareSessionDate = indices.find(row => row.key === 'shanghai')?.date ?? null;
-    const body = {
-      schema: 'ashare-v16-market-context-v1',
-      capturedAt: new Date().toISOString(),
-      chinaCalendarDate: calendarDate,
-      chinaLocalTime: localClock.text,
-      chinaCloseFinalized: localClock.closeFinalized,
-      aShareSessionDate,
-      aShare: {
-        indices,
-        breadth: universe.breadth,
-        turnover: universe.turnover,
-        sentiment: universe.sentiment,
-        sectors: universe.sectors,
-        narrativeStocks: universe.narrativeStocks,
-        narrativeSourceScope: universe.narrativeSourceScope,
-        leaders: universe.leaders,
-        marketAveragePct: universe.marketAveragePct,
-        source: universe.source,
-        dataStatus: aShareSessionDate === calendarDate ? (localClock.closeFinalized ? 'FINALIZED_SESSION' : 'INTRADAY_PROVISIONAL') : 'LAST_AVAILABLE_SESSION',
-        indexFailures
-      },
-      us,
-      capabilities: {
-        fullMarketBreadth: universe.breadth.fullMarket ? 'MEASURABLE' : 'PARTIAL',
-        indexTrend: indices.length >= 3 ? 'MEASURABLE' : 'PARTIAL',
-        exactLimitUpDown: 'APPROXIMATE_PROXY',
-        brokenBoardRate: 'NOT_MEASURABLE',
-        nextDayPremium: 'NOT_MEASURABLE',
-        auction: 'NOT_MEASURABLE',
-        first15Minutes: 'NOT_MEASURABLE',
-        vwap: 'NOT_MEASURABLE',
-        orderBookAndCancellation: 'NOT_MEASURABLE',
-        policyEvents: 'NOT_MEASURABLE',
-        nameThemeMembership: 'LEXICAL_MATCH_ONLY',
-        industryThemeMembership: 'NOT_MEASURABLE',
-        fundamentalOverlap: 'NOT_MEASURABLE'
-      },
-      limitations: [
-        'A-share limit-up/down counts are approximate percentage-band proxies; new-listing special rules are not filtered.',
-        'Industry breadth is a constituent-sample proxy, not verified concept/theme membership.',
-        '羊／洋／阳, 狼 and 东方 name themes are lexical matches only; they do not establish industry or fundamental overlap.',
-        'Full-market universe status requires all expected pages and at least 99% unique-code coverage.',
-        'Yahoo Finance daily bars are filtered to dates strictly before the China calendar date to prevent same-date US data leakage.',
-        'No daily close is substituted for auction, first-15-minute, VWAP, broken-board or order-book evidence.'
-      ]
-    };
-    return send(res, 200, body, 60);
+    return send(res, 200, await collectV16MarketContext(), 60);
   } catch (error) {
     return send(res, 502, {
       schema: 'ashare-v16-market-context-error-v1',
