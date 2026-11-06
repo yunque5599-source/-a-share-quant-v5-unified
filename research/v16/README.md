@@ -8,6 +8,7 @@ This is an isolated research layer. It does not modify production `index.html`, 
 - `sector_rotation.js`: sector persistence, rotation acceleration, prior-day profit-taking risk, and independent entry-timing score.
 - `decision_overlay.js`: combines market, sector, overnight and entry gates. It never places orders.
 - `narrative_theme.js`: lexical name-theme detection for 羊／洋／阳、狼 and 东方; computes heat, diffusion, turnover concentration and multi-session exhaustion risk. It does not infer a fundamental catalyst from a name.
+- `narrative_theme_case_study_2026-11-03_06.md`: documents the Nov 3–6 public event reports and explicitly separates event description from predictive backtest evidence.
 - `replay.js`: chronological point-in-time replay and Nov 4–5 validation status; future snapshots are excluded.
 - `api/v16_market_context.js`: separate research endpoint for Eastmoney A-share index/universe data and date-filtered Yahoo US daily returns. It reports coverage and source failures; it does not supply intraday/order-book or verified policy-news data.
 - `index_V16_MARKET_SHADOW.html`: standalone browser dashboard. It stores up to 30 daily snapshots in that browser's local storage; this is not a server-side archive and cannot be used as a complete shared backtest dataset.
@@ -21,7 +22,7 @@ This is an isolated research layer. It does not modify production `index.html`, 
 - `policy_event_risk` only uses verified events with a source URL, severity and direction. Without them it is NOT_MEASURABLE.
 - `opportunity_score` and `entry_timing_score` are independent. High opportunity does not authorize a buy.
 - Narrative `name_theme_heat_score` contributes only to a separate `attention_priority_score`; it never increases `opportunity_score` or independently authorizes entry. A measured `speculative_exhaustion_risk` of 75 or higher blocks a name-theme candidate in the decision overlay.
-- `fundamental_overlap_score` remains null unless a dated, verified source URL and explicit theme/stock mapping are provided. Name similarity is not an earnings or industry catalyst.
+- `fundamental_overlap_score` remains null unless a dated, verified source URL and explicit theme/stock mapping are provided. The upstream caller is responsible for setting `verified: true` only after source verification. Name similarity is not an earnings or industry catalyst.
 
 ## Data capability gates
 | Metric | Required evidence | Missing-data treatment |
