@@ -14,7 +14,7 @@ Reported counts and prices can differ across sources because of timestamps, univ
 
 1. Name matching is a **lexical observation only**. It does not assert that the matched companies share products, customers, supply chains, earnings drivers or corporate relationships.
 2. 东方海洋 can match both \`sheep_homophone\` (洋) and \`oriental_name\` (东方). Overlapping tags are intentional and must not double-count the stock within a single theme.
-3. A single stock containing 狼 is not enough to establish a market-wide “狼字辈” theme. The current definition requires at least two matched members before a theme can move out of \`INACTIVE\`.
+4. A single stock containing 狼 is not enough to establish a market-wide “狼字辈” theme. The current definition requires at least two matched members before a theme can move out of \`INACTIVE\`.
 4. \`name_theme_heat_score\` and \`theme_diffusion_speed\` are attention diagnostics only. They do not add to \`opportunity_score\`.
 5. \`speculative_exhaustion_risk\` requires at least three dated snapshots and a common constituent cohort. Without them it must remain \`NOT_MEASURABLE\`.
 6. \`fundamental_overlap_score\` remains null until dated, verified evidence is mapped explicitly to a stock or theme. A name match is never treated as a fundamental catalyst.
