@@ -226,7 +226,8 @@ export function scoreNarrativeThemes({
     const confidence = current.memberCount >= 5 ? 90 : current.memberCount >= 3 ? 75 : current.memberCount >= theme.minMembers ? 60 : 0;
     const adjustedConfidence = Number((confidence * sourceQuality).toFixed(2));
     let stage = 'INACTIVE';
-    if (current.memberCount >= theme.minMembers) {
+    if (current.memberCount >= theme.minMembers && adjustedConfidence < 50) stage = 'INSUFFICIENT_COVERAGE';
+    if (current.memberCount >= theme.minMembers && adjustedConfidence >= 50) {
       if (exhaustion.score !== null && exhaustion.score >= 75) stage = 'EXHAUSTION_RISK';
       else if (current.heatScore !== null && current.heatScore >= 65 && diffusion !== null && diffusion >= 65) stage = 'DIFFUSING';
       else if (current.heatScore !== null && current.heatScore >= 65) stage = 'HOT';
