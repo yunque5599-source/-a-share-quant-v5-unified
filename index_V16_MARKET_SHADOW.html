@@ -76,7 +76,13 @@ h2{font-size:17px;margin:0 0 10px}.note{background:#f3f6fb;border-radius:12px;pa
   </section>
 
   <section class="card">
-    <h2>五、数据能力与限制</h2>
+    <h2>五、名称题材与情绪扩散</h2>
+    <div style="overflow:auto"><table><thead><tr><th>名称题材</th><th>成分数</th><th>热度</th><th>扩散速度</th><th>龙头集中度</th><th>基本面重合</th><th>退潮风险</th><th>阶段</th></tr></thead><tbody id="narrativeRows"></tbody></table></div>
+    <div class="note">仅按股票简称中的“羊／洋／阳”“狼”“东方”进行词面匹配，不代表行业关联或基本面利好。热度只提高观察优先级，不提高机会评分；连续快照不足时，扩散速度和退潮风险显示为不可测。高退潮风险会阻断候选买入许可。</div>
+  </section>
+
+  <section class="card">
+    <h2>六、数据能力与限制</h2>
     <div style="overflow:auto"><table><thead><tr><th>指标</th><th>状态</th></tr></thead><tbody id="capabilityRows"></tbody></table></div>
     <div class="note">历史快照保存在当前浏览器本地，最多保留30个交易日。更换设备、清除浏览器数据或使用不同浏览器后，历史连续性会中断。要做正式回测，必须把原始行情和采集时间归档到服务器。</div>
   </section>
@@ -86,6 +92,7 @@ h2{font-size:17px;margin:0 0 10px}.note{background:#f3f6fb;border-radius:12px;pa
 import {evaluateMarketTransition} from './research/v16/market_transition.js';
 import {evaluateOvernightGlobalImpact} from './research/v16/overnight_global_impact.js';
 import {scoreSectorRotation} from './research/v16/sector_rotation.js';
+import {scoreNarrativeThemes} from './research/v16/narrative_theme.js';
 
 const $ = id => document.getElementById(id);
 const MARKET_KEY = 'ashare_v16_final_market_snapshots_v1';
@@ -163,7 +170,9 @@ function buildMarketSnapshot(context, marketHistory) {
     market: marketSession,
     marketSummary: {d1Pct: context.aShare.indices.find(row => row.key === 'shanghai')?.changePct ?? null},
     turnover: context.aShare.turnover,
-    sectors
+    sectors,
+    narrativeStocks: context.aShare.narrativeStocks ?? [],
+    narrativeSourceScope: context.aShare.narrativeSourceScope ?? context.aShare.breadth?.universe ?? 'unknown'
   };
 }
 function regimeLabel(value) {
@@ -219,6 +228,15 @@ async function refresh() {
       previousSectors: previousMarket?.sectors ?? [],
       market: {d1Pct: context.aShare.indices.find(row => row.key === 'shanghai')?.changePct ?? null}
     });
+    const narrative = scoreNarrativeThemes({
+      snapshots: storedMarketHistory.map(row => ({
+        tradeDate: row.tradeDate,
+        capturedAt: row.capturedAt,
+        sourceScope: row.narrativeSourceScope ?? row.market?.breadth?.universe ?? 'unknown',
+        stocks: row.narrativeStocks ?? []
+      })),
+      asOf: marketAsOf
+    });
 
     $('regime').textContent = regimeLabel(market.regime);
     $('regime').className = market.regime === 'BULL' ? 'good' : market.regime === 'BEAR' || market.regime === 'DISTRIBUTION' ? 'bad' : 'warn';
@@ -257,6 +275,10 @@ async function refresh() {
     renderTable('sectorRows', sector.sectors.slice(0,12).map(row =>
       '<tr><td>' + escapeHtml(row.label) + '</td><td>' + score(row.sector_persistence_score) + '</td><td>' + score(row.sector_rotation_acceleration_score) + '</td><td>' + score(row.profit_taking_risk_score) + '</td><td>' + score(row.opportunity_score) + '</td></tr>'
     ));
+    const narrativeRows = narrative.themes.filter(row => row.member_count > 0).map(row =>
+      '<tr><td>' + escapeHtml(row.theme_label) + '</td><td>' + row.member_count + '</td><td>' + score(row.name_theme_heat_score) + '</td><td>' + score(row.theme_diffusion_speed) + '</td><td>' + pct(row.leader_concentration) + '</td><td>' + score(row.fundamental_overlap_score) + '</td><td>' + score(row.speculative_exhaustion_risk) + '</td><td>' + escapeHtml(row.stage) + '</td></tr>'
+    );
+    $('narrativeRows').innerHTML = narrativeRows.join('') || '<tr><td colspan="8">暂无已归档的名称题材样本</td></tr>';
     const capabilityRows = Object.entries(context.capabilities ?? {}).map(([key,value]) =>
       '<tr><td>' + escapeHtml(key) + '</td><td>' + escapeHtml(value) + '</td></tr>'
     );
@@ -266,13 +288,14 @@ async function refresh() {
       chinaCalendarDate: context.chinaCalendarDate,
       marketSnapshot: sessionIsFinal ? marketSnapshot : null,
       overnightSnapshot,
+      narrative,
       sourceContext: context,
       marketHistory: storedMarketHistory,
       overnightHistory: storedOvernightHistory
     };
     $('exportBtn').disabled = false;
     $('status').textContent = (sessionIsFinal ? '已归档完整A股日线快照。' : 'A股日线为盘中/上一交易日数据，未新增收盘样本。')
-      + ' 市场快照 ' + storedMarketHistory.length + ' 个交易日；隔夜快照 ' + storedOvernightHistory.length + ' 个中国日期。历史仅保存在当前浏览器。';
+      + ' 市场快照 ' + storedMarketHistory.length + ' 个交易日；隔夜快照 ' + storedOvernightHistory.length + ' 个中国日期；名称题材历史 ' + narrative.snapshot_count + ' 个交易日。历史仅保存在当前浏览器。';
   } catch (error) {
     $('status').className = 'status error';
     $('status').textContent = '数据读取失败：' + String(error.message || error);
