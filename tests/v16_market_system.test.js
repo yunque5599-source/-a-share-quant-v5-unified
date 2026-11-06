@@ -302,7 +302,91 @@ test('high opportunity score cannot bypass an unconfirmed entry timing gate', ()
   assert.equal(result.decision, 'WAIT_FOR_ENTRY');
 });
 
+test('name-theme heat increases watch priority only and does not inflate opportunity score', () => {
+  const base = buildV16DecisionOverlay({
+    market: marketState('BULL'), sectorRotation: sectorResult(), overnight: overnightResult(), candidate: candidate(true)
+  });
+  const withNarrative = buildV16DecisionOverlay({
+    market: marketState('BULL'),
+    sectorRotation: sectorResult(),
+    overnight: overnightResult(),
+    narrative: {themes:[{
+      theme_key:'oriental_name',
+      name_theme_heat_score:95,
+      theme_diffusion_speed:88,
+      leader_concentration:62,
+      fundamental_overlap_score:null,
+      speculative_exhaustion_risk:null,
+      speculative_exhaustion_status:'NOT_MEASURABLE'
+    }]},
+    candidate: {...candidate(true),nameThemeKeys:['oriental_name']}
+  });
+  assert.equal(withNarrative.opportunity_score,base.opportunity_score);
+  assert.ok(withNarrative.attention_priority_score > base.attention_priority_score);
+  assert.equal(withNarrative.decision,'SELECTIVE_ENTRY');
+  assert.equal(withNarrative.buy_permission,true);
+  assert.equal(withNarrative.fundamental_overlap_score,null);
+});
+
+test('high measured name-theme exhaustion risk blocks a candidate entry', () => {
+  const result = buildV16DecisionOverlay({
+    market: marketState('BULL'),
+    sectorRotation: sectorResult(),
+    overnight: overnightResult(),
+    narrative: {themes:[{
+      theme_key:'sheep_homophone',
+      name_theme_heat_score:91,
+      theme_diffusion_speed:35,
+      leader_concentration:82,
+      fundamental_overlap_score:null,
+      speculative_exhaustion_risk:88,
+      speculative_exhaustion_status:'MEASURABLE'
+    }]},
+    candidate: {...candidate(true),nameThemeKeys:['sheep_homophone']}
+  });
+  assert.equal(result.decision,'WAIT_FOR_NARRATIVE_EXHAUSTION');
+  assert.equal(result.buy_permission,false);
+  assert.equal(result.speculative_exhaustion_risk,88);
+});
+
 function replaySnapshot(date, breadthScope = 'full-market') {
+  const row = session(date, 'strong');
+  row.breadth.universe = breadthScope;
+  return {
+    tradeDate: date,
+    capturedAt: date + 'T15:05:00+08:00',
+    market: row,
+    marketSummary: {d1Pct: 1.1},
+    us: usSplitMarket,
+    sectors: [{key: 'semiconductor', rankToday: 1, d1Pct: 2, d3Pct: 4, d5Pct: 5, advancersRatio: 0.7, positiveFlowRatio: 0.7, leaderRelativeStrengthPct: 2, topSectorRepeatDays: 2}]
+  };
+}
+
+test('replay excludes snapshots captured after the requested as-of date', () => {
+  const result = replayV16Snapshots({
+    snapshots: [replaySnapshot('2026-11-04'), replaySnapshot('2026-11-05'), replaySnapshot('2026-11-06')],
+    asOf: '2026-11-05'
+  });
+  assert.equal(result.replayedSnapshotCount, 2);
+  assert.equal(result.excludedFutureSnapshotCount, 1);
+  assert.equal(result.reports.at(-1).tradeDate, '2026-11-05');
+});
+
+test('Nov 4–5 validation refuses to fabricate missing point-in-time snapshots', () => {
+  const result = buildNov4Nov5ValidationReport({snapshots: [replaySnapshot('2026-11-05')]});
+  assert.equal(result.status, 'NOT_MEASURABLE');
+  assert.deepEqual(result.missingPointInTimeSnapshotDates, ['2026-11-04']);
+});
+
+test('candidate-pool and missing intraday data are labelled partial and NOT_MEASURABLE', () => {
+  const result = replayV16Snapshots({snapshots: [replaySnapshot('2026-11-05', 'candidate-pool')], asOf: '2026-11-05'});
+  const report = result.reports[0];
+  assert.equal(report.capabilities.fullMarketBreadth, 'NOT_MEASURABLE');
+  assert.equal(report.capabilities.aShareOpen, 'NOT_MEASURABLE');
+  assert.equal(report.status, 'PARTIAL');
+});
+
+
   const row = session(date, 'strong');
   row.breadth.universe = breadthScope;
   return {
