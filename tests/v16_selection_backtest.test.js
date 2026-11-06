@@ -6,13 +6,13 @@ const dates=['2026-10-26','2026-10-27','2026-10-28','2026-10-29','2026-10-30','2
 function rowsFor(dayIndex,{eventCode=null,partialCode=null}={}) {
   return Array.from({length:60},(_,i)=>{
     const code=String(600000+i).padStart(6,'0');
-    let pct=dayIndex===0?1+(i%10)*0.1:1;
+    let pct=dayIndex===0?1+(59-i)*0.01:1;
     if(eventCode===code&&dayIndex===1)pct=10;
     if(partialCode===code&&dayIndex===1)pct=null;
     return {
-      code,name:'样本'+i,price:10+i/10,pct,amount:200000000+i*1000000,
-      turn:5+i%10,mcap:5000000000+i*10000000,pct60:5+i/10,
-      mainNet:10000000-i*10000,mainPct:20-i/10,industry:i%2?'半导体':'机械',
+      code,name:'样本'+i,price:10+i/10,pct,amount:200000000+(59-i)*1000000,
+      turn:6+i%10,mcap:5000000000+i*10000000,pct60:5+(59-i)/10,
+      mainNet:10000000+(59-i)*10000,mainPct:20+(59-i)/10,industry:i%2?'半导体':'机械',
       specialTreatment:false
     };
   });
