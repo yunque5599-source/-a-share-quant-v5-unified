@@ -61,7 +61,8 @@ export function summarizeLimitPools({
   limitDownRows = null,
   sourceStatus = {}
 } = {}) {
-  const statusFor = key => String(sourceStatus[key] ?? (Array.isArray(({limitUpRows,brokenRows,limitDownRows})[key]) ? 'AVAILABLE' : 'NOT_MEASURABLE'));
+  const sourceRows = {limitUp:limitUpRows,broken:brokenRows,limitDown:limitDownRows};
+  const statusFor = key => String(sourceStatus[key] ?? (Array.isArray(sourceRows[key]) ? 'AVAILABLE' : 'NOT_MEASURABLE'));
   const limitUp = normalizeLimitPoolRows(limitUpRows, 'limitUp');
   const broken = normalizeLimitPoolRows(brokenRows, 'broken');
   const limitDown = normalizeLimitPoolRows(limitDownRows, 'limitDown');
@@ -179,12 +180,12 @@ export function summarizeLhbContext({
   const institutionalByCode = new Map();
   const seatByName = new Map();
   for (const seat of seats) {
-    const prior = institutionalByCode.get(seat.code) ?? {netBuyCny:0,seatCount:0};
     if (seat.institutional && Number.isFinite(seat.netBuyCny)) {
+      const prior = institutionalByCode.get(seat.code) ?? {netBuyCny:0,seatCount:0};
       prior.netBuyCny += seat.netBuyCny;
       prior.seatCount += 1;
+      institutionalByCode.set(seat.code,prior);
     }
-    institutionalByCode.set(seat.code,prior);
     const aggregate = seatByName.get(seat.seatName) ?? {seatName:seat.seatName,netBuyCny:0,stockCount:0,institutional:seat.institutional};
     if (Number.isFinite(seat.netBuyCny)) aggregate.netBuyCny += seat.netBuyCny;
     aggregate.stockCount += 1;
@@ -232,7 +233,7 @@ export function summarizeLhbContext({
     negativeStockCount:negativeCount,
     positiveStockRatio:rows.length?positiveCount/rows.length:null,
     totalNetBuyCny:netValues.length?netValues.reduce((sum,value)=>sum+value,0):null,
-    institutionStatus:seatAvailable?'AVAILABLE':'NOT_MEASURABLE',
+    institutionStatus:seatAvailable?(institutionValues.length?'AVAILABLE':'AVAILABLE_NO_INSTITUTION_ROWS'):'NOT_MEASURABLE',
     institutionalStockCount:institutionValues.length,
     institutionalPositiveCount,
     institutionalNegativeCount,
