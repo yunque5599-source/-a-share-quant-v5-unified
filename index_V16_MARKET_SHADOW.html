@@ -104,7 +104,9 @@ h2{font-size:17px;margin:0 0 10px}.note{background:#f3f6fb;border-radius:12px;pa
     <h3 style="margin-top:16px">新增因子消融回测：资金持续性 / 龙虎榜</h3>
     <div id="flowBacktestStatus" class="status">等待读取资金与龙虎榜因子回测。</div>
     <div style="overflow:auto"><table><thead><tr><th>策略版本</th><th>候选池</th><th>周期</th><th>成熟信号日</th><th>平均收益</th><th>超额收益</th><th>胜率</th><th>精确涨停捕捉率</th><th>相对基线收益差</th><th>状态</th></tr></thead><tbody id="flowBacktestRows"><tr><td colspan="10">等待服务器回测</td></tr></tbody></table></div>
-    <div class="note">新因子消融以盘后快照作为信号，最早按下一交易日开盘买入，分别计算T+1/T+3/T+5收盘收益；比较基准、资金持续性、龙虎榜和组合版本。精确涨停标签来自东方财富涨停事件池。仍不扣手续费、滑点，也不模拟排队成交、封板无法买入及T+1卖出约束。至少20个成熟信号日才标记为可测；不代表可以上线。</div>
+    <h3 style="margin-top:14px">逐日回放：基准与组合因子</h3>
+    <div style="overflow:auto"><table><thead><tr><th>信号日期</th><th>策略</th><th>候选池</th><th>T+1收益</th><th>T+1胜率</th><th>T+3收益</th><th>T+3胜率</th><th>T+5收益</th><th>T+5胜率</th><th>T+1涨停捕捉</th></tr></thead><tbody id="flowSeriesRows"><tr><td colspan="10">等待逐日回放</td></tr></tbody></table></div>
+    <div class="note">新因子消融以盘后快照作为信号，最早按下一交易日开盘买入，分别计算T+1/T+3/T+5收盘收益；比较基准、资金持续性、龙虎榜和组合版本。逐日表展示基准与组合版本的Top10/30/50时间序列。精确涨停标签来自东方财富涨停事件池，仅统计主板非ST候选范围。仍不扣手续费、滑点，也不模拟排队成交、封板无法买入及T+1卖出约束。至少20个成熟信号日才标记为可测；不代表可以上线。</div>
   </section>
 
   <section class="card">
@@ -311,6 +313,19 @@ async function loadServerBacktest() {
         }
       }
       $('flowBacktestRows').innerHTML = flowRows.join('');
+      const seriesRows = [];
+      for (const day of (flow.daily ?? []).slice(-30)) {
+        for (const variant of ['baseline','combined']) {
+          for (const topK of [10,30,50]) {
+            const result = day.topK?.[variant]?.['top' + topK] ?? {};
+            const t1 = result.horizons?.['T+1'] ?? {};
+            const t3 = result.horizons?.['T+3'] ?? {};
+            const t5 = result.horizons?.['T+5'] ?? {};
+            seriesRows.push('<tr><td>' + escapeHtml(day.tradeDate) + '</td><td>' + (variant === 'baseline' ? '基准' : '组合因子') + '</td><td>Top' + topK + '</td><td>' + pct(t1.meanReturnPct) + '</td><td>' + pct((t1.positiveRatio ?? 0) * 100) + '</td><td>' + pct(t3.meanReturnPct) + '</td><td>' + pct((t3.positiveRatio ?? 0) * 100) + '</td><td>' + pct(t5.meanReturnPct) + '</td><td>' + pct((t5.positiveRatio ?? 0) * 100) + '</td><td>' + pct((t1.exactLimitUpCaptureRate ?? 0) * 100) + '</td></tr>');
+          }
+        }
+      }
+      $('flowSeriesRows').innerHTML = seriesRows.join('') || '<tr><td colspan="10">暂无成熟的逐日回放样本</td></tr>';
       $('flowBacktestStatus').textContent = '消融状态：' + flow.status
         + ' · 合格信号日 ' + flow.eligibleSignalDates
         + ' · 涨停池完整日期 ' + flow.coverage.limitPoolAvailableDates
