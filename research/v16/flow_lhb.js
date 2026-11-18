@@ -254,7 +254,9 @@ export function evaluateNextDayLimitUpPremium({
   currentTradeDate = null,
   minimumCoverage = 0.8
 } = {}) {
-  if (!previousLimitPools || previousLimitPools.status !== 'AVAILABLE'
+  const previousLimitUpAvailable = previousLimitPools
+    && (previousLimitPools.status === 'AVAILABLE' || previousLimitPools.sourceStatus?.limitUp === 'AVAILABLE');
+  if (!previousLimitUpAvailable
     || normalizeDate(previousTradeDate) >= normalizeDate(currentTradeDate)) {
     return {status:'NOT_MEASURABLE',reason:'previous-limit-up-pool-or-session-order-missing'};
   }
