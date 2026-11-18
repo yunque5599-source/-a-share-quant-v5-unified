@@ -116,16 +116,20 @@ function scoreCandidates(snapshot,history,index,ranking) {
     const lhb=lhbEvidence(snapshot,candidate.code);
     const base=num(candidate.stage1Score)??0;
     const fundingScore=num(funding.fundingScore);
+    const fundingInputMeasured=funding.completeThreeSessionInputs===true;
+    const fundingAblationScore=fundingScore!==null?fundingScore:fundingInputMeasured?0:null;
     const lhbScore=num(lhb.score);
-    const fundingRankScore=fundingScore===null?base:0.90*base+0.10*fundingScore;
+    const fundingRankScore=fundingAblationScore===null?base:0.90*base+0.10*fundingAblationScore;
     const lhbRankScore=lhbScore===null?base:0.95*base+0.05*lhbScore;
     let combinedRankScore=base;
-    if(fundingScore!==null&&lhbScore!==null)combinedRankScore=0.85*base+0.10*fundingScore+0.05*lhbScore;
-    else if(fundingScore!==null)combinedRankScore=fundingRankScore;
+    if(fundingAblationScore!==null&&lhbScore!==null)combinedRankScore=0.85*base+0.10*fundingAblationScore+0.05*lhbScore;
+    else if(fundingAblationScore!==null)combinedRankScore=fundingRankScore;
     else if(lhbScore!==null)combinedRankScore=lhbRankScore;
     return {
       ...candidate,
       fundingEvidence:funding,
+      fundingAblationScore,
+      fundingInputMeasured,
       lhbEvidence:lhb,
       scores:{
         baseline:Number(base.toFixed(4)),
@@ -159,37 +163,36 @@ function dailyReturn(selected,rowsFuture,horizon) {
   const candidateResults=[];
   for(const candidate of selected) {
     const code=String(candidate.code);
-    const entry=entryRows.get(code),exit=exitRows.get(code);
-    const entryOpen=num(entry?.open),exitClose=num(exit?.price??exit?.close);
-    if(entryOpen===null||entryOpen<=0||exitClose===null||exitClose<=0)continue;
+    const path=rowsFuture.map(day=>day.get(code)??null);
+    if(path.some(row=>!row))continue;
+    const entryOpen=num(path[0]?.open),exitClose=num(path[horizon-1]?.price??path[horizon-1]?.close);
+    const closes=path.map(row=>num(row?.price??row?.close));
+    if(entryOpen===null||entryOpen<=0||exitClose===null||exitClose<=0
+      ||closes.some(value=>value===null||value<=0))continue;
     let peak=1,maxDrawdown=0;
-    const closes=[];
-    let highs=[],lows=[];
-    for(let day=0;day<horizon;day++) {
-      const row=rowsFuture[day].get(code);
-      const close=num(row?.price??row?.close);
-      if(close!==null&&close>0) {
-        const wealth=close/entryOpen;
-        peak=Math.max(peak,wealth);
-        maxDrawdown=Math.min(maxDrawdown,(wealth/peak-1)*100);
-        closes.push(close);
-      }
-      const high=num(row?.high),low=num(row?.low);
-      if(high!==null)highs.push(high);
-      if(low!==null)lows.push(low);
+    for(const close of closes) {
+      const wealth=close/entryOpen;
+      peak=Math.max(peak,wealth);
+      maxDrawdown=Math.min(maxDrawdown,(wealth/peak-1)*100);
     }
+    const highs=path.map(row=>num(row?.high));
+    const lows=path.map(row=>num(row?.low));
     candidateResults.push({
       code,
       returnPct:(exitClose/entryOpen-1)*100,
       maxDrawdownPct:maxDrawdown,
-      maxFavorablePct:highs.length?(Math.max(...highs)/entryOpen-1)*100:null,
-      maxAdversePct:lows.length?(Math.min(...lows)/entryOpen-1)*100:null
+      maxFavorablePct:highs.every(Number.isFinite)?(Math.max(...highs)/entryOpen-1)*100:null,
+      maxAdversePct:lows.every(Number.isFinite)?(Math.min(...lows)/entryOpen-1)*100:null
     });
   }
   const benchmarkReturns=[];
-  for(const [code,entry] of entryRows) {
-    const entryOpen=num(entry?.open),exit=num(exitRows.get(code)?.price??exitRows.get(code)?.close);
-    if(entryOpen===null||entryOpen<=0||exit===null||exit<=0)continue;
+  for(const [code] of entryRows) {
+    const path=rowsFuture.map(day=>day.get(code)??null);
+    if(path.some(row=>!row))continue;
+    const entryOpen=num(path[0]?.open),exit=num(path[horizon-1]?.price??path[horizon-1]?.close);
+    const closes=path.map(row=>num(row?.price??row?.close));
+    if(entryOpen===null||entryOpen<=0||exit===null||exit<=0
+      ||closes.some(value=>value===null||value<=0))continue;
     benchmarkReturns.push((exit/entryOpen-1)*100);
   }
   return {candidateResults,benchmarkReturns};
@@ -202,7 +205,7 @@ function exactLimitUpEvents(future) {
     if(status!=='AVAILABLE')return {status:'NOT_MEASURABLE',events:[]};
     for(const row of Array.isArray(pools?.limitUp)?pools.limitUp:[]) {
       const code=String(row.code??'');
-      if(/^\d{6}$/.test(code))events.add(code);
+      if(/^(00|60)\d{4}$/.test(code)&&!/(?:\*?ST|退)/i.test(String(row.name??'')))events.add(code);
     }
   }
   return {status:'AVAILABLE',events:[...events]};
@@ -414,7 +417,7 @@ export function evaluateFlowLhbAblation({
     },
     variants:{
       baseline:'Reconstructed V15 Stage-1 ranking without new flow/LHB factors.',
-      funding:'90% baseline score + 10% confirmed multi-session funding evidence; missing evidence leaves baseline score unchanged.',
+      funding:'90% baseline + 10% funding score; complete three-session data with no confirmed persistence scores 0, while incomplete data leaves baseline unchanged.',
       lhb:'95% baseline score + 5% same-session disclosed LHB net-buy percentile; absent LHB disclosure is neutral, unavailable feed is missing.',
       combined:'85% baseline + 10% funding + 5% LHB when both measured; missing factors are not imputed.'
     },
