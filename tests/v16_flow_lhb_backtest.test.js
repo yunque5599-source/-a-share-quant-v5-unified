@@ -113,7 +113,7 @@ test('incomplete signal history does not create a funding score or false factor 
   snapshots[1].fundingRows=[];
   const report=evaluateFlowLhbAblation({snapshots,asOf:'2026-11-04',minSignalDates:1});
   assert.equal(report.daily.at(-1).factorCoverage.fundingInputCoverage,0);
-  assert.equal(report.daily.at(-1).topK.funding.top10.top[0].fundingScore,null);
+  assert.equal(report.daily.at(-1).topK.funding.top10.top[0].fundingAblationScore,null);
 });
 
 test('a missing or unqualified prior snapshot blocks the three-session funding factor',()=>{
@@ -121,7 +121,7 @@ test('a missing or unqualified prior snapshot blocks the three-session funding f
   snapshots[1].quality={qualifiedForReplay:false,status:'PARTIAL',reasons:['universe-not-full-market']};
   const report=evaluateFlowLhbAblation({snapshots,asOf:'2026-11-04',minSignalDates:1});
   assert.equal(report.daily.at(-1).factorCoverage.fundingInputCoverage,0);
-  assert.equal(report.daily.at(-1).topK.funding.top10.top[0].fundingScore,null);
+  assert.equal(report.daily.at(-1).topK.funding.top10.top[0].fundingAblationScore,null);
 });
 
 test('an AVAILABLE LHB status without the required stock-signal map is not imputed as neutral',()=>{
