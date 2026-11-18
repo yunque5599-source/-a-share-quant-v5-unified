@@ -153,6 +153,36 @@ test('an AVAILABLE LHB status without the required stock-signal map is not imput
   assert.equal(report.daily.at(-1).topK.lhb.top10.top[0].lhbScore,null);
 });
 
+test('funding ablation excludes institutional LHB so factor effects are not double-counted',()=>{
+  const makeLhbOnlyCase=flipInstitutional=>{
+    const snapshots=makeSnapshots();
+    for(const snapshot of snapshots) {
+      snapshot.stockRows=snapshot.stockRows.map(row=>({...row,mainNet:-1000000}));
+      snapshot.fundingRows=snapshot.stockRows.slice(0,100);
+      const signals=snapshot.market.lhb.stockSignalsByCode;
+      signals['600000'].institutionalNetBuyCny=flipInstitutional?-5000000:5000000;
+      signals['600020'].institutionalNetBuyCny=flipInstitutional?5000000:-5000000;
+    }
+    return snapshots;
+  };
+  const original=evaluateFlowLhbAblation({
+    snapshots:makeLhbOnlyCase(false),asOf:'2026-11-11',minSignalDates:1
+  });
+  const flipped=evaluateFlowLhbAblation({
+    snapshots:makeLhbOnlyCase(true),asOf:'2026-11-11',minSignalDates:1
+  });
+  const a=original.daily.find(row=>row.tradeDate==='2026-11-04');
+  const b=flipped.daily.find(row=>row.tradeDate==='2026-11-04');
+  assert.deepEqual(a.topK.funding.top50.top,b.topK.funding.top50.top);
+  const originalLhb=a.topK.lhb.top50.top.find(row=>row.code==='600000');
+  const flippedLhb=b.topK.lhb.top50.top.find(row=>row.code==='600000');
+  assert.ok(originalLhb);
+  assert.ok(flippedLhb);
+  assert.notEqual(originalLhb.lhbScore,flippedLhb.lhbScore);
+  assert.equal(originalLhb.fundingAblationScore,0);
+  assert.equal(flippedLhb.fundingAblationScore,0);
+});
+
 test('as-of cutoff excludes later sessions from signal and outcome history',()=>{
   const report=evaluateFlowLhbAblation({
     snapshots:makeSnapshots(),asOf:'2026-11-04',minSignalDates:1
