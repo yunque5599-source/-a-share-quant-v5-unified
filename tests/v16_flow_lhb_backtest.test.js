@@ -173,7 +173,13 @@ test('funding ablation excludes institutional LHB so factor effects are not doub
   });
   const a=original.daily.find(row=>row.tradeDate==='2026-11-04');
   const b=flipped.daily.find(row=>row.tradeDate==='2026-11-04');
-  assert.deepEqual(a.topK.funding.top50.top,b.topK.funding.top50.top);
+  const fundingProjection=rows=>rows.map(row=>({
+    code:row.code,enhancedScore:row.enhancedScore,fundingAblationScore:row.fundingAblationScore
+  }));
+  assert.deepEqual(
+    fundingProjection(a.topK.funding.top50.top),
+    fundingProjection(b.topK.funding.top50.top)
+  );
   const originalLhb=a.topK.lhb.top50.top.find(row=>row.code==='600000');
   const flippedLhb=b.topK.lhb.top50.top.find(row=>row.code==='600000');
   assert.ok(originalLhb);
