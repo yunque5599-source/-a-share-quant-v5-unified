@@ -116,6 +116,24 @@ test('incomplete signal history does not create a funding score or false factor 
   assert.equal(report.daily.at(-1).topK.funding.top10.top[0].fundingScore,null);
 });
 
+test('a missing or unqualified prior snapshot blocks the three-session funding factor',()=>{
+  const snapshots=makeSnapshots();
+  snapshots[1].quality={qualifiedForReplay:false,status:'PARTIAL',reasons:['universe-not-full-market']};
+  const report=evaluateFlowLhbAblation({snapshots,asOf:'2026-11-04',minSignalDates:1});
+  assert.equal(report.daily.at(-1).factorCoverage.fundingInputCoverage,0);
+  assert.equal(report.daily.at(-1).topK.funding.top10.top[0].fundingScore,null);
+});
+
+test('an AVAILABLE LHB status without the required stock-signal map is not imputed as neutral',()=>{
+  const snapshots=makeSnapshots();
+  for(const snapshot of snapshots) {
+    snapshot.market.lhb={dailyStatus:'AVAILABLE',seatStatus:'AVAILABLE'};
+  }
+  const report=evaluateFlowLhbAblation({snapshots,asOf:'2026-11-04',minSignalDates:1});
+  assert.equal(report.daily.at(-1).factorCoverage.lhbDailyCoverage,0);
+  assert.equal(report.daily.at(-1).topK.lhb.top10.top[0].lhbScore,null);
+});
+
 test('as-of cutoff excludes later sessions from signal and outcome history',()=>{
   const report=evaluateFlowLhbAblation({
     snapshots:makeSnapshots(),asOf:'2026-11-04',minSignalDates:1
