@@ -286,6 +286,9 @@ export function evaluateMarketTransition({sessions = [], asOf = null} = {}) {
   if (!current) dataWarnings.push('no-qualified-market-session');
   if (current?.breadth_source_quality < 0.6) dataWarnings.push('breadth-is-not-full-market');
   if (eligible.at(-1)?.sentiment?.limitLabelQuality === 'APPROXIMATE_PROXY') dataWarnings.push('limit-up-down-counts-are-approximate-proxies');
+  const lhbStatus = eligible.at(-1)?.sentiment?.lhbStatus;
+  if (lhbStatus && !['AVAILABLE','AVAILABLE_EMPTY'].includes(lhbStatus)) dataWarnings.push('LHB-daily-data-not-measurable-or-partial');
+  if (eligible.at(-1)?.sentiment?.lhbInstitutionStatus === 'NOT_MEASURABLE') dataWarnings.push('institutional-LHB-seat-details-not-measurable');
   if (current?.missing_components?.length) dataWarnings.push('missing-components:' + current.missing_components.join(','));
   if (confidence < 45) dataWarnings.push('confidence-below-actionable-threshold');
   return {
