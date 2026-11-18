@@ -291,7 +291,7 @@ function sessionRow(session, code) {
   return stockRows.find(row=>String(row.code)===String(code)) ?? null;
 }
 
-export function scoreCandidateFundingEvidence({code, sessions = [], asOf = null} = {}) {
+export function scoreCandidateFundingEvidence({code, sessions = [], asOf = null, includeInstitutionalLhb = true} = {}) {
   const eligible = (Array.isArray(sessions)?sessions:[])
     .filter(session=>!asOf||normalizeDate(session.tradeDate??session.date)<=normalizeDate(asOf))
     .sort((a,b)=>normalizeDate(a.tradeDate??a.date).localeCompare(normalizeDate(b.tradeDate??b.date)))
@@ -325,7 +325,7 @@ export function scoreCandidateFundingEvidence({code, sessions = [], asOf = null}
   const pricesComplete=observations.length===3&&threeSessionPrices.every(Number.isFinite);
   const trendConfirmed=higherLows&&pricesComplete&&firstPrice!==null&&lastPrice!==null&&lastPrice>firstPrice;
   const mainFlowPersistent=mainFlowValues.length===3&&mainFlowPositiveDays>=2&&trendConfirmed;
-  const institutionPersistent=institutionValues.length>=2&&institutionalPositiveDays>=2&&trendConfirmed;
+  const institutionPersistent=includeInstitutionalLhb&&institutionValues.length>=2&&institutionalPositiveDays>=2&&trendConfirmed;
   const mainFlowScore=mainFlowValues.length?mainFlowPositiveDays/mainFlowValues.length*100:null;
   const institutionScore=institutionValues.length?institutionalPositiveDays/institutionValues.length*100:null;
   const evidenceParts=[];
@@ -357,6 +357,7 @@ export function scoreCandidateFundingEvidence({code, sessions = [], asOf = null}
     completeThreeSessionInputs:observations.length===3
       &&lastThreeLows.every(Number.isFinite)&&threeSessionPrices.every(Number.isFinite)
       &&mainFlowValues.length===3,
+    institutionalLhbIncludedInFundingScore:includeInstitutionalLhb,
     mainFlowPositiveDays,
     mainFlowObservationDays:mainFlowValues.length,
     institutionalPositiveDays,
