@@ -5,17 +5,18 @@ This is an isolated research layer. It does not modify production `index.html`, 
 ## Modules
 - `market_transition.js`: weighted market breadth/index/turnover/sentiment/sector/leader score; BEAR, TRANSITION, BULL and DISTRIBUTION classification. BULL/BEAR require multi-session confirmation.
 - `overnight_global_impact.js`: separate US semiconductor, AI-infrastructure, mega-cap, memory and cloud factors; explicit A-share industry exposure map; opening confirmation is NOT_MEASURABLE without first-15-minute/VWAP inputs.
-- `sector_rotation.js`: sector persistence, rotation acceleration, prior-day profit-taking risk, and independent entry-timing score.
+- `sector_rotation.js`: sector persistence, rotation acceleration, prior-day profit-taking risk, LHB sector breadth, and independent entry-timing score.
+- `flow_lhb.js`: normalizes Eastmoney limit-up/broken-board/limit-down pools and post-close LHB daily/seat disclosures; deduplicates repeated abnormal-trading rows; computes board ladder, broken-board rate, institution-labelled seat flow, next-session limit-up cohort premium, and 2-of-3-session capital-flow persistence. Funding evidence only raises research attention when higher lows confirm; high-turnover price extension is penalized.
 - `decision_overlay.js`: combines market, sector, overnight and entry gates. It never places orders.
 - `narrative_theme.js`: lexical name-theme detection for 羊／洋／阳、狼 and 东方; computes heat, diffusion, turnover concentration and multi-session exhaustion risk. It does not infer a fundamental catalyst from a name.
 - `narrative_theme_case_study_2026-11-03_06.md`: documents the Nov 3–6 public event reports and explicitly separates event description from predictive backtest evidence.
 - `replay.js`: chronological point-in-time market/narrative replay and Nov 4–5 validation status; future snapshots are excluded.
 - `selection_backtest.js`: deterministic reconstruction of the V15 six-factor rank pool and stage-one score, plus Top10/30/50 T+1/T+3/T+5 forward-return evaluation.
 - `snapshot_archive.js`: normalizes full-market daily rows and enforces close-finalization, universe coverage and quote-date quality gates before a snapshot can qualify for replay.
-- `api/v16_market_context.js`: separate research endpoint for Eastmoney A-share index/universe data and date-filtered Yahoo US daily returns. It now returns normalized full-market stock rows for server-side archiving; it does not supply intraday/order-book or verified policy-news data.
+- `api/v16_market_context.js`: separate research endpoint for Eastmoney A-share index/universe data, limit-up/broken-board/limit-down pools, post-close LHB daily and seat disclosures, and date-filtered Yahoo US daily returns. It returns normalized full-market stock rows for server-side archiving; LHB and limit-pool failures remain explicit PARTIAL/NOT_MEASURABLE states.
 - `api/v16_snapshot_archive.js`: authenticated post-close collector that writes immutable gzip snapshots to a private Vercel Blob store. It requires `CRON_SECRET` and a connected private Blob store.
 - `api/v16_backtest.js`: reads private archived snapshots and returns the Top10/30/50 forward-return report.
-- `vercel.json`: schedules the archive endpoint at 08:20 UTC (16:20 China time), Monday to Friday. Vercel Cron only runs on production deployments; this research PR does not activate it.
+- `vercel.json`: schedules the archive endpoint at 12:10 UTC (20:10 China time), Monday to Friday, so post-close LHB disclosures have time to arrive. Vercel Cron only runs on production deployments; this research PR does not activate it.
 - `index_V16_MARKET_SHADOW.html`: standalone browser dashboard. It still stores up to 30 local snapshots, and now also exposes a server Top-K backtest panel once private archive storage is configured.
 
 ## Score conventions
@@ -35,7 +36,11 @@ This is an isolated research layer. It does not modify production `index.html`, 
 |---|---|---|
 | Full-market breadth | All expected pages fetched and at least 99% unique-code coverage | Otherwise labelled partial-market; not full-market |
 | US overnight factors | Yahoo daily bars dated strictly before China calendar date | Missing symbols reduce factor coverage; same-date US bars excluded |
-| Exact limit-up/down | Board/ST/new-listing-aware labels | Unknown labels excluded |
+| Exact limit-up/down | Eastmoney limit-up/broken-board/limit-down event pools | Vendor pool status and source diagnostics retained; do not relabel as exchange-certified |
+| Limit-up ladder | Daily limit-up pool with `lbc` board count | Missing pool remains NOT_MEASURABLE; no percent-threshold substitution |
+| LHB daily/seat flow | Date-filtered DataCenter disclosures, deduplicated by stock/seat | Missing or delayed report remains NOT_MEASURABLE; only explicit institution-labelled seats count as institutional |
+| Funding persistence | Up to three point-in-time stock-flow snapshots plus daily lows | Requires at least two positive-flow sessions and higher lows; single-day inflow is not a bottom signal |
+| Next-day limit-up premium | Prior-session limit-up cohort matched to current full-market rows | Requires at least 80% matched cohort coverage; otherwise NOT_MEASURABLE |
 | Broken-board rate | Intraday limit-touch/reopen or order-book history | NOT_MEASURABLE |
 | Next-day premium | Frozen signal-date list and matured next-session outcomes | NOT_MEASURABLE until matured |
 | Auction/first 15m/VWAP | Timestamped minute bars and sector/leader observations | NOT_MEASURABLE; daily close is not a substitute |
@@ -63,4 +68,4 @@ This is an isolated research layer. It does not modify production `index.html`, 
 5. Snapshot files are gzip-compressed and immutable. The backtest API reads the latest archive window and reports data gaps rather than filling missing outcomes with zero.
 
 ## Tests
-Run syntax checks on all V16 modules and API routes, then `node --test tests/v16_market_system.test.js tests/v16_market_context.test.js tests/v16_narrative_theme.test.js tests/v16_selection_backtest.test.js tests/v16_snapshot_archive.test.js`.
+Run syntax checks on all V16 modules and API routes, then `node --test tests/v16_market_system.test.js tests/v16_market_context.test.js tests/v16_narrative_theme.test.js tests/v16_selection_backtest.test.js tests/v16_snapshot_archive.test.js tests/v16_flow_lhb.test.js tests/v16_flow_lhb_integration.test.js`.
