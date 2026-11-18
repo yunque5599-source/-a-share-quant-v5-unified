@@ -578,7 +578,7 @@ export async function collectV16MarketContext() {
       marketAveragePct: universe.marketAveragePct,
       limitPools,
       lhb,
-      lhbDiagnostics:lhbRaw,
+      lhbDiagnostics:{daily:lhbRaw.dailyDiagnostics??null,seats:lhbRaw.seatDiagnostics??null},
       source: universe.source,
       dataStatus: aShareSessionDate === calendarDate ? (localClock.closeFinalized ? 'FINALIZED_SESSION' : 'INTRADAY_PROVISIONAL') : 'LAST_AVAILABLE_SESSION',
       indexFailures
