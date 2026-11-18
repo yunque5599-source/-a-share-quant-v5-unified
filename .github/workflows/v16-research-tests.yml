@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - research/v16-system-upgrade-20261104
+      - research/v16-flow-lhb-20261118
     paths:
       - 'research/v16/**'
       - 'api/v16_market_context.js'
@@ -54,6 +55,7 @@ jobs:
           node --check research/v16/narrative_theme.js
           node --check research/v16/selection_backtest.js
           node --check research/v16/snapshot_archive.js
+          node --check research/v16/flow_lhb.js
           node --check api/v16_market_context.js
           node --check api/v16_snapshot_archive.js
           node --check api/v16_backtest.js
