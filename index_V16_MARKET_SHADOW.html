@@ -335,6 +335,7 @@ async function loadServerBacktest() {
         + ' · 平均资金有效信号覆盖 ' + pct(flow.coverage.averageFundingSignalCoverage === null || flow.coverage.averageFundingSignalCoverage === undefined ? null : flow.coverage.averageFundingSignalCoverage * 100)
         + ' · 平均龙虎榜数据覆盖 ' + pct(flow.coverage.averageLhbDailyCoverage === null || flow.coverage.averageLhbDailyCoverage === undefined ? null : flow.coverage.averageLhbDailyCoverage * 100)
         + ' · 最低成熟信号日 ' + flow.minimumMaturedSignalDates
+        + ' · 候选收益覆盖门槛 ' + pct((flow.minimumSampleCoverageForMetric ?? 0.95) * 100)
         + ' · 生产资格：否。';
     } else {
       $('flowBacktestStatus').textContent = '服务器未返回资金/龙虎榜消融报告；请检查归档样本及 API 版本。';
