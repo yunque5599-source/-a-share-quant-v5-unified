@@ -319,10 +319,12 @@ export function scoreCandidateFundingEvidence({code, sessions = [], asOf = null}
   const lows=observations.map(item=>num(item.row.low));
   const firstPrice=num(observations[0].row.price),lastPrice=num(observations.at(-1).row.price);
   const lastThreeLows=observations.slice(-3).map(item=>num(item.row.low));
-  const higherLows=lastThreeLows.length===3&&lastThreeLows.every(Number.isFinite)
+  const threeSessionPrices=observations.slice(-3).map(item=>num(item.row.price));
+  const higherLows=observations.length===3&&lastThreeLows.length===3&&lastThreeLows.every(Number.isFinite)
     &&lastThreeLows.slice(1).every((value,index)=>value>lastThreeLows[index]);
-  const trendConfirmed=higherLows&&firstPrice!==null&&lastPrice!==null&&lastPrice>firstPrice;
-  const mainFlowPersistent=mainFlowValues.length>=2&&mainFlowPositiveDays>=2&&trendConfirmed;
+  const pricesComplete=observations.length===3&&threeSessionPrices.every(Number.isFinite);
+  const trendConfirmed=higherLows&&pricesComplete&&firstPrice!==null&&lastPrice!==null&&lastPrice>firstPrice;
+  const mainFlowPersistent=mainFlowValues.length===3&&mainFlowPositiveDays>=2&&trendConfirmed;
   const institutionPersistent=institutionValues.length>=2&&institutionalPositiveDays>=2&&trendConfirmed;
   const mainFlowScore=mainFlowValues.length?mainFlowPositiveDays/mainFlowValues.length*100:null;
   const institutionScore=institutionValues.length?institutionalPositiveDays/institutionValues.length*100:null;
@@ -337,10 +339,10 @@ export function scoreCandidateFundingEvidence({code, sessions = [], asOf = null}
   const positiveLows=lows.filter(value=>Number.isFinite(value)&&value>0);
   const extensionPct=positiveLows.length&&lastPrice!==null
     ? (lastPrice/Math.min(...positiveLows)-1)*100:null;
-  let chaseRiskScore=0;
+  let chaseRiskScore=currentTurn!==null||currentPct!==null?0:null;
   if(currentTurn!==null&&extensionPct!==null&&currentTurn>=20&&extensionPct>=12)chaseRiskScore=90;
   else if(currentTurn!==null&&currentPct!==null&&currentTurn>=15&&currentPct>=8)chaseRiskScore=75;
-  if(fundingScore!==null&&chaseRiskScore>=75)fundingScore=clamp(fundingScore-20);
+  if(fundingScore!==null&&chaseRiskScore!==null&&chaseRiskScore>=75)fundingScore=clamp(fundingScore-20);
   const reasons=[];
   if(mainFlowPersistent)reasons.push('main-force-net-flow-positive-on-at-least-two-observed-sessions-and-higher-lows-confirmed');
   if(institutionPersistent)reasons.push('institutional-lhb-net-buy-positive-on-at-least-two-observed-sessions-and-higher-lows-confirmed');
@@ -352,8 +354,9 @@ export function scoreCandidateFundingEvidence({code, sessions = [], asOf = null}
     status:fundingScore===null?'NO_CONFIRMED_PERSISTENCE':'AVAILABLE',
     fundingScore:fundingScore===null?null:Number(fundingScore.toFixed(2)),
     observationCount:observations.length,
-    completeThreeSessionInputs:lastThreeLows.length===3&&lastThreeLows.every(Number.isFinite)
-      &&mainFlowValues.length===3&&firstPrice!==null&&lastPrice!==null,
+    completeThreeSessionInputs:observations.length===3
+      &&lastThreeLows.every(Number.isFinite)&&threeSessionPrices.every(Number.isFinite)
+      &&mainFlowValues.length===3,
     mainFlowPositiveDays,
     mainFlowObservationDays:mainFlowValues.length,
     institutionalPositiveDays,
@@ -384,6 +387,6 @@ export function rankFundingCandidates({currentRows = [], sessions = [], asOf = n
     });
   }
   return candidates.sort((a,b)=>(b.fundingScore??-Infinity)-(a.fundingScore??-Infinity)
-    ||(a.chaseRiskScore??0)-(b.chaseRiskScore??0)
+    ||(a.chaseRiskScore??Infinity)-(b.chaseRiskScore??Infinity)
     ||(b.mainNet??-Infinity)-(a.mainNet??-Infinity)).slice(0,Math.max(1,Math.min(50,Number(limit)||10)));
 }
