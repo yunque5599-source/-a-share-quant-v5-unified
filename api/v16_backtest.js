@@ -1,6 +1,7 @@
 import {get,list} from '@vercel/blob';
 import {gunzipSync} from 'node:zlib';
 import {evaluateV15TopKForwardReturns} from '../research/v16/selection_backtest.js';
+import {evaluateFlowLhbAblation} from '../research/v16/flow_lhb_backtest.js';
 
 export const config={maxDuration:60};
 function send(res,status,body){
@@ -44,11 +45,13 @@ export default async function handler(req,res){
     const loaded=await mapLimit(selected,8,async blob=>readSnapshot(blob));
     const snapshots=loaded.filter(value=>value&&!value.error);
     const report=evaluateV15TopKForwardReturns({snapshots,asOf,topKs:[10,30,50],horizons:[1,3,5],minSignalDates:20});
+    const flowLhbReport=evaluateFlowLhbAblation({snapshots,asOf,topKs:[10,30,50],horizons:[1,3,5],minSignalDates:20});
     const partialReadCount=loaded.filter(value=>value?.error).length;
     return send(res,200,{
       schema:'ashare-v16-server-backtest-response-v1',
       archive:{blobCount:blobs.length,loadedSnapshotCount:snapshots.length,readFailureCount:partialReadCount,requestedDays:days},
-      report
+      report,
+      flowLhbReport
     });
   }catch(error){
     return send(res,503,{
