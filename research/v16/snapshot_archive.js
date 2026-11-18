@@ -2,6 +2,21 @@ import {rankV15Stage1Candidates} from './selection_backtest.js';
 
 const finite=value=>value!==null&&value!==undefined&&value!==''&&Number.isFinite(Number(value));
 const dateKey=value=>String(value??'').slice(0,10);
+export function selectRecentV16SnapshotBlobs(blobs,{days=120,asOf=null}={}) {
+  const requestedDays=Math.max(1,Math.min(250,Math.floor(Number(days)||120)));
+  const cutoff=String(asOf??'').slice(0,10);
+  const grouped=new Map();
+  for(const blob of Array.isArray(blobs)?blobs:[]) {
+    const match=String(blob?.pathname??'').match(/^v16\/snapshots\/(\d{4}-\d{2}-\d{2})\//);
+    const tradeDate=match?.[1]??null;
+    if(!tradeDate||(cutoff&&tradeDate>cutoff))continue;
+    if(!grouped.has(tradeDate))grouped.set(tradeDate,[]);
+    grouped.get(tradeDate).push(blob);
+  }
+  const keepDates=new Set([...grouped.keys()].sort().slice(-Math.min(260,requestedDays+5)));
+  return [...keepDates].flatMap(tradeDate=>(grouped.get(tradeDate)??[]).slice()
+    .sort((a,b)=>String(a.pathname).localeCompare(String(b.pathname))));
+}
 function shanghaiDate(value) {
   const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(value));
   const fields=Object.fromEntries(parts.map(part=>[part.type,part.value]));
@@ -41,6 +56,9 @@ export function buildV16DailySnapshot(context,{minimumRows=500}={}) {
     mainBoard:/^(00|60)\d{4}$/.test(String(row.code??''))
   })).filter(row=>/^\d{6}$/.test(row.code));
   const ranking=rankV15Stage1Candidates(stockRows,aShare.indices??[]);
+  const fundingRows=stockRows.filter(row=>row.mainBoard&&!row.specialTreatment)
+    .sort((a,b)=>Math.abs(b.mainNet??0)-Math.abs(a.mainNet??0))
+    .slice(0,500);
   return {
     schema:'ashare-v16-daily-snapshot-v1',
     tradeDate,capturedAt,
@@ -50,6 +68,9 @@ export function buildV16DailySnapshot(context,{minimumRows=500}={}) {
       status:reasons.length?'PARTIAL':'QUALIFIED',
       reasons,
       sourceComplete:source.complete===true,
+      limitPoolsStatus:aShare.limitPools?.status??'NOT_MEASURABLE',
+      lhbDailyStatus:aShare.lhb?.dailyStatus??'NOT_MEASURABLE',
+      lhbSeatStatus:aShare.lhb?.seatStatus??'NOT_MEASURABLE',
       coveragePct:Number((coverage*100).toFixed(2)),
       reportedTotal:Number(aShare.breadth?.totalReported??source.total??0),
       uniqueSymbols:stockRows.length,
@@ -63,10 +84,13 @@ export function buildV16DailySnapshot(context,{minimumRows=500}={}) {
     market:{
       indices:aShare.indices??[],breadth:aShare.breadth??{},turnover:aShare.turnover??{},
       sentiment:aShare.sentiment??{},sectors:aShare.sectors??[],leaders:aShare.leaders??[],
-      marketAveragePct:aShare.marketAveragePct??null
+      marketAveragePct:aShare.marketAveragePct??null,
+      limitPools:aShare.limitPools??{status:'NOT_MEASURABLE'},
+      lhb:aShare.lhb??{status:'NOT_MEASURABLE',dailyStatus:'NOT_MEASURABLE',seatStatus:'NOT_MEASURABLE'}
     },
     us:context?.us??{},
     narrativeStocks:aShare.narrativeStocks??[],
+    fundingRows,
     stockRows,
     strategies:{
       v15Stage1Top10:ranking.candidates.slice(0,10).map(row=>({code:row.code,score:row.stage1Score})),
@@ -87,7 +111,9 @@ export function buildV16DailySnapshot(context,{minimumRows=500}={}) {
     limitations:[
       'Daily archive is a multi-page approximate point-in-time collection, not an atomic exchange snapshot.',
       'V15 ranking is reconstructed from full-market factor ranks and the documented stage-one formula; it is not the final deep-score/news ranking.',
-      'No minute bars, auction, order-book, cancellation or verified limit-lock data are included.'
+      'No minute bars, auction, order-book, cancellation or verified limit-lock data are included.',
+      'Limit pools and LHB are vendor-provided post-close observations; absent or partial reports are retained as NOT_MEASURABLE/PARTIAL and are never replaced with inferred seat identities.',
+      'Funding persistence uses up to three archived sessions and requires higher lows; a single-day flow or institutional buy is not treated as a bottom signal.'
     ]
   };
 }

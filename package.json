@@ -1,6 +1,7 @@
 {
   "type": "module",
   "dependencies": {
-    "@vercel/blob": "^2.3.0"
+    "@vercel/blob": "^2.3.0",
+    "@vercel/schedules": "0.0.3"
   }
 }

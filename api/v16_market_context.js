@@ -1,6 +1,7 @@
 import {extractNarrativeTags} from '../research/v16/narrative_theme.js';
+import {summarizeLimitPools, summarizeLhbContext} from '../research/v16/flow_lhb.js';
 
-export const config = {maxDuration: 30};
+export const config = {maxDuration: 60};
 
 const EM_HOSTS = [
   'https://push2.eastmoney.com',
@@ -383,6 +384,157 @@ async function fetchUsMarket(aShareCalendarDate) {
   return output;
 }
 
+
+const PUSH2EX_HOST = 'https://push2ex.eastmoney.com';
+const DATACENTER_HOST = 'https://datacenter-web.eastmoney.com';
+
+async function fetchLimitPool(endpoint, tradeDate) {
+  const pageSize = 200;
+  const fetchPage = async pageIndex => {
+    const params = new URLSearchParams({
+      ut: '7eea3edcaed734bea9cbfc24409ed989',
+      dpt: 'wz.ztzt',
+      Pageindex: String(pageIndex),
+      pagesize: String(pageSize),
+      sort: 'fbt:asc',
+      date: String(tradeDate).replace(/-/g, '')
+    });
+    const payload = await fetchJson(PUSH2EX_HOST + '/' + endpoint + '?' + params.toString(), 7000,
+      {referer: 'https://quote.eastmoney.com/'});
+    if (!Array.isArray(payload?.data?.pool)) throw new Error(endpoint + ': data.pool unavailable');
+    return payload.data;
+  };
+  const first = await fetchPage(0);
+  const rows = [...first.pool];
+  const reportedTotal = num(first.total ?? first.tc ?? first.totalCount ?? first.count);
+  const totalKnown = reportedTotal !== null && reportedTotal >= 0;
+  const pageCount = totalKnown && reportedTotal > 0 ? Math.ceil(reportedTotal / pageSize) : 1;
+  const maxPages = 10;
+  const failures = [];
+  const pagesToFetch = Math.min(pageCount,maxPages);
+  for (let pageIndex=1; pageIndex<pagesToFetch; pageIndex++) {
+    try {
+      const page = await fetchPage(pageIndex);
+      rows.push(...page.pool);
+    } catch (error) {
+      failures.push({pageIndex,error:String(error?.message??error)});
+    }
+  }
+  const complete = failures.length===0 && pageCount<=maxPages
+    && (totalKnown ? rows.length>=reportedTotal : rows.length<pageSize);
+  return {
+    status:complete?'AVAILABLE':'PARTIAL',
+    rows,
+    total:totalKnown?reportedTotal:null,
+    pageCount,
+    pagesFetched:pagesToFetch-failures.length,
+    failures
+  };
+}
+
+async function fetchDataCenterReport(reportName, tradeDate, {pageSize = 500, maxPages = 10} = {}) {
+  const makeUrl = page => {
+    const params = new URLSearchParams({
+      reportName,
+      columns: 'ALL',
+      source: 'WEB',
+      client: 'WEB',
+      pageNumber: String(page),
+      pageSize: String(pageSize),
+      sortColumns: reportName === 'RPT_DAILYBILLBOARD_DETAILSNEW' ? 'BILLBOARD_NET_AMT' : 'TRADE_DATE',
+      sortTypes: reportName === 'RPT_DAILYBILLBOARD_DETAILSNEW' ? '-1' : '-1',
+      filter: "(TRADE_DATE='" + String(tradeDate) + "')"
+    });
+    return DATACENTER_HOST + '/api/data/v1/get?' + params.toString();
+  };
+  const first = await fetchJson(makeUrl(1), 8000, {referer: 'https://data.eastmoney.com/stock/tradedetail.html'});
+  const firstResult = first?.result;
+  if (!firstResult || !Array.isArray(firstResult.data)) throw new Error(reportName + ': result.data unavailable');
+  const count = Number(firstResult.count);
+  const reportedPages = Number(firstResult.pages);
+  if (firstResult.data.length === 0 && count === 0) {
+    return {status: 'AVAILABLE_EMPTY', rows: [], count: 0, pagesFetched: 1, pageCount: 0, failures: []};
+  }
+  if (firstResult.data.length === 0 && !Number.isFinite(count)) {
+    throw new Error(reportName + ': empty response without reported count');
+  }
+  const pageCount = Number.isFinite(reportedPages) && reportedPages > 0
+    ? reportedPages
+    : Number.isFinite(count) && count > 0 ? Math.ceil(count / pageSize) : 1;
+  const rows = [...firstResult.data];
+  const failures = [];
+  const pagesToFetch = Math.min(pageCount, maxPages);
+  for (let page = 2; page <= pagesToFetch; page++) {
+    try {
+      const payload = await fetchJson(makeUrl(page), 8000, {referer: 'https://data.eastmoney.com/stock/tradedetail.html'});
+      if (!Array.isArray(payload?.result?.data)) throw new Error('page result.data unavailable');
+      rows.push(...payload.result.data);
+    } catch (error) {
+      failures.push({page, error: String(error?.message ?? error)});
+    }
+  }
+  const allPagesFetched = pageCount <= maxPages && failures.length === 0;
+  const coverage = Number.isFinite(count) && count > 0 ? rows.length / count : allPagesFetched ? 1 : 0;
+  return {
+    status: allPagesFetched && coverage >= 0.95 ? 'AVAILABLE' : 'PARTIAL',
+    rows,
+    count: Number.isFinite(count) ? count : rows.length,
+    pagesFetched: pagesToFetch - failures.length,
+    pageCount,
+    coverage,
+    failures
+  };
+}
+
+async function fetchLimitPools(tradeDate) {
+  if (!tradeDate) return {
+    tradeDate: null, limitUpRows: null, brokenRows: null, limitDownRows: null,
+    sourceStatus: {limitUp:'NOT_MEASURABLE',broken:'NOT_MEASURABLE',limitDown:'NOT_MEASURABLE'},
+    diagnostics:{}
+  };
+  const specs = [
+    ['limitUp','getTopicZTPool'],
+    ['broken','getTopicZBPool'],
+    ['limitDown','getTopicDTPool']
+  ];
+  const results = await mapLimit(specs, 3, ([, endpoint]) => fetchLimitPool(endpoint, tradeDate));
+  const output = {tradeDate,sourceStatus:{},limitUpRows:null,brokenRows:null,limitDownRows:null,diagnostics:{}};
+  results.forEach((result,index)=>{
+    const [key] = specs[index];
+    if (result?.error) {
+      output.sourceStatus[key] = 'NOT_MEASURABLE';
+      output.diagnostics[key] = {error:String(result.error)};
+    } else {
+      output.sourceStatus[key] = result.status;
+      output[key === 'limitUp' ? 'limitUpRows' : key === 'broken' ? 'brokenRows' : 'limitDownRows'] = result.rows;
+      output.diagnostics[key] = {
+        total:result.total,pageCount:result.pageCount,pagesFetched:result.pagesFetched,
+        failures:result.failures??[]
+      };
+    }
+  });
+  return output;
+}
+
+async function fetchLhbContext(tradeDate) {
+  if (!tradeDate) return {tradeDate,dailyRows:[],seatRows:[],dailyStatus:'NOT_MEASURABLE',seatStatus:'NOT_MEASURABLE'};
+  const [daily, seats] = await Promise.all([
+    fetchDataCenterReport('RPT_DAILYBILLBOARD_DETAILSNEW',tradeDate)
+      .catch(error=>({status:'NOT_MEASURABLE',rows:[],error:String(error?.message??error)})),
+    fetchDataCenterReport('RPT_OPERATEDEPT_TRADE_DETAILS',tradeDate)
+      .catch(error=>({status:'NOT_MEASURABLE',rows:[],error:String(error?.message??error)}))
+  ]);
+  return {
+    tradeDate,
+    dailyRows:daily.rows??[],
+    seatRows:seats.rows??[],
+    dailyStatus:daily.status??'NOT_MEASURABLE',
+    seatStatus:seats.status??'NOT_MEASURABLE',
+    dailyDiagnostics:{count:daily.count??null,pagesFetched:daily.pagesFetched??0,pageCount:daily.pageCount??0,coverage:daily.coverage??null,error:daily.error??null},
+    seatDiagnostics:{count:seats.count??null,pagesFetched:seats.pagesFetched??0,pageCount:seats.pageCount??0,coverage:seats.coverage??null,error:seats.error??null}
+  };
+}
+
 export async function collectV16MarketContext() {
   const calendarDate = chinaDate();
   const localClock = chinaClock();
@@ -395,6 +547,54 @@ export async function collectV16MarketContext() {
   const indices = indexResults.filter(row => row && row.status === 'AVAILABLE');
   const indexFailures = indexResults.flatMap((row, index) => !row || row.status !== 'AVAILABLE' ? [INDEXES[index]?.key ?? 'unknown'] : []);
   const aShareSessionDate = indices.find(row => row.key === 'shanghai')?.date ?? null;
+  const lhbSessionFinalized = Boolean(aShareSessionDate) && (aShareSessionDate !== calendarDate || localClock.closeFinalized);
+  const [poolRaw, lhbRaw] = await Promise.all([
+    fetchLimitPools(aShareSessionDate),
+    lhbSessionFinalized
+      ? fetchLhbContext(aShareSessionDate)
+      : Promise.resolve({tradeDate:aShareSessionDate,dailyRows:[],seatRows:[],dailyStatus:'PENDING_CLOSE',seatStatus:'PENDING_CLOSE'})
+  ]);
+  const limitPools = summarizeLimitPools({
+    tradeDate:aShareSessionDate,
+    limitUpRows:poolRaw.limitUpRows,
+    brokenRows:poolRaw.brokenRows,
+    limitDownRows:poolRaw.limitDownRows,
+    sourceStatus:poolRaw.sourceStatus
+  });
+  limitPools.diagnostics = poolRaw.diagnostics ?? {};
+  const lhb = summarizeLhbContext({
+    tradeDate:aShareSessionDate,
+    dailyRows:lhbRaw.dailyRows,
+    seatRows:lhbRaw.seatRows,
+    dailyStatus:lhbRaw.dailyStatus,
+    seatStatus:lhbRaw.seatStatus,
+    stockRows:universe.stockRows
+  });
+  lhb.diagnostics = {daily:lhbRaw.dailyDiagnostics??null,seats:lhbRaw.seatDiagnostics??null};
+  const lhbSectorByName = new Map((lhb.sectors??[]).map(row=>[row.industry,row]));
+  const sectors = universe.sectors.map(row=>{
+    const evidence=lhbSectorByName.get(row.key);
+    return {
+      ...row,
+      lhbNetBuyCny:evidence?.netBuyCny??null,
+      lhbPositiveRatio:evidence?.stockCount?evidence.positiveCount/evidence.stockCount:null,
+      lhbStockCount:evidence?.stockCount??0,
+      lhbSourceStatus:lhb.status
+    };
+  });
+  const sentiment = {
+    ...universe.sentiment,
+    limitUpCount:limitPools.limitUpCount??universe.sentiment.limitUpCount,
+    limitDownCount:limitPools.limitDownCount??universe.sentiment.limitDownCount,
+    brokenBoardRate:Number.isFinite(limitPools.brokenBoardRate)?limitPools.brokenBoardRate:'NOT_MEASURABLE',
+    limitLabelQuality:limitPools.status==='AVAILABLE'?'EASTMONEY_POOL':'APPROXIMATE_PROXY',
+    nextDayPremiumPct:'NOT_MEASURABLE',
+    nextDayPositiveRatio:'NOT_MEASURABLE',
+    lhbStatus:lhb.status,
+    lhbPositiveStockRatio:lhb.positiveStockRatio,
+    lhbInstitutionalPositiveStockRatio:lhb.institutionalPositiveStockRatio,
+    lhbInstitutionStatus:lhb.institutionStatus
+  };
   return {
     schema: 'ashare-v16-market-context-v1',
     capturedAt: new Date().toISOString(),
@@ -406,13 +606,16 @@ export async function collectV16MarketContext() {
       indices,
       breadth: universe.breadth,
       turnover: universe.turnover,
-      sentiment: universe.sentiment,
-      sectors: universe.sectors,
+      sentiment,
+      sectors,
       stockRows: universe.stockRows,
       narrativeStocks: universe.narrativeStocks,
       narrativeSourceScope: universe.narrativeSourceScope,
       leaders: universe.leaders,
       marketAveragePct: universe.marketAveragePct,
+      limitPools,
+      lhb,
+      lhbDiagnostics:{daily:lhbRaw.dailyDiagnostics??null,seats:lhbRaw.seatDiagnostics??null},
       source: universe.source,
       dataStatus: aShareSessionDate === calendarDate ? (localClock.closeFinalized ? 'FINALIZED_SESSION' : 'INTRADAY_PROVISIONAL') : 'LAST_AVAILABLE_SESSION',
       indexFailures
@@ -421,8 +624,12 @@ export async function collectV16MarketContext() {
     capabilities: {
       fullMarketBreadth: universe.breadth.fullMarket ? 'MEASURABLE' : 'PARTIAL',
       indexTrend: indices.length >= 3 ? 'MEASURABLE' : 'PARTIAL',
-      exactLimitUpDown: 'APPROXIMATE_PROXY',
-      brokenBoardRate: 'NOT_MEASURABLE',
+      exactLimitUpDown: limitPools.status==='AVAILABLE'?'MEASURABLE':limitPools.status,
+      limitUpLadder:limitPools.sourceStatus.limitUp==='AVAILABLE'?'MEASURABLE':'NOT_MEASURABLE',
+      brokenBoardRate:Number.isFinite(limitPools.brokenBoardRate)?'MEASURABLE':'NOT_MEASURABLE',
+      lhbDaily:lhb.dailyStatus,
+      lhbSeatDetails:lhb.seatStatus,
+      institutionalLhbFlow:lhb.institutionStatus,
       nextDayPremium: 'NOT_MEASURABLE',
       auction: 'NOT_MEASURABLE',
       first15Minutes: 'NOT_MEASURABLE',
@@ -434,12 +641,16 @@ export async function collectV16MarketContext() {
       fundamentalOverlap: 'NOT_MEASURABLE'
     },
     limitations: [
-      'A-share limit-up/down counts are approximate percentage-band proxies; new-listing special rules are not filtered.',
+      'Limit-up, broken-board and limit-down pools are vendor-provided Eastmoney event pools; they are not exchange-certified order-book records.',
+      'LHB daily summaries and seat details are post-close Eastmoney DataCenter disclosures; missing or delayed reports remain NOT_MEASURABLE.',
+      'LHB stock-level net amounts are deduplicated by security code; multiple abnormal-trading reasons are not summed.',
+      'Institutional flow is only classified when a seat is explicitly labelled as an institution; ordinary brokerage seats are not guessed to be institutions or named hot-money traders.',
+      'Next-day premium requires a prior-session limit-up cohort and at least 80% matched next-session close coverage; it is not inferred from same-day data.',
       'Industry breadth is a constituent-sample proxy, not verified concept/theme membership.',
       '羊／洋／阳, 狼 and 东方 name themes are lexical matches only; they do not establish industry or fundamental overlap.',
       'Full-market universe status requires all expected pages and at least 99% unique-code coverage.',
       'Yahoo Finance daily bars are filtered to dates strictly before the China calendar date to prevent same-date US data leakage.',
-      'No daily close is substituted for auction, first-15-minute, VWAP, broken-board or order-book evidence.',
+      'No daily close is substituted for auction, first-15-minute, VWAP, broken-board intraday sequence or order-book evidence.',
       'Full stock rows are included for private point-in-time research archiving; the snapshot is multi-page and not atomic.'
     ]
   };

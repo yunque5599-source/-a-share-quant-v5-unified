@@ -81,9 +81,21 @@ function sentimentComponent(sentiment = {}) {
   if (premium !== null) scores.push(clamp(50 + premium * 8));
   const positive = ratio(sentiment.nextDayPositiveRatio);
   if (positive !== null) scores.push(positive * 100);
+  const lhbPositive = ratio(sentiment.lhbPositiveStockRatio);
+  const lhbInstitutional = ratio(sentiment.lhbInstitutionalPositiveStockRatio);
+  let lhbUsed = false;
+  if (lhbPositive !== null || lhbInstitutional !== null) {
+    const lhbParts = [];
+    if (lhbPositive !== null) lhbParts.push([lhbPositive * 100, 0.6]);
+    if (lhbInstitutional !== null) lhbParts.push([lhbInstitutional * 100, 0.4]);
+    const lhbWeight = lhbParts.reduce((sum, [, weight]) => sum + weight, 0);
+    scores.push(lhbParts.reduce((sum, [value, weight]) => sum + value * weight, 0) / lhbWeight);
+    lhbUsed = true;
+  }
   if (!scores.length) return {score: null, raw: null, sourceQuality: 0, reason: 'sentiment-data-missing'};
-  const sourceQuality = sentiment.limitLabelQuality === 'APPROXIMATE_PROXY' ? 0.55
+  const baseQuality = sentiment.limitLabelQuality === 'APPROXIMATE_PROXY' ? 0.55
     : sentiment.brokenBoardRate === 'NOT_MEASURABLE' ? 0.7 : 0.9;
+  const sourceQuality = lhbUsed ? Math.min(baseQuality, 0.8) : baseQuality;
   return {score: mean(scores), raw: scores.length, sourceQuality};
 }
 
@@ -274,6 +286,9 @@ export function evaluateMarketTransition({sessions = [], asOf = null} = {}) {
   if (!current) dataWarnings.push('no-qualified-market-session');
   if (current?.breadth_source_quality < 0.6) dataWarnings.push('breadth-is-not-full-market');
   if (eligible.at(-1)?.sentiment?.limitLabelQuality === 'APPROXIMATE_PROXY') dataWarnings.push('limit-up-down-counts-are-approximate-proxies');
+  const lhbStatus = eligible.at(-1)?.sentiment?.lhbStatus;
+  if (lhbStatus && !['AVAILABLE','AVAILABLE_EMPTY'].includes(lhbStatus)) dataWarnings.push('LHB-daily-data-not-measurable-or-partial');
+  if (eligible.at(-1)?.sentiment?.lhbInstitutionStatus === 'NOT_MEASURABLE') dataWarnings.push('institutional-LHB-seat-details-not-measurable');
   if (current?.missing_components?.length) dataWarnings.push('missing-components:' + current.missing_components.join(','));
   if (confidence < 45) dataWarnings.push('confidence-below-actionable-threshold');
   return {

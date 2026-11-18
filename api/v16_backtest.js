@@ -1,6 +1,8 @@
 import {get,list} from '@vercel/blob';
 import {gunzipSync} from 'node:zlib';
 import {evaluateV15TopKForwardReturns} from '../research/v16/selection_backtest.js';
+import {evaluateFlowLhbAblation} from '../research/v16/flow_lhb_backtest.js';
+import {selectRecentV16SnapshotBlobs} from '../research/v16/snapshot_archive.js';
 
 export const config={maxDuration:60};
 function send(res,status,body){
@@ -39,16 +41,26 @@ export default async function handler(req,res){
     const url=new URL(req.url,'http://localhost');
     const days=Math.max(10,Math.min(250,Math.floor(Number(url.searchParams.get('days'))||120)));
     const asOf=url.searchParams.get('asOf');
+    if(asOf&&!/^\d{4}-\d{2}-\d{2}$/.test(asOf))
+      return send(res,400,{error:'INVALID_AS_OF_DATE',expected:'YYYY-MM-DD'});
     const blobs=await listSnapshotBlobs();
-    const selected=blobs.slice(-Math.min(260,days+5));
+    const selected=selectRecentV16SnapshotBlobs(blobs,{days,asOf});
     const loaded=await mapLimit(selected,8,async blob=>readSnapshot(blob));
     const snapshots=loaded.filter(value=>value&&!value.error);
     const report=evaluateV15TopKForwardReturns({snapshots,asOf,topKs:[10,30,50],horizons:[1,3,5],minSignalDates:20});
-    const partialReadCount=loaded.filter(value=>value?.error).length;
+    const flowLhbReport=evaluateFlowLhbAblation({snapshots,asOf,topKs:[10,30,50],horizons:[1,3,5],minSignalDates:20});
+    const partialReadCount=loaded.filter(value=>!value||value.error).length;
+    const selectedTradeDates=new Set(selected.map(blob=>String(blob.pathname).match(/^v16\/snapshots\/(\d{4}-\d{2}-\d{2})\//)?.[1]).filter(Boolean));
     return send(res,200,{
       schema:'ashare-v16-server-backtest-response-v1',
-      archive:{blobCount:blobs.length,loadedSnapshotCount:snapshots.length,readFailureCount:partialReadCount,requestedDays:days},
-      report
+      archive:{
+        blobCount:blobs.length,selectedBlobCount:selected.length,
+        selectedTradeDateCount:selectedTradeDates.size,
+        loadedSnapshotCount:snapshots.length,readFailureCount:partialReadCount,requestedDays:days,
+        asOf:asOf??null
+      },
+      report,
+      flowLhbReport
     });
   }catch(error){
     return send(res,503,{
