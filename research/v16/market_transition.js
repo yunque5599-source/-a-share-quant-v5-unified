@@ -81,9 +81,21 @@ function sentimentComponent(sentiment = {}) {
   if (premium !== null) scores.push(clamp(50 + premium * 8));
   const positive = ratio(sentiment.nextDayPositiveRatio);
   if (positive !== null) scores.push(positive * 100);
+  const lhbPositive = ratio(sentiment.lhbPositiveStockRatio);
+  const lhbInstitutional = ratio(sentiment.lhbInstitutionalPositiveStockRatio);
+  let lhbUsed = false;
+  if (lhbPositive !== null || lhbInstitutional !== null) {
+    const lhbParts = [];
+    if (lhbPositive !== null) lhbParts.push([lhbPositive * 100, 0.6]);
+    if (lhbInstitutional !== null) lhbParts.push([lhbInstitutional * 100, 0.4]);
+    const lhbWeight = lhbParts.reduce((sum, [, weight]) => sum + weight, 0);
+    scores.push(lhbParts.reduce((sum, [value, weight]) => sum + value * weight, 0) / lhbWeight);
+    lhbUsed = true;
+  }
   if (!scores.length) return {score: null, raw: null, sourceQuality: 0, reason: 'sentiment-data-missing'};
-  const sourceQuality = sentiment.limitLabelQuality === 'APPROXIMATE_PROXY' ? 0.55
+  const baseQuality = sentiment.limitLabelQuality === 'APPROXIMATE_PROXY' ? 0.55
     : sentiment.brokenBoardRate === 'NOT_MEASURABLE' ? 0.7 : 0.9;
+  const sourceQuality = lhbUsed ? Math.min(baseQuality, 0.8) : baseQuality;
   return {score: mean(scores), raw: scores.length, sourceQuality};
 }
 
