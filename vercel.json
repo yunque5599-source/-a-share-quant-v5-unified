@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/v16_snapshot_archive",
-      "schedule": "20 8 * * 1-5"
+      "schedule": "10 12 * * 1-5"
     }
   ]
 }
