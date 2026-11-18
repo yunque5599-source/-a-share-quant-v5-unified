@@ -228,6 +228,9 @@ function metricForSelection(selected,future,horizon) {
     exactLimitUpCapturedCount:captured,
     exactLimitUpCaptureRate:exact.status==='AVAILABLE'&&exact.events.length?captured/exact.events.length:null,
     exactLimitUpPrecision:exact.status==='AVAILABLE'?captured/selected.length:null,
+    returnSumPct:returns.reduce((sum,value)=>sum+value,0),
+    positiveCount:returns.filter(value=>value>0).length,
+    hit5Count:returns.filter(value=>value>=5).length,
     executionFillability:'NOT_MEASURABLE_DAILY_OPEN_CLOSE_ONLY'
   };
 }
@@ -246,15 +249,19 @@ function aggregateMetrics(metrics,minSignalDates) {
   const exactRows=eligible.filter(row=>row.exactLimitUpStatus==='AVAILABLE');
   const exactEvents=exactRows.reduce((sum,row)=>sum+(row.exactLimitUpEventCount??0),0);
   const exactCaptured=exactRows.reduce((sum,row)=>sum+(row.exactLimitUpCapturedCount??0),0);
+  const exactSelected=exactRows.reduce((sum,row)=>sum+(row.selectedCount??0),0);
+  const totalReturn=eligible.reduce((sum,row)=>sum+(row.returnSumPct??0),0);
+  const totalPositive=eligible.reduce((sum,row)=>sum+(row.positiveCount??0),0);
+  const totalHit5=eligible.reduce((sum,row)=>sum+(row.hit5Count??0),0);
   return {
     signalDateCount:eligible.length,
     maturedCandidates:totalMatured,
     selectedCandidates:totalSelected,
     sampleCoverage:totalSelected?totalMatured/totalSelected:0,
-    meanReturnPct:average('meanReturnPct'),
+    meanReturnPct:totalMatured?totalReturn/totalMatured:null,
     medianReturnPct:average('medianReturnPct'),
-    positiveRatio:average('positiveRatio'),
-    hit5PctRatio:average('hit5PctRatio'),
+    positiveRatio:totalMatured?totalPositive/totalMatured:null,
+    hit5PctRatio:totalMatured?totalHit5/totalMatured:null,
     meanBenchmarkPct:average('benchmarkMeanPct'),
     meanExcessPct:average('excessMeanPct'),
     meanMaxDrawdownPct:average('meanMaxDrawdownPct'),
@@ -264,7 +271,7 @@ function aggregateMetrics(metrics,minSignalDates) {
     exactLimitUpEventCount:exactEvents,
     exactLimitUpCapturedCount:exactCaptured,
     exactLimitUpCaptureRate:exactEvents?exactCaptured/exactEvents:null,
-    exactLimitUpPrecision:totalSelected?exactCaptured/totalSelected:null,
+    exactLimitUpPrecision:exactSelected?exactCaptured/exactSelected:null,
     status:eligible.length>=minSignalDates?'MEASURABLE':eligible.length?'PARTIAL':'NOT_MEASURABLE'
   };
 }
