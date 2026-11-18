@@ -18,10 +18,13 @@ on:
       - 'tests/v16_narrative_theme.test.js'
       - 'tests/v16_selection_backtest.test.js'
       - 'tests/v16_snapshot_archive.test.js'
+      - 'tests/v16_flow_lhb.test.js'
+      - 'tests/v16_flow_lhb_integration.test.js'
       - '.github/workflows/v16-research-tests.yml'
   pull_request:
     branches:
       - main
+      - research/v16-system-upgrade-20261104
     paths:
       - 'research/v16/**'
       - 'api/v16_market_context.js'
@@ -62,4 +65,4 @@ jobs:
           node -e "const fs=require('node:fs');const h=fs.readFileSync('index_V16_MARKET_SHADOW.html','utf8');const m=h.match(/<script type=\\\"module\\\">([\\s\\S]*?)<\\/script>/);if(!m)throw Error('V16 module script not found');fs.writeFileSync('/tmp/v16-shadow.mjs',m[1]);"
           node --check /tmp/v16-shadow.mjs
       - name: Run V16 deterministic tests
-        run: node --test tests/v16_market_system.test.js tests/v16_market_context.test.js tests/v16_narrative_theme.test.js tests/v16_selection_backtest.test.js tests/v16_snapshot_archive.test.js
+        run: node --test tests/v16_market_system.test.js tests/v16_market_context.test.js tests/v16_narrative_theme.test.js tests/v16_selection_backtest.test.js tests/v16_snapshot_archive.test.js tests/v16_flow_lhb.test.js tests/v16_flow_lhb_integration.test.js
