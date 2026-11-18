@@ -295,7 +295,7 @@ async function loadServerBacktest() {
     for (const topK of [10,30,50]) {
       for (const horizon of [1,3,5]) {
         const metric = report.aggregate?.['top' + topK]?.['T+' + horizon] ?? {};
-        rows.push('<tr><td>Top' + topK + '</td><td>T+' + horizon + '</td><td>' + (metric.signalDateCount ?? 0) + '</td><td>' + pct((metric.sampleCoverage ?? 0) * 100) + '</td><td>' + pct(metric.meanReturnPct) + '</td><td>' + pct(metric.meanExcessPct) + '</td><td>' + pct((metric.positiveRatio ?? 0) * 100) + '</td><td>' + pct((metric.nearLimitUpProxyCaptureRate ?? 0) * 100) + '</td><td>' + escapeHtml(metric.status ?? 'NOT_MEASURABLE') + '</td></tr>');
+        rows.push('<tr><td>Top' + topK + '</td><td>T+' + horizon + '</td><td>' + (metric.signalDateCount ?? 0) + '</td><td>' + pct((metric.sampleCoverage ?? 0) * 100) + '</td><td>' + pct(metric.meanReturnPct) + '</td><td>' + pct(metric.meanExcessPct) + '</td><td>' + pct(metric.positiveRatio === null || metric.positiveRatio === undefined ? null : metric.positiveRatio * 100) + '</td><td>' + pct(metric.nearLimitUpProxyCaptureRate === null || metric.nearLimitUpProxyCaptureRate === undefined ? null : metric.nearLimitUpProxyCaptureRate * 100) + '</td><td>' + escapeHtml(metric.status ?? 'NOT_MEASURABLE') + '</td></tr>');
       }
     }
     $('backtestRows').innerHTML = rows.join('');
@@ -308,7 +308,7 @@ async function loadServerBacktest() {
           for (const horizon of [1,3,5]) {
             const metric = flow.aggregate?.[variant]?.['top' + topK]?.['T+' + horizon] ?? {};
             const delta = flow.comparison?.[variant]?.['top' + topK]?.['T+' + horizon]?.meanReturnDeltaPct;
-            flowRows.push('<tr><td>' + labels[variant] + '</td><td>Top' + topK + '</td><td>T+' + horizon + '</td><td>' + (metric.signalDateCount ?? 0) + '</td><td>' + pct(metric.meanReturnPct) + '</td><td>' + pct(metric.meanExcessPct) + '</td><td>' + pct((metric.positiveRatio ?? 0) * 100) + '</td><td>' + pct((metric.exactLimitUpCaptureRate ?? 0) * 100) + '</td><td>' + (variant === 'baseline' ? '—' : pct(delta)) + '</td><td>' + escapeHtml(metric.status ?? 'NOT_MEASURABLE') + '</td></tr>');
+            flowRows.push('<tr><td>' + labels[variant] + '</td><td>Top' + topK + '</td><td>T+' + horizon + '</td><td>' + (metric.signalDateCount ?? 0) + '</td><td>' + pct(metric.meanReturnPct) + '</td><td>' + pct(metric.meanExcessPct) + '</td><td>' + pct((metric.positiveRatio ?? 0) * 100) + '</td><td>' + pct(metric.exactLimitUpCaptureRate === null || metric.exactLimitUpCaptureRate === undefined ? null : metric.exactLimitUpCaptureRate * 100) + '</td><td>' + (variant === 'baseline' ? '—' : pct(delta)) + '</td><td>' + escapeHtml(metric.status ?? 'NOT_MEASURABLE') + '</td></tr>');
           }
         }
       }
@@ -321,7 +321,7 @@ async function loadServerBacktest() {
             const t1 = result.horizons?.['T+1'] ?? {};
             const t3 = result.horizons?.['T+3'] ?? {};
             const t5 = result.horizons?.['T+5'] ?? {};
-            seriesRows.push('<tr><td>' + escapeHtml(day.tradeDate) + '</td><td>' + (variant === 'baseline' ? '基准' : '组合因子') + '</td><td>Top' + topK + '</td><td>' + pct(t1.meanReturnPct) + '</td><td>' + pct((t1.positiveRatio ?? 0) * 100) + '</td><td>' + pct(t3.meanReturnPct) + '</td><td>' + pct((t3.positiveRatio ?? 0) * 100) + '</td><td>' + pct(t5.meanReturnPct) + '</td><td>' + pct((t5.positiveRatio ?? 0) * 100) + '</td><td>' + pct((t1.exactLimitUpCaptureRate ?? 0) * 100) + '</td></tr>');
+            seriesRows.push('<tr><td>' + escapeHtml(day.tradeDate) + '</td><td>' + (variant === 'baseline' ? '基准' : '组合因子') + '</td><td>Top' + topK + '</td><td>' + pct(t1.meanReturnPct) + '</td><td>' + pct(t1.positiveRatio === null || t1.positiveRatio === undefined ? null : t1.positiveRatio * 100) + '</td><td>' + pct(t3.meanReturnPct) + '</td><td>' + pct(t3.positiveRatio === null || t3.positiveRatio === undefined ? null : t3.positiveRatio * 100) + '</td><td>' + pct(t5.meanReturnPct) + '</td><td>' + pct(t5.positiveRatio === null || t5.positiveRatio === undefined ? null : t5.positiveRatio * 100) + '</td><td>' + pct((t1.exactLimitUpCaptureRate ?? 0) * 100) + '</td></tr>');
           }
         }
       }
@@ -331,9 +331,9 @@ async function loadServerBacktest() {
         + ' · 涨停池完整日期 ' + flow.coverage.limitPoolAvailableDates
         + ' · 龙虎榜日榜可用日期 ' + flow.coverage.lhbDailyAvailableDates
         + ' · 机构席位可用日期 ' + flow.coverage.lhbSeatAvailableDates
-        + ' · 平均资金输入覆盖 ' + pct((flow.coverage.averageFundingInputCoverage ?? 0) * 100)
-        + ' · 平均资金有效信号覆盖 ' + pct((flow.coverage.averageFundingSignalCoverage ?? 0) * 100)
-        + ' · 平均龙虎榜数据覆盖 ' + pct((flow.coverage.averageLhbDailyCoverage ?? 0) * 100)
+        + ' · 平均资金输入覆盖 ' + pct(flow.coverage.averageFundingInputCoverage === null || flow.coverage.averageFundingInputCoverage === undefined ? null : flow.coverage.averageFundingInputCoverage * 100)
+        + ' · 平均资金有效信号覆盖 ' + pct(flow.coverage.averageFundingSignalCoverage === null || flow.coverage.averageFundingSignalCoverage === undefined ? null : flow.coverage.averageFundingSignalCoverage * 100)
+        + ' · 平均龙虎榜数据覆盖 ' + pct(flow.coverage.averageLhbDailyCoverage === null || flow.coverage.averageLhbDailyCoverage === undefined ? null : flow.coverage.averageLhbDailyCoverage * 100)
         + ' · 最低成熟信号日 ' + flow.minimumMaturedSignalDates
         + ' · 生产资格：否。';
     } else {
