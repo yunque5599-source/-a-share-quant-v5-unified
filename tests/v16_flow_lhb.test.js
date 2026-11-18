@@ -109,6 +109,21 @@ test('next-session premium uses only matched previous limit-up cohort and covera
   assert.equal(partial.status,'NOT_MEASURABLE');
 });
 
+test('next-day premium remains measurable when only the prior limit-up pool is available',()=>{
+  const previousLimitPools={
+    status:'PARTIAL',
+    sourceStatus:{limitUp:'AVAILABLE',broken:'NOT_MEASURABLE',limitDown:'AVAILABLE'},
+    limitUp:[{code:'600001'},{code:'000002'}]
+  };
+  const result=evaluateNextDayLimitUpPremium({
+    previousLimitPools,
+    currentStockRows:[{code:'600001',pct:2},{code:'000002',pct:0}],
+    previousTradeDate:'2026-11-17',currentTradeDate:'2026-11-18'
+  });
+  assert.equal(result.status,'AVAILABLE');
+  assert.equal(result.meanReturnPct,1);
+});
+
 test('single-day flow or institutional buying without higher lows is not a bottom signal',()=>{
   const sessions=[
     {tradeDate:'2026-11-16',fundingRows:[{code:'600001',price:10,low:9.8,mainNet:100}]},
