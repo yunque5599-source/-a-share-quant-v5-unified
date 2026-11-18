@@ -31,6 +31,7 @@ on:
       - 'research/v16/**'
       - 'api/v16_market_context.js'
       - 'api/v16_snapshot_archive.js'
+      - 'api/v16_snapshot_archive_schedule.js'
       - 'api/v16_backtest.js'
       - 'package.json'
       - 'vercel.json'
