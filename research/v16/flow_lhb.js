@@ -284,9 +284,11 @@ export function evaluateNextDayLimitUpPremium({
 }
 
 function sessionRow(session, code) {
-  const rows = Array.isArray(session?.fundingRows) ? session.fundingRows
-    : Array.isArray(session?.stockRows) ? session.stockRows : [];
-  return rows.find(row=>String(row.code)===String(code)) ?? null;
+  const fundingRows = Array.isArray(session?.fundingRows) ? session.fundingRows : [];
+  const fundingMatch = fundingRows.find(row=>String(row.code)===String(code));
+  if (fundingMatch) return fundingMatch;
+  const stockRows = Array.isArray(session?.stockRows) ? session.stockRows : [];
+  return stockRows.find(row=>String(row.code)===String(code)) ?? null;
 }
 
 export function scoreCandidateFundingEvidence({code, sessions = [], asOf = null} = {}) {
@@ -307,7 +309,7 @@ export function scoreCandidateFundingEvidence({code, sessions = [], asOf = null}
   }).filter(item=>item.row);
   if(observations.length<2) return {
     code:String(code),status:'INSUFFICIENT_HISTORY',fundingScore:null,
-    mainFlowPositiveDays:null,institutionalPositiveDays:null,trendConfirmed:false,
+    observationCount:observations.length,mainFlowPositiveDays:null,institutionalPositiveDays:null,trendConfirmed:false,
     chaseRiskScore:null,reasons:['fewer-than-two-point-in-time-observations']
   };
   const mainFlowValues=observations.map(item=>item.mainNet).filter(Number.isFinite);
@@ -349,6 +351,9 @@ export function scoreCandidateFundingEvidence({code, sessions = [], asOf = null}
     code:String(code),
     status:fundingScore===null?'NO_CONFIRMED_PERSISTENCE':'AVAILABLE',
     fundingScore:fundingScore===null?null:Number(fundingScore.toFixed(2)),
+    observationCount:observations.length,
+    completeThreeSessionInputs:lastThreeLows.length===3&&lastThreeLows.every(Number.isFinite)
+      &&mainFlowValues.length===3&&firstPrice!==null&&lastPrice!==null,
     mainFlowPositiveDays,
     mainFlowObservationDays:mainFlowValues.length,
     institutionalPositiveDays,
