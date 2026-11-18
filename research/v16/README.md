@@ -17,7 +17,7 @@ This is an isolated research layer. It does not modify production `index.html`, 
 - `api/v16_snapshot_archive.js`: authenticated post-close collector that writes immutable gzip snapshots to a private Vercel Blob store. It requires `CRON_SECRET` and a connected private Blob store.
 - `api/v16_backtest.js`: reads private archived snapshots and returns the Top10/30/50 forward-return report.
 - `vercel.json`: schedules the archive endpoint at 12:10 UTC (20:10 China time), Monday to Friday, so post-close LHB disclosures have time to arrive. Vercel Cron only runs on production deployments; this research PR does not activate it.
-- `index_V16_MARKET_SHADOW.html`: standalone browser dashboard. It still stores up to 30 local snapshots, and now also exposes a server Top-K backtest panel once private archive storage is configured.
+- `index_V16_MARKET_SHADOW.html`: standalone browser dashboard. It stores up to 30 local snapshots and displays limit-up ladder, LHB daily/seat flow, and a main-board funding-persistence watchlist. The watchlist is restricted to the top 500 main-board rows by absolute daily main-force flow and is not a full-universe final selection; the server Top-K backtest panel requires private archive storage.
 
 ## Score conventions
 - Scores are 0–100; 50 is neutral. Daily returns use percentage points (e.g. -1.5 means -1.5%).
@@ -41,7 +41,7 @@ This is an isolated research layer. It does not modify production `index.html`, 
 | LHB daily/seat flow | Date-filtered DataCenter disclosures, deduplicated by stock/seat | Missing or delayed report remains NOT_MEASURABLE; only explicit institution-labelled seats count as institutional |
 | Funding persistence | Up to three point-in-time stock-flow snapshots plus daily lows | Requires at least two positive-flow sessions and higher lows; single-day inflow is not a bottom signal |
 | Next-day limit-up premium | Prior-session limit-up cohort matched to current full-market rows | Requires at least 80% matched cohort coverage; otherwise NOT_MEASURABLE |
-| Broken-board rate | Intraday limit-touch/reopen or order-book history | NOT_MEASURABLE |
+| Broken-board rate | Eastmoney broken-board pool divided by sealed plus broken pools | Vendor-pool proxy only; intraday touch/reopen sequence and order-book proof remain NOT_MEASURABLE |
 | Next-day premium | Frozen signal-date list and matured next-session outcomes | NOT_MEASURABLE until matured |
 | Auction/first 15m/VWAP | Timestamped minute bars and sector/leader observations | NOT_MEASURABLE; daily close is not a substitute |
 | Policy/event risk | Verified event with source URL, timestamp, direction and severity | NOT_MEASURABLE |
