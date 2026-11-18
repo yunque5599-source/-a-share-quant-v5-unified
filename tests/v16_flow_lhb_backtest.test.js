@@ -70,7 +70,7 @@ test('ablation reports Top10/30/50 and T+1/T+3/T+5 using next-session open entry
   }
   const first=report.daily[0].topK.baseline.top10.horizons['T+1'];
   assert.equal(first.status,'MEASURABLE');
-  assert.equal(first.meanReturnPct,10);
+  assert.ok(Math.abs(first.meanReturnPct-10)<1e-9);
   assert.equal(first.exactLimitUpStatus,'AVAILABLE');
   assert.equal(first.exactLimitUpEventCount,2);
   assert.equal(first.exactLimitUpCapturedCount,2);
