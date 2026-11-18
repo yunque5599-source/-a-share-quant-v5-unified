@@ -27,6 +27,9 @@ function persistenceScore(row, market = {}) {
   if (leader !== null) parts.push(clamp(50 + leader * 5));
   const repeat = num(row.topSectorRepeatDays);
   if (repeat !== null) parts.push(clamp(repeat / 4 * 100));
+  const lhbCount = num(row.lhbStockCount);
+  const lhbBreadth = ratio(row.lhbPositiveRatio);
+  if (lhbCount !== null && lhbCount >= 3 && lhbBreadth !== null) parts.push(lhbBreadth * 100);
   return parts.length ? Number(mean(parts).toFixed(2)) : null;
 }
 
@@ -57,6 +60,15 @@ function accelerationScore(row, previous) {
   if (relative !== null && priorRelative !== null) {
     changes.leaderRelativeStrengthDelta = relative - priorRelative;
     parts.push(clamp(50 + changes.leaderRelativeStrengthDelta * 3));
+  }
+  const lhbCount = num(row.lhbStockCount);
+  const priorLhbCount = num(previous.lhbStockCount);
+  const lhbBreadth = ratio(row.lhbPositiveRatio);
+  const priorLhbBreadth = ratio(previous.lhbPositiveRatio);
+  if (lhbCount !== null && priorLhbCount !== null && lhbCount >= 3 && priorLhbCount >= 3
+    && lhbBreadth !== null && priorLhbBreadth !== null) {
+    changes.lhbPositiveBreadthDeltaPct = (lhbBreadth - priorLhbBreadth) * 100;
+    parts.push(clamp(50 + changes.lhbPositiveBreadthDeltaPct * 1.2));
   }
   return {
     score: parts.length ? Number(mean(parts).toFixed(2)) : null,
@@ -122,7 +134,10 @@ export function scoreSectorRotation({sectors = [], previousSectors = [], market 
         d5Pct: num(row.d5Pct ?? row.return5dPct),
         advancersRatio: ratio(row.advancersRatio ?? row.breadthRatio),
         positiveFlowRatio: ratio(row.positiveFlowRatio),
-        topSectorRepeatDays: num(row.topSectorRepeatDays)
+        topSectorRepeatDays: num(row.topSectorRepeatDays),
+        lhbNetBuyCny: num(row.lhbNetBuyCny),
+        lhbPositiveRatio: ratio(row.lhbPositiveRatio),
+        lhbStockCount: num(row.lhbStockCount)
       }
     };
   }).sort((a, b) => (b.opportunity_score ?? -1) - (a.opportunity_score ?? -1));
