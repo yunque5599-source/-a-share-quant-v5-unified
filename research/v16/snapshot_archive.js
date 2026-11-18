@@ -2,6 +2,21 @@ import {rankV15Stage1Candidates} from './selection_backtest.js';
 
 const finite=value=>value!==null&&value!==undefined&&value!==''&&Number.isFinite(Number(value));
 const dateKey=value=>String(value??'').slice(0,10);
+export function selectRecentV16SnapshotBlobs(blobs,{days=120,asOf=null}={}) {
+  const requestedDays=Math.max(1,Math.min(250,Math.floor(Number(days)||120)));
+  const cutoff=String(asOf??'').slice(0,10);
+  const grouped=new Map();
+  for(const blob of Array.isArray(blobs)?blobs:[]) {
+    const match=String(blob?.pathname??'').match(/^v16\/snapshots\/(\d{4}-\d{2}-\d{2})\//);
+    const tradeDate=match?.[1]??null;
+    if(!tradeDate||(cutoff&&tradeDate>cutoff))continue;
+    if(!grouped.has(tradeDate))grouped.set(tradeDate,[]);
+    grouped.get(tradeDate).push(blob);
+  }
+  const keepDates=new Set([...grouped.keys()].sort().slice(-Math.min(260,requestedDays+5)));
+  return [...keepDates].flatMap(tradeDate=>(grouped.get(tradeDate)??[]).slice()
+    .sort((a,b)=>String(a.pathname).localeCompare(String(b.pathname))));
+}
 function shanghaiDate(value) {
   const parts=new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Shanghai',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date(value));
   const fields=Object.fromEntries(parts.map(part=>[part.type,part.value]));
