@@ -79,6 +79,25 @@ test('ablation reports Top10/30/50 and T+1/T+3/T+5 using next-session open entry
   assert.equal(report.promotionEligible,false);
 });
 
+test('aggregate metrics stay PARTIAL when matured candidate coverage is below 95%',()=>{
+  const snapshots=makeSnapshots();
+  const initial=evaluateFlowLhbAblation({
+    snapshots,asOf:'2026-11-03',minSignalDates:1
+  });
+  const missingCode=initial.daily[0].topK.baseline.top10.top[0].code;
+  snapshots[1].stockRows=snapshots[1].stockRows.map(row=>
+    row.code===missingCode?{...row,price:null}:{...row}
+  );
+  const report=evaluateFlowLhbAblation({
+    snapshots,asOf:'2026-11-03',minSignalDates:1
+  });
+  const metric=report.aggregate.baseline.top10['T+1'];
+  assert.equal(metric.selectedCandidates,10);
+  assert.equal(metric.maturedCandidates,9);
+  assert.equal(metric.sampleCoverage,0.9);
+  assert.equal(metric.status,'PARTIAL');
+});
+
 test('LHB and limit-pool gaps remain explicit while baseline daily returns remain measurable',()=>{
   const report=evaluateFlowLhbAblation({
     snapshots:makeSnapshots({missingLhb:true,missingLimitPools:true}),
