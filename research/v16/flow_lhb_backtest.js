@@ -52,8 +52,10 @@ function lhbEvidence(snapshot,code) {
   const lhb=snapshot?.market?.lhb??null;
   const dailyStatus=lhb?.dailyStatus??lhb?.status??'NOT_MEASURABLE';
   if(!available(dailyStatus))return {status:'NOT_MEASURABLE',score:null,hasDisclosure:false};
-  const signals=lhb?.stockSignalsByCode&&typeof lhb.stockSignalsByCode==='object'
-    ?lhb.stockSignalsByCode:{};
+  if(!lhb?.stockSignalsByCode||typeof lhb.stockSignalsByCode!=='object') {
+    return {status:'NOT_MEASURABLE',score:null,hasDisclosure:false};
+  }
+  const signals=lhb.stockSignalsByCode;
   const row=signals[String(code)]??null;
   if(!row)return {status:'AVAILABLE_NO_DISCLOSURE',score:50,hasDisclosure:false};
   const dailyValues=Object.values(signals).map(item=>num(item?.netBuyCny)).filter(Number.isFinite);
@@ -85,7 +87,7 @@ function marketContext(snapshot) {
     brokenBoardCount:brokenStatus==='AVAILABLE'?num(pools.brokenBoardCount):null,
     limitDownCount:downStatus==='AVAILABLE'?num(pools.limitDownCount):null,
     brokenBoardRate:upStatus==='AVAILABLE'&&brokenStatus==='AVAILABLE'?num(pools.brokenBoardRate):null,
-    highestBoard:num(pools.highestBoard),
+    highestBoard:upStatus==='AVAILABLE'?num(pools.highestBoard):null,
     lhbPositiveStockRatio:available(lhb.dailyStatus??lhb.status)?num(lhb.positiveStockRatio):null,
     lhbInstitutionalPositiveStockRatio:available(lhb.seatStatus)?num(lhb.institutionalPositiveStockRatio):null,
     limitUpStatus:upStatus,
@@ -96,12 +98,17 @@ function marketContext(snapshot) {
   };
 }
 function scoreCandidates(snapshot,history,index,ranking) {
-  const sessions=history.slice(Math.max(0,index-2),index+1).map(item=>({
+  const fundingWindow=history.slice(Math.max(0,index-2),index+1);
+  const fundingWindowQualified=fundingWindow.length===3
+    &&fundingWindow.every(qualified)
+    &&fundingWindow.slice(1).every((item,offset)=>expectedNextSession(dateOf(fundingWindow[offset]),dateOf(item)));
+  const sessions=fundingWindowQualified?fundingWindow.map(item=>({
     tradeDate:dateOf(item),
     fundingRows:item.fundingRows??[],
     stockRows:item.stockRows??[],
     lhb:item.market?.lhb??null
-  }));
+  })):[];
+
   const candidates=ranking.candidates.map(candidate=>{
     const funding=scoreCandidateFundingEvidence({
       code:candidate.code,sessions,asOf:dateOf(snapshot)
