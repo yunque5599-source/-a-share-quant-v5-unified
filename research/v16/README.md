@@ -67,9 +67,9 @@ This is an isolated research layer. It does not modify production `index.html`, 
 ## Archive setup and operation
 1. Connect a **private** Vercel Blob store to the project. Private Blob requires authenticated access; do not use a public store for research snapshots.
 2. Configure a random `CRON_SECRET` in the Vercel project Production environment. The archive endpoint rejects requests when it is absent or invalid.
-3. Merge/deploy only after review. The cron schedule is 08:20 UTC / 16:20 China time on weekdays; Vercel Cron runs only on production deployments, not preview deployments.
+3. Merge/deploy only after review. The cron schedule is 12:10 UTC / 20:10 China time on weekdays; Vercel Cron runs only on production deployments, not preview deployments.
 4. The collector skips non-trading days and pre-close calls. It archives incomplete snapshots for diagnostics, but the backtest only uses snapshots that pass the strict quality gate.
-5. Snapshot files are gzip-compressed and immutable. The backtest API reads the latest archive window and reports data gaps rather than filling missing outcomes with zero.
+5. Snapshot files are gzip-compressed and immutable. The backtest API reads the latest archive window and reports data gaps rather than filling missing outcomes with zero. The factor-ablation report requires at least three qualified sessions for funding evidence and at least 20 matured signal dates before any Top-K/horizon is labelled MEASURABLE.
 
 ## Tests
 Run syntax checks on all V16 modules and API routes, then `node --test tests/v16_market_system.test.js tests/v16_market_context.test.js tests/v16_narrative_theme.test.js tests/v16_selection_backtest.test.js tests/v16_snapshot_archive.test.js tests/v16_flow_lhb.test.js tests/v16_flow_lhb_integration.test.js tests/v16_flow_lhb_backtest.test.js`.
