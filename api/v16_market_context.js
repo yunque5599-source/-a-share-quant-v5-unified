@@ -1,7 +1,7 @@
 import {extractNarrativeTags} from '../research/v16/narrative_theme.js';
 import {summarizeLimitPools, summarizeLhbContext} from '../research/v16/flow_lhb.js';
 
-export const config = {maxDuration: 30};
+export const config = {maxDuration: 60};
 
 const EM_HOSTS = [
   'https://push2.eastmoney.com',
@@ -389,18 +389,47 @@ const PUSH2EX_HOST = 'https://push2ex.eastmoney.com';
 const DATACENTER_HOST = 'https://datacenter-web.eastmoney.com';
 
 async function fetchLimitPool(endpoint, tradeDate) {
-  const params = new URLSearchParams({
-    ut: '7eea3edcaed734bea9cbfc24409ed989',
-    dpt: 'wz.ztzt',
-    Pageindex: '0',
-    pagesize: '200',
-    sort: 'fbt:asc',
-    date: String(tradeDate).replace(/-/g, '')
-  });
-  const payload = await fetchJson(PUSH2EX_HOST + '/' + endpoint + '?' + params.toString(), 7000,
-    {referer: 'https://quote.eastmoney.com/'});
-  if (!Array.isArray(payload?.data?.pool)) throw new Error(endpoint + ': data.pool unavailable');
-  return payload.data.pool;
+  const pageSize = 200;
+  const fetchPage = async pageIndex => {
+    const params = new URLSearchParams({
+      ut: '7eea3edcaed734bea9cbfc24409ed989',
+      dpt: 'wz.ztzt',
+      Pageindex: String(pageIndex),
+      pagesize: String(pageSize),
+      sort: 'fbt:asc',
+      date: String(tradeDate).replace(/-/g, '')
+    });
+    const payload = await fetchJson(PUSH2EX_HOST + '/' + endpoint + '?' + params.toString(), 7000,
+      {referer: 'https://quote.eastmoney.com/'});
+    if (!Array.isArray(payload?.data?.pool)) throw new Error(endpoint + ': data.pool unavailable');
+    return payload.data;
+  };
+  const first = await fetchPage(0);
+  const rows = [...first.pool];
+  const reportedTotal = num(first.total ?? first.tc ?? first.totalCount ?? first.count);
+  const totalKnown = reportedTotal !== null && reportedTotal >= 0;
+  const pageCount = totalKnown && reportedTotal > 0 ? Math.ceil(reportedTotal / pageSize) : 1;
+  const maxPages = 10;
+  const failures = [];
+  const pagesToFetch = Math.min(pageCount,maxPages);
+  for (let pageIndex=1; pageIndex<pagesToFetch; pageIndex++) {
+    try {
+      const page = await fetchPage(pageIndex);
+      rows.push(...page.pool);
+    } catch (error) {
+      failures.push({pageIndex,error:String(error?.message??error)});
+    }
+  }
+  const complete = failures.length===0 && pageCount<=maxPages
+    && (totalKnown ? rows.length>=reportedTotal : rows.length<pageSize);
+  return {
+    status:complete?'AVAILABLE':'PARTIAL',
+    rows,
+    total:totalKnown?reportedTotal:null,
+    pageCount,
+    pagesFetched:pagesToFetch-failures.length,
+    failures
+  };
 }
 
 async function fetchDataCenterReport(reportName, tradeDate, {pageSize = 500, maxPages = 10} = {}) {
@@ -460,7 +489,8 @@ async function fetchDataCenterReport(reportName, tradeDate, {pageSize = 500, max
 async function fetchLimitPools(tradeDate) {
   if (!tradeDate) return {
     tradeDate: null, limitUpRows: null, brokenRows: null, limitDownRows: null,
-    sourceStatus: {limitUp:'NOT_MEASURABLE',broken:'NOT_MEASURABLE',limitDown:'NOT_MEASURABLE'}
+    sourceStatus: {limitUp:'NOT_MEASURABLE',broken:'NOT_MEASURABLE',limitDown:'NOT_MEASURABLE'},
+    diagnostics:{}
   };
   const specs = [
     ['limitUp','getTopicZTPool'],
@@ -468,13 +498,19 @@ async function fetchLimitPools(tradeDate) {
     ['limitDown','getTopicDTPool']
   ];
   const results = await mapLimit(specs, 3, ([, endpoint]) => fetchLimitPool(endpoint, tradeDate));
-  const output = {tradeDate,sourceStatus:{},limitUpRows:null,brokenRows:null,limitDownRows:null};
+  const output = {tradeDate,sourceStatus:{},limitUpRows:null,brokenRows:null,limitDownRows:null,diagnostics:{}};
   results.forEach((result,index)=>{
     const [key] = specs[index];
-    if (result?.error) output.sourceStatus[key] = 'NOT_MEASURABLE';
-    else {
-      output.sourceStatus[key] = 'AVAILABLE';
-      output[key === 'limitUp' ? 'limitUpRows' : key === 'broken' ? 'brokenRows' : 'limitDownRows'] = result;
+    if (result?.error) {
+      output.sourceStatus[key] = 'NOT_MEASURABLE';
+      output.diagnostics[key] = {error:String(result.error)};
+    } else {
+      output.sourceStatus[key] = result.status;
+      output[key === 'limitUp' ? 'limitUpRows' : key === 'broken' ? 'brokenRows' : 'limitDownRows'] = result.rows;
+      output.diagnostics[key] = {
+        total:result.total,pageCount:result.pageCount,pagesFetched:result.pagesFetched,
+        failures:result.failures??[]
+      };
     }
   });
   return output;
@@ -525,6 +561,7 @@ export async function collectV16MarketContext() {
     limitDownRows:poolRaw.limitDownRows,
     sourceStatus:poolRaw.sourceStatus
   });
+  limitPools.diagnostics = poolRaw.diagnostics ?? {};
   const lhb = summarizeLhbContext({
     tradeDate:aShareSessionDate,
     dailyRows:lhbRaw.dailyRows,
