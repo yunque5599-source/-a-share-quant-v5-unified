@@ -356,7 +356,8 @@ export function evaluateFlowLhbAblation({
           selectedCount:selected.length,
           top:selected.slice(0,Math.min(10,selected.length)).map(row=>({
             code:row.code,name:row.name,baselineScore:row.scores.baseline,
-            fundingScore:row.fundingEvidence.fundingScore,lhbScore:row.lhbEvidence.score,
+            fundingAblationScore:row.fundingAblationScore,fundingSignalScore:row.fundingEvidence.fundingScore,
+            fundingInputMeasured:row.fundingInputMeasured,lhbScore:row.lhbEvidence.score,
             enhancedScore:row.scores[variant]
           })),
           horizons:horizonsOut
@@ -419,7 +420,7 @@ export function evaluateFlowLhbAblation({
       baseline:'Reconstructed V15 Stage-1 ranking without new flow/LHB factors.',
       funding:'90% baseline + 10% funding score; complete three-session data with no confirmed persistence scores 0, while incomplete data leaves baseline unchanged.',
       lhb:'95% baseline score + 5% same-session disclosed LHB net-buy percentile; absent LHB disclosure is neutral, unavailable feed is missing.',
-      combined:'85% baseline + 10% funding + 5% LHB when both measured; missing factors are not imputed.'
+      combined:'85% baseline + 10% funding + 5% LHB when both measured; measured absence of funding persistence scores 0, incomplete feeds are not imputed.'
     },
     minimumSignalDatesForMetric:minSignalDates,
     status,
