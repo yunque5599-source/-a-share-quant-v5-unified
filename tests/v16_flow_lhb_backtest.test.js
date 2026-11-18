@@ -10,7 +10,7 @@ function stockRows(dayIndex,{futureShock=false}={}) {
     const mainNet=i===20?50000000+(dayIndex>=0?dayIndex*1000000:0):10000000-i*1000;
     return {
       code,name:'样本'+i,price:futureShock&&dayIndex>=4?-5:price,
-      open:dayIndex===0?price:price*1.1,
+      open:dayIndex===0?price:price/1.1,
       high:price*1.12,low:price*0.98,
       pct:dayIndex===0?0.5:1,
       amount:200000000-i*10000,turn:5+i%8,mcap:5000000000+i*1000000,
