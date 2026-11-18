@@ -1,9 +1,20 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "crons": [
-    {
-      "path": "/api/v16_snapshot_archive",
-      "schedule": "10 12 * * 1-5"
+  "functions": {
+    "api/v16_snapshot_archive_schedule.js": {
+      "maxDuration": 60,
+      "experimentalTriggers": [
+        {
+          "type": "schedule/v1beta"
+        }
+      ]
     }
-  ]
+  },
+  "schedules": {
+    "v16-snapshot-archive": {
+      "schedule": "10 20 * * 1-5",
+      "timezone": "Asia/Shanghai",
+      "function": "api/v16_snapshot_archive_schedule"
+    }
+  }
 }
