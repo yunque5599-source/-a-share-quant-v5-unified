@@ -250,13 +250,15 @@ function median(values) {
   const mid=Math.floor(sorted.length/2);
   return sorted.length%2?sorted[mid]:(sorted[mid-1]+sorted[mid])/2;
 }
-function aggregateMetrics(metrics,minSignalDates) {
+function aggregateMetrics(metrics,minSignalDates,minimumSampleCoverage=0.95) {
   const eligible=metrics.filter(row=>row.status==='MEASURABLE'||row.status==='PARTIAL');
   const values=field=>eligible.map(row=>row[field]).filter(Number.isFinite);
   const average=field=>mean(values(field));
   const totalMatured=eligible.reduce((sum,row)=>sum+(row.maturedCount??0),0);
   const totalSelected=eligible.reduce((sum,row)=>sum+(row.selectedCount??0),0);
+  const sampleCoverage=totalSelected?totalMatured/totalSelected:0;
   const exactRows=eligible.filter(row=>row.exactLimitUpStatus==='AVAILABLE');
+  const exactCoverage=eligible.length?exactRows.length/eligible.length:0;
   const exactEvents=exactRows.reduce((sum,row)=>sum+(row.exactLimitUpEventCount??0),0);
   const exactCaptured=exactRows.reduce((sum,row)=>sum+(row.exactLimitUpCapturedCount??0),0);
   const exactSelected=exactRows.reduce((sum,row)=>sum+(row.selectedCount??0),0);
@@ -267,7 +269,11 @@ function aggregateMetrics(metrics,minSignalDates) {
     signalDateCount:eligible.length,
     maturedCandidates:totalMatured,
     selectedCandidates:totalSelected,
-    sampleCoverage:totalSelected?totalMatured/totalSelected:0,
+    sampleCoverage,
+    minimumSampleCoverage,
+    exactLimitUpCoverage:exactCoverage,
+    exactLimitUpStatus:exactRows.length>=minSignalDates&&exactCoverage>=minimumSampleCoverage
+      ?'MEASURABLE':exactRows.length?'PARTIAL':'NOT_MEASURABLE',
     meanReturnPct:totalMatured?totalReturn/totalMatured:null,
     medianReturnPct:average('medianReturnPct'),
     positiveRatio:totalMatured?totalPositive/totalMatured:null,
@@ -282,7 +288,8 @@ function aggregateMetrics(metrics,minSignalDates) {
     exactLimitUpCapturedCount:exactCaptured,
     exactLimitUpCaptureRate:exactEvents?exactCaptured/exactEvents:null,
     exactLimitUpPrecision:exactSelected?exactCaptured/exactSelected:null,
-    status:eligible.length>=minSignalDates?'MEASURABLE':eligible.length?'PARTIAL':'NOT_MEASURABLE'
+    status:eligible.length>=minSignalDates&&sampleCoverage>=minimumSampleCoverage
+      ?'MEASURABLE':eligible.length?'PARTIAL':'NOT_MEASURABLE'
   };
 }
 function comparison(variant,baseline) {
@@ -301,7 +308,8 @@ export function evaluateFlowLhbAblation({
   asOf=null,
   topKs=[10,30,50],
   horizons=[1,3,5],
-  minSignalDates=20
+  minSignalDates=20,
+  minSampleCoverage=0.95
 }={}) {
   const history=dedupeSnapshots(snapshots,asOf);
   const signals=history.map((snapshot,index)=>({snapshot,index}))
@@ -380,7 +388,9 @@ export function evaluateFlowLhbAblation({
     for(const topK of topKs) {
       aggregate[variant]['top'+topK]={};
       for(const horizon of horizons) {
-        aggregate[variant]['top'+topK]['T+'+horizon]=aggregateMetrics(samples.get(variant).get(topK).get(horizon),minSignalDates);
+        aggregate[variant]['top'+topK]['T+'+horizon]=aggregateMetrics(
+          samples.get(variant).get(topK).get(horizon),minSignalDates,minSampleCoverage
+        );
       }
     }
   }
@@ -400,7 +410,14 @@ export function evaluateFlowLhbAblation({
   const maturedCounts=variants.flatMap(variant=>topKs.flatMap(topK=>horizons.map(horizon=>
     aggregate[variant]['top'+topK]['T+'+horizon].signalDateCount)));
   const minimumMaturedSignalDates=maturedCounts.length?Math.min(...maturedCounts):0;
-  const status=minimumMaturedSignalDates>=minSignalDates?'MEASURABLE':signals.length?'PARTIAL':'NOT_MEASURABLE';
+  const allAggregateMetrics=variants.flatMap(variant=>topKs.flatMap(topK=>horizons.map(horizon=>
+    aggregate[variant]['top'+topK]['T+'+horizon])));
+  const returnMetricsMeasurable=allAggregateMetrics.length>0
+    &&allAggregateMetrics.every(metric=>metric.status==='MEASURABLE');
+  const exactLimitUpMetricsMeasurable=allAggregateMetrics.length>0
+    &&allAggregateMetrics.every(metric=>metric.exactLimitUpStatus==='MEASURABLE');
+  const status=returnMetricsMeasurable&&exactLimitUpMetricsMeasurable
+    ?'MEASURABLE':signals.length?'PARTIAL':'NOT_MEASURABLE';
   return {
     schema:'ashare-v16-flow-lhb-ablation-v1',
     asOf:String(asOf??history.at(-1)?.tradeDate??'').slice(0,10)||null,
@@ -414,6 +431,7 @@ export function evaluateFlowLhbAblation({
       exit:'T+1/T+3/T+5 close measured from the next-session open.',
       benchmark:'Equal-weighted main-board, non-ST cohort with complete entry-open and exit-close prices.',
       exactLimitUp:'Uses future Eastmoney limit-up event pools; vendor labels are not exchange-certified order-book proof.',
+      minimumCandidateOutcomeCoverage:minSampleCoverage,
       execution:'No fees, slippage, auction queue, intraday fill, limit-lock or T+1 sellability simulation.'
     },
     variants:{
@@ -423,6 +441,7 @@ export function evaluateFlowLhbAblation({
       combined:'85% baseline + 10% funding + 5% LHB when both measured; measured absence of funding persistence scores 0, incomplete feeds are not imputed.'
     },
     minimumSignalDatesForMetric:minSignalDates,
+    minimumSampleCoverageForMetric:minSampleCoverage,
     status,
     promotionEligible:false,
     minimumMaturedSignalDates,
