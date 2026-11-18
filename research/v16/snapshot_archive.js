@@ -41,6 +41,9 @@ export function buildV16DailySnapshot(context,{minimumRows=500}={}) {
     mainBoard:/^(00|60)\d{4}$/.test(String(row.code??''))
   })).filter(row=>/^\d{6}$/.test(row.code));
   const ranking=rankV15Stage1Candidates(stockRows,aShare.indices??[]);
+  const fundingRows=stockRows.filter(row=>row.mainBoard&&!row.specialTreatment)
+    .sort((a,b)=>Math.abs(b.mainNet??0)-Math.abs(a.mainNet??0))
+    .slice(0,500);
   return {
     schema:'ashare-v16-daily-snapshot-v1',
     tradeDate,capturedAt,
@@ -50,6 +53,9 @@ export function buildV16DailySnapshot(context,{minimumRows=500}={}) {
       status:reasons.length?'PARTIAL':'QUALIFIED',
       reasons,
       sourceComplete:source.complete===true,
+      limitPoolsStatus:aShare.limitPools?.status??'NOT_MEASURABLE',
+      lhbDailyStatus:aShare.lhb?.dailyStatus??'NOT_MEASURABLE',
+      lhbSeatStatus:aShare.lhb?.seatStatus??'NOT_MEASURABLE',
       coveragePct:Number((coverage*100).toFixed(2)),
       reportedTotal:Number(aShare.breadth?.totalReported??source.total??0),
       uniqueSymbols:stockRows.length,
@@ -63,10 +69,13 @@ export function buildV16DailySnapshot(context,{minimumRows=500}={}) {
     market:{
       indices:aShare.indices??[],breadth:aShare.breadth??{},turnover:aShare.turnover??{},
       sentiment:aShare.sentiment??{},sectors:aShare.sectors??[],leaders:aShare.leaders??[],
-      marketAveragePct:aShare.marketAveragePct??null
+      marketAveragePct:aShare.marketAveragePct??null,
+      limitPools:aShare.limitPools??{status:'NOT_MEASURABLE'},
+      lhb:aShare.lhb??{status:'NOT_MEASURABLE',dailyStatus:'NOT_MEASURABLE',seatStatus:'NOT_MEASURABLE'}
     },
     us:context?.us??{},
     narrativeStocks:aShare.narrativeStocks??[],
+    fundingRows,
     stockRows,
     strategies:{
       v15Stage1Top10:ranking.candidates.slice(0,10).map(row=>({code:row.code,score:row.stage1Score})),
@@ -87,7 +96,9 @@ export function buildV16DailySnapshot(context,{minimumRows=500}={}) {
     limitations:[
       'Daily archive is a multi-page approximate point-in-time collection, not an atomic exchange snapshot.',
       'V15 ranking is reconstructed from full-market factor ranks and the documented stage-one formula; it is not the final deep-score/news ranking.',
-      'No minute bars, auction, order-book, cancellation or verified limit-lock data are included.'
+      'No minute bars, auction, order-book, cancellation or verified limit-lock data are included.',
+      'Limit pools and LHB are vendor-provided post-close observations; absent or partial reports are retained as NOT_MEASURABLE/PARTIAL and are never replaced with inferred seat identities.',
+      'Funding persistence uses up to three archived sessions and requires higher lows; a single-day flow or institutional buy is not treated as a bottom signal.'
     ]
   };
 }
