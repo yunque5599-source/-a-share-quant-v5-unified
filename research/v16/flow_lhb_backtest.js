@@ -111,7 +111,7 @@ function scoreCandidates(snapshot,history,index,ranking) {
 
   const candidates=ranking.candidates.map(candidate=>{
     const funding=scoreCandidateFundingEvidence({
-      code:candidate.code,sessions,asOf:dateOf(snapshot)
+      code:candidate.code,sessions,asOf:dateOf(snapshot),includeInstitutionalLhb:false
     });
     const lhb=lhbEvidence(snapshot,candidate.code);
     const base=num(candidate.stage1Score)??0;
@@ -436,7 +436,7 @@ export function evaluateFlowLhbAblation({
     },
     variants:{
       baseline:'Reconstructed V15 Stage-1 ranking without new flow/LHB factors.',
-      funding:'90% baseline + 10% funding score; complete three-session data with no confirmed persistence scores 0, while incomplete data leaves baseline unchanged.',
+      funding:'90% baseline + 10% main-force net-flow persistence score; institutional LHB is excluded so funding and LHB ablations remain independent. Complete three-session inputs with no confirmed main-flow persistence score 0; incomplete inputs leave baseline unchanged.',
       lhb:'95% baseline score + 5% same-session disclosed LHB net-buy percentile; absent LHB disclosure is neutral, unavailable feed is missing.',
       combined:'85% baseline + 10% funding + 5% LHB when both measured; measured absence of funding persistence scores 0, incomplete feeds are not imputed.'
     },
@@ -456,7 +456,8 @@ export function evaluateFlowLhbAblation({
     daily,
     limitations:[
       'This is a research ablation of the reconstructed V15 Stage-1 funnel, not the final V15 deep-score/news model or the production one-click selector.',
-      'Funding features require up to three prior/current full-market daily snapshots; absent rows or low/price/mainNet inputs remain NOT_MEASURABLE.',
+      'The funding ablation uses main-force net-flow persistence and higher lows only; institutional LHB is deliberately excluded to avoid double-counting the separately tested LHB factor.',
+      'Funding features require three consecutive qualified prior/current full-market daily snapshots; absent rows or low/price/mainNet inputs remain NOT_MEASURABLE.',
       'LHB is a post-close abnormal-trading disclosure, not a full-market investor-flow feed; no disclosure is treated as neutral, not as zero net buying.',
       'Limit-up event labels come from the vendor pool. Exact intraday first-touch, reopen, seal duration and order-book events remain NOT_MEASURABLE.',
       'Signal-day LHB information cannot be filled at that same close; modeled entry starts at the next trading session open.',
