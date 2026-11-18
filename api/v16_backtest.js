@@ -2,6 +2,7 @@ import {get,list} from '@vercel/blob';
 import {gunzipSync} from 'node:zlib';
 import {evaluateV15TopKForwardReturns} from '../research/v16/selection_backtest.js';
 import {evaluateFlowLhbAblation} from '../research/v16/flow_lhb_backtest.js';
+import {selectRecentV16SnapshotBlobs} from '../research/v16/snapshot_archive.js';
 
 export const config={maxDuration:60};
 function send(res,status,body){
@@ -26,23 +27,6 @@ async function listSnapshotBlobs(prefix='v16/snapshots/'){
   }
   return all.sort((a,b)=>String(a.pathname).localeCompare(String(b.pathname)));
 }
-function snapshotTradeDate(blob){
-  const match=String(blob?.pathname??'').match(/^v16\/snapshots\/(\d{4}-\d{2}-\d{2})\//);
-  return match?.[1]??null;
-}
-function selectRecentSnapshotBlobs(blobs,days,asOf=null){
-  const grouped=new Map();
-  const cutoff=String(asOf??'').slice(0,10);
-  for(const blob of Array.isArray(blobs)?blobs:[]){
-    const date=snapshotTradeDate(blob);
-    if(!date||(cutoff&&!/^\d{4}-\d{2}-\d{2}$/.test(cutoff))||(cutoff&&date>cutoff))continue;
-    if(!grouped.has(date))grouped.set(date,[]);
-    grouped.get(date).push(blob);
-  }
-  const keepDates=new Set([...grouped.keys()].sort().slice(-Math.min(260,days+5)));
-  return [...keepDates].flatMap(date=>(grouped.get(date)??[]).slice()
-    .sort((a,b)=>String(a.pathname).localeCompare(String(b.pathname))));
-}
 async function readSnapshot(blob){
   const result=await get(blob.pathname,{access:'private'});
   if(!result||result.statusCode!==200||!result.stream)return null;
@@ -60,13 +44,13 @@ export default async function handler(req,res){
     if(asOf&&!/^\d{4}-\d{2}-\d{2}$/.test(asOf))
       return send(res,400,{error:'INVALID_AS_OF_DATE',expected:'YYYY-MM-DD'});
     const blobs=await listSnapshotBlobs();
-    const selected=selectRecentSnapshotBlobs(blobs,days,asOf);
+    const selected=selectRecentV16SnapshotBlobs(blobs,{days,asOf});
     const loaded=await mapLimit(selected,8,async blob=>readSnapshot(blob));
     const snapshots=loaded.filter(value=>value&&!value.error);
     const report=evaluateV15TopKForwardReturns({snapshots,asOf,topKs:[10,30,50],horizons:[1,3,5],minSignalDates:20});
     const flowLhbReport=evaluateFlowLhbAblation({snapshots,asOf,topKs:[10,30,50],horizons:[1,3,5],minSignalDates:20});
     const partialReadCount=loaded.filter(value=>!value||value.error).length;
-    const selectedTradeDates=new Set(selected.map(snapshotTradeDate).filter(Boolean));
+    const selectedTradeDates=new Set(selected.map(blob=>String(blob.pathname).match(/^v16\/snapshots\/(\d{4}-\d{2}-\d{2})\//)?.[1]).filter(Boolean));
     return send(res,200,{
       schema:'ashare-v16-server-backtest-response-v1',
       archive:{
