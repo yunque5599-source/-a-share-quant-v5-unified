@@ -426,6 +426,9 @@ async function fetchDataCenterReport(reportName, tradeDate, {pageSize = 500, max
   if (firstResult.data.length === 0 && count === 0) {
     return {status: 'AVAILABLE_EMPTY', rows: [], count: 0, pagesFetched: 1, pageCount: 0, failures: []};
   }
+  if (firstResult.data.length === 0 && !Number.isFinite(count)) {
+    throw new Error(reportName + ': empty response without reported count');
+  }
   const pageCount = Number.isFinite(reportedPages) && reportedPages > 0
     ? reportedPages
     : Number.isFinite(count) && count > 0 ? Math.ceil(count / pageSize) : 1;
