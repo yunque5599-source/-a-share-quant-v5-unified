@@ -314,9 +314,11 @@ export function scoreCandidateFundingEvidence({code, sessions = [], asOf = null}
   const mainFlowPositiveDays=mainFlowValues.filter(value=>value>0).length;
   const institutionValues=observations.map(item=>item.institutionalNetBuyCny).filter(Number.isFinite);
   const institutionalPositiveDays=institutionValues.filter(value=>value>0).length;
-  const lows=observations.map(item=>num(item.row.low)).filter(Number.isFinite);
+  const lows=observations.map(item=>num(item.row.low));
   const firstPrice=num(observations[0].row.price),lastPrice=num(observations.at(-1).row.price);
-  const higherLows=lows.length>=3&&lows.slice(-3).every((value,index,array)=>index===0||value>array[index-1]);
+  const lastThreeLows=observations.slice(-3).map(item=>num(item.row.low));
+  const higherLows=lastThreeLows.length===3&&lastThreeLows.every(Number.isFinite)
+    &&lastThreeLows.slice(1).every((value,index)=>value>lastThreeLows[index]);
   const trendConfirmed=higherLows&&firstPrice!==null&&lastPrice!==null&&lastPrice>firstPrice;
   const mainFlowPersistent=mainFlowValues.length>=2&&mainFlowPositiveDays>=2&&trendConfirmed;
   const institutionPersistent=institutionValues.length>=2&&institutionalPositiveDays>=2&&trendConfirmed;
@@ -330,7 +332,7 @@ export function scoreCandidateFundingEvidence({code, sessions = [], asOf = null}
   const current=observations.at(-1).row;
   const currentTurn=num(current.turn);
   const currentPct=num(current.pct);
-  const positiveLows=lows.filter(value=>value>0);
+  const positiveLows=lows.filter(value=>Number.isFinite(value)&&value>0);
   const extensionPct=positiveLows.length&&lastPrice!==null
     ? (lastPrice/Math.min(...positiveLows)-1)*100:null;
   let chaseRiskScore=0;
