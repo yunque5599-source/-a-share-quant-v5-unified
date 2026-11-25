@@ -16,6 +16,9 @@ export function buildV16DecisionOverlay({market = null, overnight = null, sector
   const sector = candidate.sectorOpportunity ?? findSector(sectorRotation, industryKey);
   const industryImpact = overnight?.industries?.[industryKey] ?? null;
   const candidateStrength = num(candidate.candidateScore ?? candidate.score);
+  const fundingEvidence = candidate.fundingEvidence ?? null;
+  const fundingScore = num(fundingEvidence?.fundingScore);
+  const chaseRiskScore = num(fundingEvidence?.chaseRiskScore);
   const sectorScore = num(sector?.opportunity_score);
   const overnightScore = num(industryImpact?.adjusted_impact_score ?? industryImpact?.overnight_impact_score);
   const entryTiming = candidate.entryTiming ?? {};
@@ -43,9 +46,10 @@ export function buildV16DecisionOverlay({market = null, overnight = null, sector
     ? clamp(candidateStrength * 0.70 + narrativeHeat * 0.30)
     : candidateStrength ?? narrativeHeat;
   const opportunityParts = [];
-  if (candidateStrength !== null) opportunityParts.push([candidateStrength, 0.45]);
-  if (sectorScore !== null) opportunityParts.push([sectorScore, 0.35]);
+  if (candidateStrength !== null) opportunityParts.push([candidateStrength, 0.40]);
+  if (sectorScore !== null) opportunityParts.push([sectorScore, 0.30]);
   if (overnightScore !== null) opportunityParts.push([overnightScore, 0.20]);
+  if (fundingScore !== null) opportunityParts.push([fundingScore, 0.10]);
   const opportunityWeight = opportunityParts.reduce((sum, [, weight]) => sum + weight, 0);
   const opportunityScore = opportunityWeight
     ? clamp(opportunityParts.reduce((sum, [value, weight]) => sum + value * weight, 0) / opportunityWeight)
@@ -76,6 +80,9 @@ export function buildV16DecisionOverlay({market = null, overnight = null, sector
   } else if (narrativeExhaustion !== null && narrativeExhaustion >= 75) {
     decision = 'WAIT_FOR_NARRATIVE_EXHAUSTION';
     reasons.push('measured-name-theme-speculative-exhaustion-risk-high');
+  } else if (chaseRiskScore !== null && chaseRiskScore >= 75) {
+    decision = 'WAIT_FOR_ENTRY';
+    reasons.push('high-turnover-and-price-extension-block-chase-entry');
   } else if (!entryPass) {
     decision = 'WAIT_FOR_ENTRY';
     reasons.push('entry-timing-not-confirmed');
@@ -101,6 +108,10 @@ export function buildV16DecisionOverlay({market = null, overnight = null, sector
   }
 
   if (entryTimingScore === null) reasons.push('entry-timing-score-not-measurable');
+  if (fundingScore !== null) reasons.push('multi-session-funding-evidence-added-as-a-small-opportunity-component');
+  if (fundingEvidence?.institutionalPositiveDays >= 2 && fundingEvidence?.trendConfirmed !== true) {
+    reasons.push('institutional-buying-without-higher-lows-is-not-a-bottom-signal');
+  }
   if (industryImpact && industryImpact.a_share_open_status === 'NOT_MEASURABLE') {
     reasons.push('A-share-open-confirmation-NOT_MEASURABLE');
   }
@@ -111,6 +122,9 @@ export function buildV16DecisionOverlay({market = null, overnight = null, sector
     name: String(candidate.name ?? ''),
     industry: industryKey,
     opportunity_score: opportunityScore === null ? null : Number(opportunityScore.toFixed(2)),
+    funding_evidence_score: fundingScore === null ? null : Number(fundingScore.toFixed(2)),
+    funding_chase_risk_score: chaseRiskScore,
+    funding_evidence_status: fundingEvidence?.status ?? 'NOT_MEASURABLE',
     entry_timing_score: entryTimingScore === null ? null : Number(entryTimingScore.toFixed(2)),
     entry_timing_pass: entryPass,
     market_regime: regime,

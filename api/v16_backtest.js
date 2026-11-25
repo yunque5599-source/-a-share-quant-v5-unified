@@ -1,8 +1,12 @@
 import {get,list} from '@vercel/blob';
 import {gunzipSync} from 'node:zlib';
 import {evaluateV15TopKForwardReturns} from '../research/v16/selection_backtest.js';
+import {evaluateFlowLhbAblation} from '../research/v16/flow_lhb_backtest.js';
+import {evaluateLimitUpQualityBacktest} from '../research/v16/limit_up_quality_backtest.js';
+import {evaluateVolumePricePhaseBacktest} from '../research/v16/volume_price_phase_backtest.js';
+import {selectRecentV16SnapshotBlobs} from '../research/v16/snapshot_archive.js';
 
-export const config={maxDuration:60};
+export const config={maxDuration:300};
 function send(res,status,body){
   res.setHeader('content-type','application/json; charset=utf-8');
   res.setHeader('cache-control','private, no-store, max-age=0');
@@ -39,16 +43,42 @@ export default async function handler(req,res){
     const url=new URL(req.url,'http://localhost');
     const days=Math.max(10,Math.min(250,Math.floor(Number(url.searchParams.get('days'))||120)));
     const asOf=url.searchParams.get('asOf');
+    if(asOf&&!/^\d{4}-\d{2}-\d{2}$/.test(asOf))
+      return send(res,400,{error:'INVALID_AS_OF_DATE',expected:'YYYY-MM-DD'});
     const blobs=await listSnapshotBlobs();
-    const selected=blobs.slice(-Math.min(260,days+5));
+    const selected=selectRecentV16SnapshotBlobs(blobs,{days,asOf});
     const loaded=await mapLimit(selected,8,async blob=>readSnapshot(blob));
     const snapshots=loaded.filter(value=>value&&!value.error);
     const report=evaluateV15TopKForwardReturns({snapshots,asOf,topKs:[10,30,50],horizons:[1,3,5],minSignalDates:20});
-    const partialReadCount=loaded.filter(value=>value?.error).length;
+    const flowLhbReport=evaluateFlowLhbAblation({snapshots,asOf,topKs:[10,30,50],horizons:[1,3,5],minSignalDates:20});
+    const limitUpQualityReport=evaluateLimitUpQualityBacktest({snapshots,asOf,minSignalDates:20,minSampleCoverage:0.95});
+    const volumePricePhaseReport=evaluateVolumePricePhaseBacktest({snapshots,asOf,minSignalDates:20,minSampleCoverage:0.95});
+    const partialReadCount=loaded.filter(value=>!value||value.error).length;
+    const latestSnapshot=snapshots.at(-1)??null;
+    const selectedTradeDates=new Set(selected.map(blob=>String(blob.pathname).match(/^v16\/snapshots\/(\d{4}-\d{2}-\d{2})\//)?.[1]).filter(Boolean));
     return send(res,200,{
       schema:'ashare-v16-server-backtest-response-v1',
-      archive:{blobCount:blobs.length,loadedSnapshotCount:snapshots.length,readFailureCount:partialReadCount,requestedDays:days},
-      report
+      archive:{
+        blobCount:blobs.length,selectedBlobCount:selected.length,
+        selectedTradeDateCount:selectedTradeDates.size,
+        loadedSnapshotCount:snapshots.length,readFailureCount:partialReadCount,requestedDays:days,
+        asOf:asOf??null
+      },
+      report,
+      flowLhbReport,
+      limitUpQualityReport,
+      volumePricePhaseReport,
+      latestSnapshotDiagnostics:latestSnapshot?{
+        tradeDate:latestSnapshot.tradeDate,
+        quality:latestSnapshot.quality,
+        source:latestSnapshot.source,
+        volumePhaseDiagnostics:latestSnapshot.volumePhaseDiagnostics??null,
+        volumePhaseRows:(latestSnapshot.volumePhaseRows??[]).slice(0,20).map(row=>({
+          code:row.code,name:row.name,industry:row.industry,sourceRank:row.sourceRank,status:row.status,
+          lastBarDate:row.lastBarDate,phase:row.phase?.classification??'NOT_MEASURABLE',
+          label:row.phase?.label??'不可测',metrics:row.phase?.metrics??null
+        }))
+      }:null
     });
   }catch(error){
     return send(res,503,{

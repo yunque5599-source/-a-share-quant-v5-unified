@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {buildV16DailySnapshot} from '../research/v16/snapshot_archive.js';
+import {gunzipSync} from 'node:zlib';
+import {buildV16DailySnapshot,selectRecentV16SnapshotBlobs} from '../research/v16/snapshot_archive.js';
+import {collectAndArchiveV16Snapshot} from '../research/v16/archive_runner.js';
 
 function context({full=true,close=true,sameDate=true,coverage=1,rows=500}={}) {
   const quoteAt=sameDate?'2026-11-06T07:00:00.000Z':'2026-11-05T07:00:00.000Z';
@@ -38,6 +40,8 @@ test('daily archive snapshot qualifies only with finalized same-date full-market
   assert.equal(result.quality.quoteTimestampCoverage,1);
   assert.equal(result.quality.sameDateQuoteRatio,1);
   assert.equal(result.stockRows.length,500);
+  assert.equal(result.market.limitUpQuality.status,'NOT_MEASURABLE');
+  assert.equal(result.quality.limitUpDailyProxyStatus,'NOT_MEASURABLE');
   assert.equal(result.strategies.v15Stage1Top10.length,10);
   assert.equal(result.strategies.v15Stage1Top30.length,30);
   assert.equal(result.strategies.v15Stage1Top50.length,50);
@@ -61,4 +65,83 @@ test('stale-date quote timestamps fail the point-in-time quality gate',()=>{
   const result=buildV16DailySnapshot(context({sameDate:false}));
   assert.equal(result.quality.qualifiedForReplay,false);
   assert.ok(result.quality.reasons.includes('same-date-quote-coverage-below-95pct'));
+});
+
+test('archive backtest window selects unique recent trading dates and honors as-of before slicing',()=>{
+  const blobs=[];
+  for(let day=1;day<=20;day++) {
+    const date='2026-11-'+String(day).padStart(2,'0');
+    blobs.push({pathname:'v16/snapshots/'+date+'/120000.json.gz'});
+    if(day===10||day===18)blobs.push({pathname:'v16/snapshots/'+date+'/201000.json.gz'});
+  }
+  const selected=selectRecentV16SnapshotBlobs(blobs,{days:3,asOf:'2026-11-10'});
+  const dates=[...new Set(selected.map(blob=>blob.pathname.split('/')[2]))];
+  assert.deepEqual(dates,['2026-11-03','2026-11-04','2026-11-05','2026-11-06','2026-11-07','2026-11-08','2026-11-09','2026-11-10']);
+  assert.equal(selected.filter(blob=>blob.pathname.includes('/2026-11-10/')).length,2);
+  assert.ok(selected.every(blob=>blob.pathname.split('/')[2]<='2026-11-10'));
+});
+
+
+test('shared archive runner writes a private immutable gzip snapshot',async()=>{
+  const writes=[];
+  const result=await collectAndArchiveV16Snapshot({
+    collectContext:async()=>context(),
+    writeBlob:async(pathname,payload,options)=>{
+      writes.push({pathname,payload,options});
+      return {pathname};
+    }
+  });
+  assert.equal(result.status,'ARCHIVED_QUALIFIED');
+  assert.equal(result.tradeDate,'2026-11-06');
+  assert.equal(writes.length,1);
+  assert.match(writes[0].pathname,/^v16\/snapshots\/2026-11-06\/.+\.json\.gz$/);
+  assert.equal(writes[0].options.access,'private');
+  assert.equal(writes[0].options.addRandomSuffix,false);
+  assert.equal(writes[0].options.allowOverwrite,false);
+  const restored=JSON.parse(gunzipSync(writes[0].payload).toString('utf8'));
+  assert.equal(restored.schema,'ashare-v16-daily-snapshot-v1');
+  assert.equal(restored.tradeDate,'2026-11-06');
+  assert.equal(restored.quality.qualifiedForReplay,true);
+});
+
+test('shared archive runner skips non-trading days without writing',async()=>{
+  const nonTrading=context();
+  nonTrading.chinaCalendarDate='2026-11-07';
+  let writes=0;
+  const result=await collectAndArchiveV16Snapshot({
+    collectContext:async()=>nonTrading,
+    writeBlob:async()=>{writes++;return {pathname:'unexpected'};}
+  });
+  assert.equal(result.status,'SKIPPED_NON_TRADING_DAY');
+  assert.equal(writes,0);
+});
+
+test('shared archive runner skips before close without writing',async()=>{
+  let writes=0;
+  const result=await collectAndArchiveV16Snapshot({
+    collectContext:async()=>context({close:false}),
+    writeBlob:async()=>{writes++;return {pathname:'unexpected'};}
+  });
+  assert.equal(result.status,'SKIPPED_BEFORE_CLOSE');
+  assert.equal(writes,0);
+});
+
+
+test('daily archive preserves volume-price phase rows and their source coverage separately',()=>{
+  const sample=context();
+  sample.aShare.volumePhaseDiagnostics={status:'AVAILABLE',candidateUniverse:'V15_STAGE1_TOP50',
+    requestedCount:50,availableCount:49,measurableCount:49,coverage:0.98};
+  sample.aShare.volumePhaseRows=[{
+    code:'600001',name:'阶段样本',industry:'半导体',sourceRank:1,status:'AVAILABLE',
+    barCount:80,lastBarDate:'2026-11-06',close:10,
+    bars:[{date:'2026-11-06',source:'fixture',availableAt:'2026-11-06T08:20:00.000Z',
+      open:9.9,high:10.2,low:9.8,close:10,volume:1000,amount:100000}],
+    phase:{status:'AVAILABLE',classification:'CONSTRUCTIVE_PULLBACK',label:'缩量回踩守支撑',
+      metrics:{pullbackDepthPct:2,downVolumeRatio20:0.7,supportHeld:true}}
+  }];
+  const result=buildV16DailySnapshot(sample);
+  assert.equal(result.quality.volumePricePhaseStatus,'AVAILABLE');
+  assert.equal(result.volumePhaseDiagnostics.coverage,0.98);
+  assert.equal(result.volumePhaseRows[0].phase.classification,'CONSTRUCTIVE_PULLBACK');
+  assert.equal(result.volumePhaseRows[0].bars.length,1);
 });

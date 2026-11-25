@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {summarizeMarketUniverse, summarizeIndexKline, parseYahooDailyChange} from '../api/v16_market_context.js';
+import {summarizeMarketUniverse, summarizeIndexKline, parseStockDailyKlines, parseYahooDailyChange, collectMarketUniversePages, createMarketRequestLimiter, fetchMarketPageWithRetry} from '../api/v16_market_context.js';
 import {extractNarrativeTags} from '../research/v16/narrative_theme.js';
 
 test('market universe summary labels complete breadth and approximate limit bands', () => {
@@ -108,4 +108,107 @@ test('A-share context exports lexical name-theme observations without assigning 
   assert.equal(archived.mainPct,8);
   assert.equal(archived.industry,'渔业');
   assert.equal(archived.mainBoard,true);
+});
+
+
+test('Eastmoney request pacing is isolated per host rather than throttling all hosts globally', async () => {
+  let clock = 1000;
+  const waits = [];
+  const gate = createMarketRequestLimiter({
+    intervalMs:4000,
+    now:()=>clock,
+    sleepFn:async ms=>{waits.push(ms);clock+=ms;}
+  });
+  await gate('host-a');
+  await gate('host-a');
+  assert.equal(clock,5000);
+  await gate('host-b');
+  assert.equal(clock,5000);
+  await gate('host-a');
+  assert.equal(clock,9000);
+  assert.deepEqual(waits,[4000,4000]);
+});
+
+test('market page retry rotates through three attempts and preserves failure diagnostics', async () => {
+  const attempts = [];
+  const payload = {data:{diff:[]}};
+  const result = await fetchMarketPageWithRetry(4,100,async(page,pageSize,attempt)=>{
+    attempts.push({page,pageSize,attempt});
+    if(attempt<2)throw new Error('HTTP 502');
+    return payload;
+  });
+  assert.equal(result,payload);
+  assert.deepEqual(attempts.map(row=>row.attempt),[0,1,2]);
+  await assert.rejects(
+    fetchMarketPageWithRetry(7,100,async()=>{throw new Error('upstream unavailable');}),
+    /market page 7 failed after 3 attempts/
+  );
+});
+
+test('market universe pagination fetches all 100-row pages for the reported universe', async () => {
+  const total = 5931;
+  const pageSize = 100;
+  const makePage = page => {
+    const start = (page - 1) * pageSize;
+    const end = Math.min(total, start + pageSize);
+    return {data:{
+      total,
+      diff:Array.from({length:end-start},(_,offset)=>({
+        f12:String(start+offset+1).padStart(6,'0'),
+        f14:'fixture'
+      }))
+    }};
+  };
+  const requested = [];
+  const result = await collectMarketUniversePages({
+    firstPage:makePage(1),
+    fetchPage:async page=>{requested.push(page);return makePage(page);},
+    pageSize,
+    maxPages:80,
+    concurrency:4
+  });
+  assert.equal(result.pageCount,60);
+  assert.equal(result.pagesRequested,60);
+  assert.equal(result.pagesFetched,60);
+  assert.equal(result.rows.length,total);
+  assert.equal(result.coverage,1);
+  assert.equal(result.complete,true);
+  assert.equal(requested.length,59);
+});
+
+test('a missing market page remains explicitly partial and never becomes full-market', async () => {
+  const total=250,pageSize=100;
+  const makePage=page=>{
+    const start=(page-1)*pageSize,end=Math.min(total,start+pageSize);
+    return {data:{total,diff:Array.from({length:end-start},(_,offset)=>({f12:String(start+offset+1).padStart(6,'0')}))}};
+  };
+  const result=await collectMarketUniversePages({
+    firstPage:makePage(1),
+    fetchPage:async page=>page===2?Promise.reject(new Error('HTTP 502')):makePage(page),
+    pageSize,maxPages:80,concurrency:2
+  });
+  assert.equal(result.pageCount,3);
+  assert.equal(result.pagesFetched,2);
+  assert.equal(result.failures.length,1);
+  assert.equal(result.failures[0].page,2);
+  assert.equal(result.complete,false);
+  assert.ok(result.coverage<0.99);
+});
+
+
+test('stock daily K-lines preserve unadjusted OHLCV and require same-date 65-bar coverage',()=>{
+  const klines=Array.from({length:70},(_,index)=>{
+    const date=new Date(Date.UTC(2026,7,1+index)).toISOString().slice(0,10);
+    const close=10+index*0.01;
+    return [date,close-0.02,close,close+0.05,close-0.05,1000+index,100000+index,0,1,2,4].join(',');
+  });
+  const last=klines.at(-1).split(',');last[0]='2026-11-25';klines[klines.length-1]=last.join(',');
+  const result=parseStockDailyKlines({data:{klines}},{code:'600001',name:'样本股',
+    tradeDate:'2026-11-25',availableAt:'2026-11-25T15:30:00+08:00'});
+  assert.equal(result.status,'AVAILABLE');assert.equal(result.bars.at(-1).date,'2026-11-25');
+  assert.equal(result.bars.at(-1).source,'Eastmoney daily K-line, unadjusted fqt=0');
+  assert.equal(result.bars.at(-1).turnover,4);assert.equal(result.barCount,70);
+  const partial=parseStockDailyKlines({data:{klines:klines.slice(-20)}},{
+    code:'600001',tradeDate:'2026-11-25',availableAt:'2026-11-25T15:30:00+08:00'});
+  assert.equal(partial.status,'PARTIAL');
 });

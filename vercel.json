@@ -1,9 +1,29 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "crons": [
-    {
-      "path": "/api/v16_snapshot_archive",
-      "schedule": "20 8 * * 1-5"
+  "functions": {
+    "api/v16_snapshot_archive_schedule.js": {
+      "maxDuration": 300,
+      "experimentalTriggers": [
+        {
+          "type": "schedule/v1beta"
+        }
+      ]
+    },
+    "api/v16_market_context.js": {
+      "maxDuration": 300
+    },
+    "api/v16_snapshot_archive.js": {
+      "maxDuration": 300
+    },
+    "api/v16_backtest.js": {
+      "maxDuration": 300
     }
-  ]
+  },
+  "schedules": {
+    "v16-snapshot-archive": {
+      "schedule": "10 20 * * 1-5",
+      "timezone": "Asia/Shanghai",
+      "function": "api/v16_snapshot_archive_schedule"
+    }
+  }
 }
