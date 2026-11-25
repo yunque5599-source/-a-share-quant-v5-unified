@@ -7,7 +7,7 @@ export const config={maxDuration:300};
 
 export const POST=handleSchedule(async metadata=>{
   const result=await collectAndArchiveV16Snapshot({
-    collectContext:collectV16MarketContext,
+    collectContext:()=>collectV16MarketContext({includeStockDailyBars:true}),
     writeBlob:put
   });
   console.log(JSON.stringify({
