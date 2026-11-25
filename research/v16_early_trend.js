@@ -238,8 +238,12 @@ function scoreSecurity(sec,snapshot,market,c,prior) {
   if(market.regime==='SYSTEMIC'&&['C','D','E'].includes(t.phase)) gross-=scores.earlyTrend*c.weights.earlyTrend/100*(1-c.market.systemicBreakoutMultiplier);
   const penalty=sum(penalties.map(p=>p.points)),score=round(clamp(gross-penalty));
   let state='WATCH';
-  const invalidated=hard.length>0 || (prior && ['TRIGGERED','CONFIRMED'].includes(prior.state)&&
-    (f.persistentOutflow || f.reversal || (finite(prior.breakoutLevel)&&last?.close<prior.breakoutLevel*(1-c.trend.failureBuffer))));
+  const priorActive=!!prior&&['TRIGGERED','CONFIRMED'].includes(prior.state);
+  const flowReversalInvalidated=priorActive&&(f.persistentOutflow||f.reversal);
+  const breakoutInvalidated=priorActive&&finite(prior.breakoutLevel)&&last?.close<prior.breakoutLevel*(1-c.trend.failureBuffer);
+  if(flowReversalInvalidated) hard.push('FLOW_REVERSAL_INVALIDATED');
+  if(breakoutInvalidated) hard.push('BREAKOUT_INVALIDATED');
+  const invalidated=hard.length>0||flowReversalInvalidated||breakoutInvalidated;
   if(invalidated) state='INVALIDATED';
   else if(['B','C'].includes(t.phase)&&t.early) {
     state='TRIGGERED';
