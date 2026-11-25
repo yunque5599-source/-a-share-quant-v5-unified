@@ -1,4 +1,5 @@
 import { mergeV16Config } from './v16_config.js';
+import {classifyVolumePricePhase} from './v16/volume_price_phase.js';
 const finite=x=>typeof x==='number' && Number.isFinite(x);
 const clamp=(x,a=0,b=100)=>Math.max(a,Math.min(b,x));
 const mean=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:0;
@@ -206,6 +207,7 @@ function scoreSecurity(sec,snapshot,market,c,prior) {
   if(atLimitDown) hard.push('LIMIT_DOWN_CLOSE_RISK');
   const t=errors.some(e=>['INVALID_OHLCV','INSUFFICIENT_HISTORY','DUPLICATE_BARS'].includes(e))?{score:0,phase:'A',reasons:[],insufficient:true}:earlyTrend(bars,c);
   const f=flowContinuity(sec.moneyFlow,bars,asOf,c);
+  const volumePhase=classifyVolumePricePhase(bars,{asOf,breakoutLevel:t.resistance20});
   const industryRaw=(snapshot.industries||[]).find(i=>i.industry===sec.industry);
   const ind=industryResonance(industryRaw?.throughDate===snapshot.expectedDailyDate?industryRaw:null,asOf,c);
   const news=newsAndQuality(sec,asOf,c);
@@ -251,13 +253,16 @@ function scoreSecurity(sec,snapshot,market,c,prior) {
       news.complete&&market.pass&&known(bench,asOf)&&score>=market.threshold&&!atLimitUp) state='CONFIRMED';
   }
   const dataQuality={status:errors.length?'INSUFFICIENT':(!f.complete||!ind.complete||!news.complete?'PARTIAL':'VERIFIED'),
-    errors,warnings,capabilities:{daily:!errors.length,intraday:'NOT_MEASURABLE',orderBook:'NOT_MEASURABLE',fundFlow:f.complete,industry:ind.complete,newsAndFundamentals:news.complete}};
+    errors,warnings,capabilities:{daily:!errors.length,volumePricePhase:volumePhase.status,intraday:'NOT_MEASURABLE',orderBook:'NOT_MEASURABLE',fundFlow:f.complete,industry:ind.complete,newsAndFundamentals:news.complete}};
   reasons.push(...t.reasons);
   if(f.positive) reasons.push('3/5日资金为正且连续性通过');
+  if(volumePhase.status==='AVAILABLE') reasons.push('量价阶段：'+volumePhase.label+'（研究层，不改主评分）');
   if(ind.complete) reasons.push('独立行业样本广度核验通过');
   return {code:String(sec.code),name:sec.name||String(sec.code),industry:sec.industry||'未知',price:last?.close??null,
     pct:last&&prev?round(pct(last.close,prev.close)*100):null,score,grossScore:round(gross),scores,technicalScore:t.score,
-    state,phase:t.phase,trend:t,flow:f,industryEvidence:ind,newsEvidence:news,
+    state,phase:t.phase,trend:t,flow:f,volumePricePhase:volumePhase,
+    volumePhaseResearchScore:round(clamp(score+volumePhase.researchAdjustment)),
+    industryEvidence:ind,newsEvidence:news,
     risk:{hardVeto:[...new Set(hard)].sort(),penalties,warnings,penalty},
     volumePriceStatus:t.moderateVolume?'温和放量':t.volumeRatio>c.volume.extremeRatio?'异常放量':'待观察',
     triggerReasons:reasons,invalidationConditions:['收盘跌破启动压力位 '+round((prior?.breakoutLevel??t.resistance20??0)*(1-c.trend.failureBuffer)),'3/5日资金反转','重大公告或数据质量风险'],
