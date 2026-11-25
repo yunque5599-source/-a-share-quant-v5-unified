@@ -4,7 +4,7 @@ V16 是独立、默认且强制 SHADOW 的日线趋势研究模块。生产 V10.
 
 ## 架构
 
-`v16_config.js → v16_early_trend.js → v16_dashboard.js / v16_replay.js`。
+`v16_config.js → v16_early_trend.js`；自动化测试位于 `tests/v16_early_trend.test.js`。数据采集适配器、历史回放/消融和仪表盘集成尚未包含在本阶段。
 纯函数 scanV16(snapshot, previousPoolState, overrides) 不读网络、时钟或随机数。
 市场门控、风险硬否决、扣分、观察警告分别输出。全市场来源不使用候选证券统计。
 相同快照、模型、配置、初始池状态可重现；重复同一快照复用池状态缓存，不重复推进状态。历史池状态是输入，metadata.priorPoolFingerprint 记录这一依赖，回放必须从同一初始状态顺序执行。
