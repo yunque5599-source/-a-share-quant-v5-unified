@@ -79,19 +79,29 @@ function marketPageUrl(host, page, pageSize) {
   });
   return host + '/api/qt/clist/get?' + params.toString();
 }
-async function fetchMarketPage(page, pageSize = 100) {
+let nextMarketRequestAt = 0;
+async function waitForMarketRequestSlot() {
+  const now = Date.now();
+  const startAt = Math.max(now, nextMarketRequestAt);
+  nextMarketRequestAt = startAt + 4000;
+  if (startAt > now) await sleep(startAt - now);
+}
+
+async function fetchMarketPage(page, pageSize = 100, attempt = 0) {
+  const host = EM_HOSTS[(page - 1 + attempt) % EM_HOSTS.length];
+  await waitForMarketRequestSlot();
+  const payload = await fetchJson(marketPageUrl(host, page, pageSize), 3500, {referer: 'https://quote.eastmoney.com/'});
+  if (!Array.isArray(payload?.data?.diff)) throw new Error('market page missing data.diff');
+  return payload;
+}
+
+async function fetchMarketPageWithRetry(page, pageSize = 100) {
   let lastError;
-  const start = (page - 1) % EM_HOSTS.length;
-  const hosts = Array.from({length: EM_HOSTS.length}, (_, index) => EM_HOSTS[(start + index) % EM_HOSTS.length]);
-  for (const host of hosts) {
+  for (let attempt = 0; attempt < 2; attempt++) {
     try {
-      const payload = await fetchJson(marketPageUrl(host, page, pageSize), 3500, {referer: 'https://quote.eastmoney.com/'});
-      if (!Array.isArray(payload?.data?.diff)) throw new Error('market page missing data.diff');
-      await sleep(4000);
-      return payload;
+      return await fetchMarketPage(page, pageSize, attempt);
     } catch (error) {
       lastError = error;
-      await sleep(4000);
     }
   }
   throw lastError ?? new Error('market data source unavailable');
@@ -144,13 +154,13 @@ async function fetchMarketUniverse() {
   // Eastmoney's clist endpoint returns at most 100 rows per page; fetch all
   // required pages and rotate hosts to avoid concentrating requests on one host.
   const pageSize = 100;
-  const first = await fetchMarketPage(1, pageSize);
+  const first = await fetchMarketPageWithRetry(1, pageSize);
   const result = await collectMarketUniversePages({
     firstPage: first,
-    fetchPage: page => fetchMarketPage(page, pageSize),
+    fetchPage: page => fetchMarketPageWithRetry(page, pageSize),
     pageSize,
     maxPages: 80,
-    concurrency: 1
+    concurrency: 2
   });
   return {
     ...result,
