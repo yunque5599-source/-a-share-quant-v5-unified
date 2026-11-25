@@ -47,7 +47,7 @@ export function classifyVolumePricePhase(rawBars,{asOf=null,expectedDate=null,br
   if(bars.length<minBars)return unavailable('NOT_MEASURABLE',
     '有效且点时可见的日线不足'+minBars+'根',{visibleBarCount:bars.length,requiredBars:minBars});
   const latest=bars.at(-1),previous=bars.at(-2);
-  const expectedBarDate=/^\\d{4}-\\d{2}-\\d{2}$/.test(String(expectedDate??''))?String(expectedDate):dateOf(asOfMs);
+  const expectedBarDate=typeof expectedDate==='string'&&Number.isFinite(closeAt(expectedDate))?expectedDate:dateOf(asOfMs);
   if(closeAt(expectedBarDate)>asOfMs||latest.date!==expectedBarDate)return unavailable('PARTIAL',
     '最新日线日期与点时指定的最近完整交易日不一致',
     {visibleBarCount:bars.length,latestBarDate:latest.date,expectedDate:expectedBarDate});
