@@ -26,9 +26,10 @@ V16 是独立、默认且强制 SHADOW 的日线趋势研究模块。生产 V10.
 所有时间必须为带 Z 或偏移的 ISO 字符串；交易日期 YYYY-MM-DD，时区 Asia/Shanghai。
 顶层必填：
 - id、universeId、asOf（扫描评估时点）、capturedAt（采集时点）、expectedDailyDate（最近完整交易日）。
-- calendar：source、availableAt、verified=true、coverageThrough（覆盖到扫描日期）、tradingDates。最近完成交易日由日历和15:00收盘推导，不能通过填写陈旧 expectedDailyDate 绕过过期检查。
-- securities：每只 code/name/industry/bars/moneyFlow/metadata/news/fundamentals/evidenceCoverage。
-- market、industries：独立来源，不可从候选池冒充。
+- calendar：source、availableAt、verified=true、coverageThrough（覆盖到扫描日期）、tradingDates。最近完成交易日由日历和15:00收盘推导，不能通过填写陈旧 expectedDailyDate 绕过过期检查；日历时间必须在扫描时点15分钟内。
+- universeCoverage：source、availableAt、verified=true、scope=eligible-universe、tradingDate、expectedCount、observedCount、coverage。必须与 securities 数量一致，coverage 至少99%，并与 observedCount/expectedCount 一致；缺失或不完整时全局 WAIT，不能把部分股票池排名包装成全市场 TOP10/30/50。
+- securities：每只 code/name/industry/bars/moneyFlow/metadata/news/fundamentals/evidenceCoverage。metadata 和 evidenceCoverage 必须在扫描时点15分钟内；基准指数/收益、市场、行业与日历也必须通过各自的点时新鲜度检查。
+- market、industries：独立来源，不可从候选池冒充。四个基准指数必须各有且仅有一条有效记录；海外指数明细也必须有可验证的 source/availableAt，不能只依赖父对象时间戳。
 
 bars 至少65根，必须包含 date、availableAt、source、open/high/low/close/volume/amount，turnover单位为百分比。只接受 asOf 前已公开且对应交易日已收盘的日线。同日盘中完整日线即使错误声称提前 availableAt 也会排除。不支持合成分钟线或盘口。
 moneyFlow 最后5交易日每条 date/availableAt/source/netMain/amount/estimated，币种与成交额统一人民币元。全部缺失不得变成0流入或中性利好。
@@ -51,7 +52,7 @@ impact：positive/negative/mixed/unknown。exchangeVerified=true 的异常波动
 ## 状态与稳定池
 
 WATCH（蓄势观察）→ TRIGGERED（B/C日线信号）→ CONFIRMED（C、资金、行业、公告财务覆盖、市场及分数门槛全部通过）。
-突破失败、重大风险、核心数据质量失败为 INVALIDATED；已有启动/确认证券资金3/5日反转也失效。
+突破失败、重大风险、核心数据质量失败、已启动证券的资金尖峰反转为 INVALIDATED。收盘触及已核验涨停价可以保留观察状态，但不得进入正常买入计划评估；收盘触及跌停价触发风险否决。
 风险失效立即移出；D/E移出；缺失证券数据立即移出。旧池在排序时享有配置3分保留边际，突破强信号仍可取代旧候选。同分按代码稳定排序。
 TOP10/30/50 是嵌套研究列表，少于K不补虚假证券；记录首次入池/启动/确认/失效、分数变动、状态变动和排名原因。
 全局 WAIT 是市场/数据决策，与逐股四状态分开。任何结果均 execution=SHADOW_NO_ORDERS。
