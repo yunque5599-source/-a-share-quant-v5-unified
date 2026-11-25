@@ -540,7 +540,7 @@ export function buildV17OneClickSelection({context, snapshots = [], asOf = null}
     },
     universe: {
       scope: a.breadth?.universe ?? 'unknown',
-      fullMarket,
+      fullMarket: fullUniverse,
       coverage: num(a.breadth?.coverage),
       uniqueSymbols: a.breadth?.uniqueSymbols ?? a.stockRows?.length ?? 0,
       reportedTotal: a.breadth?.totalReported ?? null,
