@@ -207,7 +207,7 @@ function scoreSecurity(sec,snapshot,market,c,prior) {
   if(atLimitDown) hard.push('LIMIT_DOWN_CLOSE_RISK');
   const t=errors.some(e=>['INVALID_OHLCV','INSUFFICIENT_HISTORY','DUPLICATE_BARS'].includes(e))?{score:0,phase:'A',reasons:[],insufficient:true}:earlyTrend(bars,c);
   const f=flowContinuity(sec.moneyFlow,bars,asOf,c);
-  const volumePhase=classifyVolumePricePhase(bars,{asOf,breakoutLevel:t.resistance20});
+  const volumePhase=classifyVolumePricePhase(bars,{asOf,expectedDate:snapshot.expectedDailyDate,breakoutLevel:t.resistance20});
   const industryRaw=(snapshot.industries||[]).find(i=>i.industry===sec.industry);
   const ind=industryResonance(industryRaw?.throughDate===snapshot.expectedDailyDate?industryRaw:null,asOf,c);
   const news=newsAndQuality(sec,asOf,c);

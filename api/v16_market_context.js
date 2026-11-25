@@ -379,7 +379,7 @@ async function collectStockVolumePhaseRows(stockRows,indices,tradeDate) {
   const rows=fetched.map((item,index)=>{
     const row=candidates[index];
     const phase=item.status==='AVAILABLE'
-      ?classifyVolumePricePhase(item.bars,{asOf:item.availableAt})
+      ?classifyVolumePricePhase(item.bars,{asOf:item.availableAt,expectedDate:tradeDate})
       :{status:item.status,classification:'NOT_MEASURABLE',label:'不可测',researchAdjustment:0,
         mainScoreAdjustment:0,usedForSelection:false,reasons:[],warnings:[item.error??item.status]};
     return {

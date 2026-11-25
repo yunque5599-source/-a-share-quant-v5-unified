@@ -25,7 +25,7 @@ function unavailable(status,reason,extra={}) {
     reasons:[],warnings:[reason],...extra};
 }
 
-export function classifyVolumePricePhase(rawBars,{asOf=null,breakoutLevel=null,minBars=25}={}) {
+export function classifyVolumePricePhase(rawBars,{asOf=null,expectedDate=null,breakoutLevel=null,minBars=25}={}) {
   const asOfMs=time(asOf);
   if(!Number.isFinite(asOfMs))return unavailable('NOT_MEASURABLE','缺少带时区的asOf时间');
   const input=Array.isArray(rawBars)?rawBars:[];
@@ -46,10 +46,11 @@ export function classifyVolumePricePhase(rawBars,{asOf=null,breakoutLevel=null,m
   const bars=visible;
   if(bars.length<minBars)return unavailable('NOT_MEASURABLE',
     '有效且点时可见的日线不足'+minBars+'根',{visibleBarCount:bars.length,requiredBars:minBars});
-  const latest=bars.at(-1),previous=bars.at(-2),asOfDay=dateOf(asOfMs);
-  if(latest.date!==asOfDay)return unavailable('PARTIAL',
-    '最新日线日期与asOf所在中国交易日不一致',
-    {visibleBarCount:bars.length,latestBarDate:latest.date,expectedDate:asOfDay});
+  const latest=bars.at(-1),previous=bars.at(-2);
+  const expectedBarDate=/^\\d{4}-\\d{2}-\\d{2}$/.test(String(expectedDate??''))?String(expectedDate):dateOf(asOfMs);
+  if(closeAt(expectedBarDate)>asOfMs||latest.date!==expectedBarDate)return unavailable('PARTIAL',
+    '最新日线日期与点时指定的最近完整交易日不一致',
+    {visibleBarCount:bars.length,latestBarDate:latest.date,expectedDate:expectedBarDate});
   const prior20=bars.slice(-21,-1);
   if(prior20.length<20)return unavailable('NOT_MEASURABLE','缺少完整20日基准窗口',{visibleBarCount:bars.length});
   const baselineVolume=mean(prior20.map(bar=>num(bar.volume)));

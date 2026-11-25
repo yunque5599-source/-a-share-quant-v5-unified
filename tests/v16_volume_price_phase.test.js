@@ -60,3 +60,13 @@ test('duplicate, stale and insufficient bars fail closed',()=>{
   assert.equal(classifyVolumePricePhase(stale,{asOf:AS_OF}).status,'PARTIAL');
   assert.equal(classifyVolumePricePhase(baseBars().slice(-20),{asOf:AS_OF}).status,'NOT_MEASURABLE');
 });
+
+
+test('uses the explicit last completed session when asOf is the following morning',()=>{
+  const bars=baseBars();
+  const result=classifyVolumePricePhase(bars,{
+    asOf:'2026-11-26T09:20:00+08:00',expectedDate:'2026-11-25'
+  });
+  assert.equal(result.status,'AVAILABLE');
+  assert.equal(result.latestBarDate,'2026-11-25');
+});
