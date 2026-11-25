@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {summarizeMarketUniverse, summarizeIndexKline, parseYahooDailyChange, collectMarketUniversePages} from '../api/v16_market_context.js';
+import {summarizeMarketUniverse, summarizeIndexKline, parseYahooDailyChange, collectMarketUniversePages, createMarketRequestLimiter, fetchMarketPageWithRetry} from '../api/v16_market_context.js';
 import {extractNarrativeTags} from '../research/v16/narrative_theme.js';
 
 test('market universe summary labels complete breadth and approximate limit bands', () => {
@@ -110,6 +110,40 @@ test('A-share context exports lexical name-theme observations without assigning 
   assert.equal(archived.mainBoard,true);
 });
 
+
+test('Eastmoney request pacing is isolated per host rather than throttling all hosts globally', async () => {
+  let clock = 1000;
+  const waits = [];
+  const gate = createMarketRequestLimiter({
+    intervalMs:4000,
+    now:()=>clock,
+    sleepFn:async ms=>{waits.push(ms);clock+=ms;}
+  });
+  await gate('host-a');
+  await gate('host-a');
+  assert.equal(clock,5000);
+  await gate('host-b');
+  assert.equal(clock,5000);
+  await gate('host-a');
+  assert.equal(clock,9000);
+  assert.deepEqual(waits,[4000,4000]);
+});
+
+test('market page retry rotates through three attempts and preserves failure diagnostics', async () => {
+  const attempts = [];
+  const payload = {data:{diff:[]}};
+  const result = await fetchMarketPageWithRetry(4,100,async(page,pageSize,attempt)=>{
+    attempts.push({page,pageSize,attempt});
+    if(attempt<2)throw new Error('HTTP 502');
+    return payload;
+  });
+  assert.equal(result,payload);
+  assert.deepEqual(attempts.map(row=>row.attempt),[0,1,2]);
+  await assert.rejects(
+    fetchMarketPageWithRetry(7,100,async()=>{throw new Error('upstream unavailable');}),
+    /market page 7 failed after 3 attempts/
+  );
+});
 
 test('market universe pagination fetches all 100-row pages for the reported universe', async () => {
   const total = 5931;

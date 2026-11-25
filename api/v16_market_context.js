@@ -79,32 +79,37 @@ function marketPageUrl(host, page, pageSize) {
   });
   return host + '/api/qt/clist/get?' + params.toString();
 }
-let nextMarketRequestAt = 0;
-async function waitForMarketRequestSlot() {
-  const now = Date.now();
-  const startAt = Math.max(now, nextMarketRequestAt);
-  nextMarketRequestAt = startAt + 4000;
-  if (startAt > now) await sleep(startAt - now);
+export function createMarketRequestLimiter({intervalMs = 4000, now = () => Date.now(), sleepFn = sleep} = {}) {
+  const nextRequestAtByHost = new Map();
+  return async function waitForMarketRequestSlot(host = 'default') {
+    const key = String(host);
+    const current = now();
+    const startAt = Math.max(current, nextRequestAtByHost.get(key) ?? 0);
+    nextRequestAtByHost.set(key, startAt + intervalMs);
+    if (startAt > current) await sleepFn(startAt - current);
+  };
 }
+const waitForMarketRequestSlot = createMarketRequestLimiter({intervalMs: 4000});
 
 async function fetchMarketPage(page, pageSize = 100, attempt = 0) {
   const host = EM_HOSTS[(page - 1 + attempt) % EM_HOSTS.length];
-  await waitForMarketRequestSlot();
+  await waitForMarketRequestSlot(host);
   const payload = await fetchJson(marketPageUrl(host, page, pageSize), 3500, {referer: 'https://quote.eastmoney.com/'});
   if (!Array.isArray(payload?.data?.diff)) throw new Error('market page missing data.diff');
   return payload;
 }
 
-async function fetchMarketPageWithRetry(page, pageSize = 100) {
-  let lastError;
-  for (let attempt = 0; attempt < 2; attempt++) {
+export async function fetchMarketPageWithRetry(page, pageSize = 100, requestPage = fetchMarketPage) {
+  const failures = [];
+  for (let attempt = 0; attempt < 3; attempt++) {
     try {
-      return await fetchMarketPage(page, pageSize, attempt);
+      return await requestPage(page, pageSize, attempt);
     } catch (error) {
-      lastError = error;
+      failures.push('attempt ' + (attempt + 1) + ': ' + String(error?.message ?? error));
+      if (attempt < 2) await sleep(250 * (attempt + 1));
     }
   }
-  throw lastError ?? new Error('market data source unavailable');
+  throw new Error('market page ' + page + ' failed after 3 attempts (' + failures.join('; ') + ')');
 }
 
 export async function collectMarketUniversePages({
@@ -160,7 +165,8 @@ async function fetchMarketUniverse() {
     fetchPage: page => fetchMarketPageWithRetry(page, pageSize),
     pageSize,
     maxPages: 80,
-    concurrency: 2
+    // Four rotating Eastmoney hosts are paced independently, one request per host every four seconds.
+    concurrency: 4
   });
   return {
     ...result,
