@@ -1,4 +1,5 @@
 import {rankV15Stage1Candidates} from './selection_backtest.js';
+import {evaluateLimitUpQuality} from './limit_up_quality.js';
 
 const finite=value=>value!==null&&value!==undefined&&value!==''&&Number.isFinite(Number(value));
 const dateKey=value=>String(value??'').slice(0,10);
@@ -56,6 +57,9 @@ export function buildV16DailySnapshot(context,{minimumRows=500}={}) {
     mainBoard:/^(00|60)\d{4}$/.test(String(row.code??''))
   })).filter(row=>/^\d{6}$/.test(row.code));
   const ranking=rankV15Stage1Candidates(stockRows,aShare.indices??[]);
+  const limitUpQuality=evaluateLimitUpQuality({
+    limitPools:aShare.limitPools??null,marketBreadth:aShare.breadth??null,tradeDate
+  });
   const fundingRows=stockRows.filter(row=>row.mainBoard&&!row.specialTreatment)
     .sort((a,b)=>Math.abs(b.mainNet??0)-Math.abs(a.mainNet??0))
     .slice(0,500);
@@ -69,6 +73,10 @@ export function buildV16DailySnapshot(context,{minimumRows=500}={}) {
       reasons,
       sourceComplete:source.complete===true,
       limitPoolsStatus:aShare.limitPools?.status??'NOT_MEASURABLE',
+      limitUpDailyProxyStatus:limitUpQuality.status,
+      limitUpIntradayStatus:limitUpQuality.intradayStatus,
+      orderBookCancellationStatus:limitUpQuality.orderBookCancellationStatus,
+      nextSessionFollowThroughStatus:limitUpQuality.nextSessionFollowThroughStatus,
       lhbDailyStatus:aShare.lhb?.dailyStatus??'NOT_MEASURABLE',
       lhbSeatStatus:aShare.lhb?.seatStatus??'NOT_MEASURABLE',
       coveragePct:Number((coverage*100).toFixed(2)),
@@ -86,6 +94,7 @@ export function buildV16DailySnapshot(context,{minimumRows=500}={}) {
       sentiment:aShare.sentiment??{},sectors:aShare.sectors??[],leaders:aShare.leaders??[],
       marketAveragePct:aShare.marketAveragePct??null,
       limitPools:aShare.limitPools??{status:'NOT_MEASURABLE'},
+      limitUpQuality,
       lhb:aShare.lhb??{status:'NOT_MEASURABLE',dailyStatus:'NOT_MEASURABLE',seatStatus:'NOT_MEASURABLE'}
     },
     us:context?.us??{},
@@ -112,6 +121,7 @@ export function buildV16DailySnapshot(context,{minimumRows=500}={}) {
       'Daily archive is a multi-page approximate point-in-time collection, not an atomic exchange snapshot.',
       'V15 ranking is reconstructed from full-market factor ranks and the documented stage-one formula; it is not the final deep-score/news ranking.',
       'No minute bars, auction, order-book, cancellation or verified limit-lock data are included.',
+      'Limit-up daily proxy diagnostics are archived separately and do not alter V15/V16 selection weights; intraday seal quality and next-session follow-through remain NOT_MEASURABLE until timestamped data adapters are connected.',
       'Limit pools and LHB are vendor-provided post-close observations; absent or partial reports are retained as NOT_MEASURABLE/PARTIAL and are never replaced with inferred seat identities.',
       'Funding persistence uses up to three archived sessions and requires higher lows; a single-day flow or institutional buy is not treated as a bottom signal.'
     ]
