@@ -4,7 +4,7 @@ import {evaluateV15TopKForwardReturns} from '../research/v16/selection_backtest.
 import {evaluateFlowLhbAblation} from '../research/v16/flow_lhb_backtest.js';
 import {selectRecentV16SnapshotBlobs} from '../research/v16/snapshot_archive.js';
 
-export const config={maxDuration:60};
+export const config={maxDuration:300};
 function send(res,status,body){
   res.setHeader('content-type','application/json; charset=utf-8');
   res.setHeader('cache-control','private, no-store, max-age=0');

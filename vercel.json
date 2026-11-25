@@ -2,12 +2,21 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "functions": {
     "api/v16_snapshot_archive_schedule.js": {
-      "maxDuration": 60,
+      "maxDuration": 300,
       "experimentalTriggers": [
         {
           "type": "schedule/v1beta"
         }
       ]
+    },
+    "api/v16_market_context.js": {
+      "maxDuration": 300
+    },
+    "api/v16_snapshot_archive.js": {
+      "maxDuration": 300
+    },
+    "api/v16_backtest.js": {
+      "maxDuration": 300
     }
   },
   "schedules": {

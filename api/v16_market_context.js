@@ -1,7 +1,7 @@
 import {extractNarrativeTags} from '../research/v16/narrative_theme.js';
 import {summarizeLimitPools, summarizeLhbContext} from '../research/v16/flow_lhb.js';
 
-export const config = {maxDuration: 60};
+export const config = {maxDuration: 300};
 
 const EM_HOSTS = [
   'https://push2.eastmoney.com',
@@ -78,12 +78,13 @@ function marketPageUrl(host, page, pageSize) {
   });
   return host + '/api/qt/clist/get?' + params.toString();
 }
-async function fetchMarketPage(page, pageSize = 500) {
+async function fetchMarketPage(page, pageSize = 100) {
   let lastError;
-  for (let index = 0; index < EM_HOSTS.length; index++) {
-    const host = EM_HOSTS[index];
+  const start = (page - 1) % EM_HOSTS.length;
+  const hosts = Array.from({length: EM_HOSTS.length}, (_, index) => EM_HOSTS[(start + index) % EM_HOSTS.length]);
+  for (const host of hosts) {
     try {
-      const payload = await fetchJson(marketPageUrl(host, page, pageSize), 4500, {referer: 'https://quote.eastmoney.com/'});
+      const payload = await fetchJson(marketPageUrl(host, page, pageSize), 3500, {referer: 'https://quote.eastmoney.com/'});
       if (Array.isArray(payload?.data?.diff)) return payload;
       throw new Error('market page missing data.diff');
     } catch (error) {
@@ -92,37 +93,64 @@ async function fetchMarketPage(page, pageSize = 500) {
   }
   throw lastError ?? new Error('market data source unavailable');
 }
-async function fetchMarketUniverse() {
-  const collectionStartedAt = new Date().toISOString();
-  const pageSize = 500;
-  const first = await fetchMarketPage(1, pageSize);
-  const total = Number(first?.data?.total) || 0;
+
+export async function collectMarketUniversePages({
+  firstPage, fetchPage, pageSize = 100, maxPages = 80, concurrency = 4
+}) {
+  const total = Number(firstPage?.data?.total) || 0;
   if (!total) throw new Error('market universe total unavailable');
-  const pageCount = Math.min(12, Math.ceil(total / pageSize));
-  const rest = await mapLimit(Array.from({length: Math.max(0, pageCount - 1)}, (_, index) => index + 2), 4,
-    page => fetchMarketPage(page, pageSize));
-  const pages = [{page: 1, payload: first}];
+  if (typeof fetchPage !== 'function') throw new TypeError('fetchPage must be a function');
+  const pageCount = Math.ceil(total / pageSize);
+  const pagesToFetch = Math.min(maxPages, pageCount);
+  const rest = await mapLimit(
+    Array.from({length: Math.max(0, pagesToFetch - 1)}, (_, index) => index + 2),
+    concurrency,
+    page => fetchPage(page)
+  );
+  const pages = [{page: 1, payload: firstPage}];
   const failures = [];
   rest.forEach((result, index) => {
-    if (result?.error) failures.push({page: index + 2, error: result.error});
-    else if (Number(result?.data?.total) !== total) failures.push({page: index + 2, error: 'universe-total-changed'});
-    else pages.push({page: index + 2, payload: result});
+    const page = index + 2;
+    if (result?.error) failures.push({page, error: result.error});
+    else if (!Array.isArray(result?.data?.diff)) failures.push({page, error: 'market page missing data.diff'});
+    else if (Number(result?.data?.total) !== total) failures.push({page, error: 'universe-total-changed'});
+    else pages.push({page, payload: result});
   });
   const byCode = new Map();
-  for (const {page, payload} of pages) {
+  for (const {payload} of pages) {
     for (const row of payload.data.diff) {
       const code = String(row?.f12 ?? '');
-      if (/^\d{6}$/.test(code)) byCode.set(code, row);
+      if (/^\\d{6}$/.test(code)) byCode.set(code, row);
     }
   }
+  const coverage = total ? byCode.size / total : 0;
   return {
     total,
     rows: [...byCode.values()],
     pagesFetched: pages.length,
     pageCount,
+    pagesRequested: pagesToFetch,
     failures,
-    coverage: total ? byCode.size / total : 0,
-    complete: failures.length === 0 && pages.length === pageCount && byCode.size / total >= 0.99,
+    coverage,
+    complete: failures.length === 0 && pages.length === pageCount && coverage >= 0.99
+  };
+}
+
+async function fetchMarketUniverse() {
+  const collectionStartedAt = new Date().toISOString();
+  // Eastmoney's clist endpoint returns at most 100 rows per page; fetch all
+  // required pages and rotate hosts to avoid concentrating requests on one host.
+  const pageSize = 100;
+  const first = await fetchMarketPage(1, pageSize);
+  const result = await collectMarketUniversePages({
+    firstPage: first,
+    fetchPage: page => fetchMarketPage(page, pageSize),
+    pageSize,
+    maxPages: 80,
+    concurrency: 4
+  });
+  return {
+    ...result,
     collectionStartedAt,
     collectionFinishedAt: new Date().toISOString()
   };

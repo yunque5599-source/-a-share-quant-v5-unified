@@ -2,7 +2,7 @@ import {put} from '@vercel/blob';
 import {collectV16MarketContext} from './v16_market_context.js';
 import {collectAndArchiveV16Snapshot} from '../research/v16/archive_runner.js';
 
-export const config={maxDuration:60};
+export const config={maxDuration:300};
 
 function send(res,status,body){
   res.setHeader('content-type','application/json; charset=utf-8');

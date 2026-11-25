@@ -3,7 +3,7 @@ import {handleSchedule} from '@vercel/schedules';
 import {collectV16MarketContext} from './v16_market_context.js';
 import {collectAndArchiveV16Snapshot} from '../research/v16/archive_runner.js';
 
-export const config={maxDuration:60};
+export const config={maxDuration:300};
 
 export const POST=handleSchedule(async metadata=>{
   const result=await collectAndArchiveV16Snapshot({

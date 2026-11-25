@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {summarizeMarketUniverse, summarizeIndexKline, parseYahooDailyChange} from '../api/v16_market_context.js';
+import {summarizeMarketUniverse, summarizeIndexKline, parseYahooDailyChange, collectMarketUniversePages} from '../api/v16_market_context.js';
 import {extractNarrativeTags} from '../research/v16/narrative_theme.js';
 
 test('market universe summary labels complete breadth and approximate limit bands', () => {
@@ -108,4 +108,55 @@ test('A-share context exports lexical name-theme observations without assigning 
   assert.equal(archived.mainPct,8);
   assert.equal(archived.industry,'渔业');
   assert.equal(archived.mainBoard,true);
+});
+
+
+test('market universe pagination fetches all 100-row pages for the reported universe', async () => {
+  const total = 5931;
+  const pageSize = 100;
+  const makePage = page => {
+    const start = (page - 1) * pageSize;
+    const end = Math.min(total, start + pageSize);
+    return {data:{
+      total,
+      diff:Array.from({length:end-start},(_,offset)=>({
+        f12:String(start+offset+1).padStart(6,'0'),
+        f14:'fixture'
+      }))
+    }};
+  };
+  const requested = [];
+  const result = await collectMarketUniversePages({
+    firstPage:makePage(1),
+    fetchPage:async page=>{requested.push(page);return makePage(page);},
+    pageSize,
+    maxPages:80,
+    concurrency:4
+  });
+  assert.equal(result.pageCount,60);
+  assert.equal(result.pagesRequested,60);
+  assert.equal(result.pagesFetched,60);
+  assert.equal(result.rows.length,total);
+  assert.equal(result.coverage,1);
+  assert.equal(result.complete,true);
+  assert.equal(requested.length,59);
+});
+
+test('a missing market page remains explicitly partial and never becomes full-market', async () => {
+  const total=250,pageSize=100;
+  const makePage=page=>{
+    const start=(page-1)*pageSize,end=Math.min(total,start+pageSize);
+    return {data:{total,diff:Array.from({length:end-start},(_,offset)=>({f12:String(start+offset+1).padStart(6,'0')}))}};
+  };
+  const result=await collectMarketUniversePages({
+    firstPage:makePage(1),
+    fetchPage:async page=>page===2?Promise.reject(new Error('HTTP 502')):makePage(page),
+    pageSize,maxPages:80,concurrency:2
+  });
+  assert.equal(result.pageCount,3);
+  assert.equal(result.pagesFetched,2);
+  assert.equal(result.failures.length,1);
+  assert.equal(result.failures[0].page,2);
+  assert.equal(result.complete,false);
+  assert.ok(result.coverage<0.99);
 });
