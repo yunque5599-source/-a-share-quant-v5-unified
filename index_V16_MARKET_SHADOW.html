@@ -90,12 +90,6 @@ h2{font-size:17px;margin:0 0 10px}.note{background:#f3f6fb;border-radius:12px;pa
   </section>
 
   <section class="card">
-    <h2>八、早期趋势引擎（SHADOW）</h2>
-    <div id="earlyTrendStatus" class="status">早期趋势引擎代码已并入研究分支；等待真实点时输入接入。</div>
-    <div class="note">该引擎当前仅为研究影子模块。启动扫描需要逐股至少65根完整日线、最近5个交易日资金数据、独立行业成分与广度、点时公告/财务证据及不少于99%的合格股票池覆盖。上述数据适配器和历史回放尚未完成前，不生成候选名单、不提供买入许可，执行模式固定为 SHADOW_NO_ORDERS。</div>
-  </section>
-
-  <section class="card">
     <h2>六、名称题材与情绪扩散</h2>
     <div style="overflow:auto"><table><thead><tr><th>名称题材</th><th>成分数</th><th>热度</th><th>扩散速度</th><th>龙头集中度</th><th>基本面重合</th><th>退潮风险</th><th>阶段</th></tr></thead><tbody id="narrativeRows"></tbody></table></div>
     <div class="note">仅按股票简称中的“羊／洋／阳”“狼”“东方”进行词面匹配，不代表行业关联或基本面利好。热度只提高观察优先级，不提高机会评分；连续快照不足时，扩散速度和退潮风险显示为不可测。高退潮风险会阻断候选买入许可。</div>
@@ -117,7 +111,13 @@ h2{font-size:17px;margin:0 0 10px}.note{background:#f3f6fb;border-radius:12px;pa
   </section>
 
   <section class="card">
-    <h2>八、数据能力与限制</h2>
+    <h2>八、早期趋势引擎（SHADOW）</h2>
+    <div id="earlyTrendStatus" class="status">早期趋势引擎代码已并入研究分支；等待真实点时输入接入。</div>
+    <div class="note">该引擎当前仅为研究影子模块。启动扫描需要逐股至少65根完整日线、最近5个交易日资金数据、独立行业成分与广度、点时公告/财务证据及不少于99%的合格股票池覆盖。上述数据适配器和历史回放尚未完成前，不生成候选名单、不提供买入许可，执行模式固定为 SHADOW_NO_ORDERS。</div>
+  </section>
+
+  <section class="card">
+    <h2>九、数据能力与限制</h2>
     <div style="overflow:auto"><table><thead><tr><th>指标</th><th>状态</th></tr></thead><tbody id="capabilityRows"></tbody></table></div>
     <div class="note">历史快照保存在当前浏览器本地，最多保留30个交易日。更换设备、清除浏览器数据或使用不同浏览器后，历史连续性会中断。要做正式回测，必须把原始行情和采集时间归档到服务器。</div>
   </section>
