@@ -2,6 +2,7 @@ import {extractNarrativeTags} from '../research/v16/narrative_theme.js';
 import {rankV15Stage1Candidates} from '../research/v16/selection_backtest.js';
 import {classifyVolumePricePhase} from '../research/v16/volume_price_phase.js';
 import {summarizeLimitPools, summarizeLhbContext} from '../research/v16/flow_lhb.js';
+import {rankEarlyTrendPrefilter} from '../research/v17_one_click_selection.js';
 
 export const config = {maxDuration: 300};
 
@@ -313,8 +314,8 @@ export function summarizeMarketUniverse(universe) {
     }
   };
 }
-function stockKlineUrl(code,tradeDate,host='https://push2his.eastmoney.com') {
-  const exchange=String(code).startsWith('6')?'1':String(code).startsWith('0')?'0':null;
+export function stockKlineUrl(code,tradeDate,host='https://push2his.eastmoney.com') {
+  const exchange=String(code).startsWith('6')?'1':/^(0|3)\d{5}$/.test(String(code))?'0':null;
   if(!exchange||! /^\d{6}$/.test(String(code)))throw new Error('unsupported stock code for Eastmoney K-line');
   const params=new URLSearchParams({
     secid:exchange+'.'+code,klt:'101',fqt:'0',beg:'20260101',
@@ -450,6 +451,72 @@ export function summarizeIndexKline(index, payload) {
     barCount: bars.length
   };
 }
+
+export async function collectV17EarlyTrendRows(stockRows, tradeDate, {
+  limit = 30, excludeCodes = [], sectorRows = [], marketAveragePct = null
+} = {}) {
+  const prefilter = rankEarlyTrendPrefilter(stockRows, {
+    limit, excludeCodes, sectorRows, marketAveragePct
+  });
+  const candidates = prefilter.rows;
+  if (!tradeDate || !candidates.length) {
+    return {
+      rows: [],
+      diagnostics: {
+        status: 'NOT_MEASURABLE',
+        candidateUniverse: 'SH_SZ_EARLY_FLOW_PREFILTER_TOP30',
+        requestedCount: candidates.length,
+        availableCount: 0,
+        measurableCount: 0,
+        coverage: 0,
+        prefilterStatus: prefilter.status,
+        reason: !tradeDate ? 'MISSING_SIGNAL_DATE' : 'NO_PREFILTER_CANDIDATES'
+      }
+    };
+  }
+  const fetched = await mapLimit(candidates, 4, row => fetchStockDailyKlines(row, tradeDate));
+  const rows = fetched.map((item, index) => {
+    const candidate = candidates[index];
+    const phase = item.status === 'AVAILABLE'
+      ? classifyVolumePricePhase(item.bars, {asOf: item.availableAt, expectedDate: tradeDate})
+      : {
+          status: item.status, classification: 'NOT_MEASURABLE', label: '不可测',
+          researchAdjustment: 0, mainScoreAdjustment: 0, usedForSelection: false,
+          reasons: [], warnings: [item.error ?? item.status]
+        };
+    return {
+      ...candidate,
+      status: item.status,
+      barCount: item.barCount,
+      lastBarDate: item.latestDate,
+      bars: item.bars,
+      phase
+    };
+  });
+  const availableCount = rows.filter(row => row.status === 'AVAILABLE').length;
+  const measurableCount = rows.filter(row => row.phase?.status === 'AVAILABLE').length;
+  const coverage = measurableCount / Math.max(1, candidates.length);
+  return {
+    rows,
+    diagnostics: {
+      status: coverage >= 0.95 ? 'AVAILABLE' : coverage > 0 ? 'PARTIAL' : 'NOT_MEASURABLE',
+      candidateUniverse: 'SH_SZ_EARLY_FLOW_PREFILTER_TOP30',
+      prefilterMethod: prefilter.method,
+      prefilterStatus: prefilter.status,
+      requestedCount: candidates.length,
+      availableCount,
+      measurableCount,
+      coverage: Number(coverage.toFixed(4)),
+      source: 'Eastmoney daily K-line unadjusted fqt=0',
+      limitations: [
+        'The prefilter ranks the current cross-section; only its top candidates receive 65-session daily-bar deep scans.',
+        'The prefilter is a recall-oriented funnel, not a calibrated return forecast.',
+        'No minute bars, tick trades or order-book cancellation events are included.'
+      ]
+    }
+  };
+}
+
 async function fetchIndex(index) {
   const payload = await fetchJson(indexKlineUrl(index.secid), 5000, {referer: 'https://quote.eastmoney.com/'});
   return summarizeIndexKline(index, payload);
@@ -815,6 +882,25 @@ export async function collectV16MarketContext({includeStockDailyBars=false}={}) 
     ]
   };
 }
+
+export async function collectV17ResearchContext() {
+  const context = await collectV16MarketContext({includeStockDailyBars: true});
+  const early = await collectV17EarlyTrendRows(
+    context.aShare?.stockRows ?? [],
+    context.aShareSessionDate,
+    {
+      limit: 30,
+      excludeCodes: (context.aShare?.volumePhaseRows ?? []).map(row => row.code),
+      sectorRows: context.aShare?.sectors ?? [],
+      marketAveragePct: context.aShare?.marketAveragePct ?? null
+    }
+  );
+  context.aShare.earlyTrendRows = early.rows;
+  context.aShare.earlyTrendDiagnostics = early.diagnostics;
+  context.capturedAt = new Date().toISOString();
+  return context;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'GET') return send(res, 405, {error:'METHOD_NOT_ALLOWED'}, 0);
   try {

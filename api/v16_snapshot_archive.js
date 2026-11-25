@@ -1,5 +1,5 @@
 import {put} from '@vercel/blob';
-import {collectV16MarketContext} from './v16_market_context.js';
+import {collectV17ResearchContext} from './v16_market_context.js';
 import {collectAndArchiveV16Snapshot} from '../research/v16/archive_runner.js';
 
 export const config={maxDuration:300};
@@ -20,7 +20,7 @@ export default async function handler(req,res){
   if(!authorized(req))return send(res,401,{error:'UNAUTHORIZED'});
   try{
     const result=await collectAndArchiveV16Snapshot({
-      collectContext:()=>collectV16MarketContext({includeStockDailyBars:true}),
+      collectContext:()=>collectV17ResearchContext(),
       writeBlob:put
     });
     return send(res,200,result);

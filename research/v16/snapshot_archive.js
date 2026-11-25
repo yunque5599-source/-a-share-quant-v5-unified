@@ -62,6 +62,8 @@ export function buildV16DailySnapshot(context,{minimumRows=500}={}) {
   });
   const volumePhaseRows=Array.isArray(aShare.volumePhaseRows)?aShare.volumePhaseRows.slice(0,50):[];
   const volumePhaseDiagnostics=aShare.volumePhaseDiagnostics??{status:'NOT_MEASURABLE',candidateUniverse:'V15_STAGE1_TOP50',requestedCount:0,availableCount:0,measurableCount:0,coverage:0};
+  const earlyTrendRows=Array.isArray(aShare.earlyTrendRows)?aShare.earlyTrendRows.slice(0,30):[];
+  const earlyTrendDiagnostics=aShare.earlyTrendDiagnostics??{status:'NOT_MEASURABLE',candidateUniverse:'SH_SZ_EARLY_FLOW_PREFILTER_TOP30',requestedCount:0,availableCount:0,measurableCount:0,coverage:0};
   const fundingRows=stockRows.filter(row=>row.mainBoard&&!row.specialTreatment)
     .sort((a,b)=>Math.abs(b.mainNet??0)-Math.abs(a.mainNet??0))
     .slice(0,500);
@@ -83,6 +85,8 @@ export function buildV16DailySnapshot(context,{minimumRows=500}={}) {
       lhbSeatStatus:aShare.lhb?.seatStatus??'NOT_MEASURABLE',
       volumePricePhaseStatus:volumePhaseDiagnostics.status??'NOT_MEASURABLE',
       volumePricePhaseCoverage:finite(volumePhaseDiagnostics.coverage)?Number(volumePhaseDiagnostics.coverage):null,
+      earlyTrendStatus:earlyTrendDiagnostics.status??'NOT_MEASURABLE',
+      earlyTrendCoverage:finite(earlyTrendDiagnostics.coverage)?Number(earlyTrendDiagnostics.coverage):null,
       coveragePct:Number((coverage*100).toFixed(2)),
       reportedTotal:Number(aShare.breadth?.totalReported??source.total??0),
       uniqueSymbols:stockRows.length,
@@ -106,6 +110,8 @@ export function buildV16DailySnapshot(context,{minimumRows=500}={}) {
     fundingRows,
     volumePhaseRows,
     volumePhaseDiagnostics,
+    earlyTrendRows,
+    earlyTrendDiagnostics,
     stockRows,
     strategies:{
       v15Stage1Top10:ranking.candidates.slice(0,10).map(row=>({code:row.code,score:row.stage1Score})),
@@ -130,7 +136,7 @@ export function buildV16DailySnapshot(context,{minimumRows=500}={}) {
       'Limit-up daily proxy diagnostics are archived separately and do not alter V15/V16 selection weights; intraday seal quality and next-session follow-through remain NOT_MEASURABLE until timestamped data adapters are connected.',
       'Limit pools and LHB are vendor-provided post-close observations; absent or partial reports are retained as NOT_MEASURABLE/PARTIAL and are never replaced with inferred seat identities.',
       'Funding persistence uses up to three archived sessions and requires higher lows; a single-day flow or institutional buy is not treated as a bottom signal.',
-      'Volume-price phase rows cover only the reconstructed V15 Stage1 Top50 and preserve unadjusted daily bars for reproducibility; they do not represent full-market V16 candidate coverage.'
+      'Volume-price phase rows cover the reconstructed V15 Stage1 Top50; V17 early-trend rows cover a separate Shanghai/Shenzhen-supported early-flow prefilter Top30. Their union is a deep-scan funnel, not a completed full-market 65-bar scan.'
     ]
   };
 }

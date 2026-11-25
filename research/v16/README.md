@@ -88,7 +88,7 @@ This is an isolated research layer. It does not modify production `index.html`, 
 - This branch is research-only. No production merge/deployment until point-in-time validation passes and the user explicitly approves promotion.
 
 ## Archive setup and operation
-- The post-close archive job also fetches unadjusted daily K-lines for up to 50 V15 Stage1 candidates. This extra collection is performed only by the private archive route, not on every dashboard refresh; K-line coverage is recorded separately from full-market snapshot qualification.
+- The post-close archive job fetches unadjusted daily K-lines for up to 50 V15 Stage1 candidates and, for the V17 shadow selector, up to 30 additional candidates from a Shanghai/Shenzhen-supported early-flow prefilter (codes beginning 0, 3 and 6; Beijing code families are not yet supported). The V17 funnel is the union of these two pools, not a full-market 65-bar scan. These bars are archived only by the private archive route; K-line coverage remains separate from full-market snapshot qualification.
 1. Connect a **private** Vercel Blob store to the project. Private Blob requires authenticated access; do not use a public store for research snapshots.
 2. Keep `BLOB_READ_WRITE_TOKEN` scoped to Preview. The manual `/api/v16_snapshot_archive` diagnostic endpoint also requires a random `CRON_SECRET` scoped to Preview; the private scheduled function does not use that shared-secret endpoint.
 3. Deploy the research branch as a Preview deployment. Vercel registers `v16-snapshot-archive` for that Preview branch in the Schedules tab; new Preview schedules start inactive.

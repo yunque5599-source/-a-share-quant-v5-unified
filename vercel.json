@@ -17,6 +17,9 @@
     },
     "api/v16_backtest.js": {
       "maxDuration": 300
+    },
+    "api/v17_one_click_selection.js": {
+      "maxDuration": 300
     }
   },
   "schedules": {

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {summarizeMarketUniverse, summarizeIndexKline, parseStockDailyKlines, parseYahooDailyChange, collectMarketUniversePages, createMarketRequestLimiter, fetchMarketPageWithRetry} from '../api/v16_market_context.js';
+import {summarizeMarketUniverse, summarizeIndexKline, parseStockDailyKlines, parseYahooDailyChange, collectMarketUniversePages, createMarketRequestLimiter, fetchMarketPageWithRetry, stockKlineUrl} from '../api/v16_market_context.js';
 import {extractNarrativeTags} from '../research/v16/narrative_theme.js';
 
 test('market universe summary labels complete breadth and approximate limit bands', () => {
@@ -211,4 +211,13 @@ test('stock daily K-lines preserve unadjusted OHLCV and require same-date 65-bar
   const partial=parseStockDailyKlines({data:{klines:klines.slice(-20)}},{
     code:'600001',tradeDate:'2026-11-25',availableAt:'2026-11-25T15:30:00+08:00'});
   assert.equal(partial.status,'PARTIAL');
+});
+
+
+test('stock K-line adapter maps Shanghai, Shenzhen main board and ChiNext correctly', () => {
+  assert.match(stockKlineUrl('600001', '2026-11-25'), /secid=1\.600001/);
+  assert.match(stockKlineUrl('000001', '2026-11-25'), /secid=0\.000001/);
+  assert.match(stockKlineUrl('300001', '2026-11-25'), /secid=0\.300001/);
+  assert.match(stockKlineUrl('688001', '2026-11-25'), /secid=1\.688001/);
+  assert.throws(() => stockKlineUrl('830001', '2026-11-25'), /unsupported stock code/);
 });

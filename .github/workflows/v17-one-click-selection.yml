@@ -1,0 +1,78 @@
+name: V17 one-click selection research tests
+
+on:
+  push:
+    branches:
+      - research/v17-one-click-selection-20261125
+    paths:
+      - 'research/v17_one_click_selection.js'
+      - 'research/V17_ONE_CLICK_PROTOCOL.md'
+      - 'api/v16_market_context.js'
+      - 'api/v16_snapshot_archive.js'
+      - 'api/v16_snapshot_archive_schedule.js'
+      - 'api/v17_one_click_selection.js'
+      - 'tests/v17_one_click_selection.test.js'
+      - 'tests/v16_market_context.test.js'
+      - 'index_V17_ONE_CLICK_SHADOW.html'
+      - 'vercel.json'
+      - 'package.json'
+  pull_request:
+    branches:
+      - research/v16-flow-lhb-20261118
+    paths:
+      - 'research/v17_one_click_selection.js'
+      - 'research/V17_ONE_CLICK_PROTOCOL.md'
+      - 'api/v16_market_context.js'
+      - 'api/v16_snapshot_archive.js'
+      - 'api/v16_snapshot_archive_schedule.js'
+      - 'api/v17_one_click_selection.js'
+      - 'tests/v17_one_click_selection.test.js'
+      - 'tests/v16_market_context.test.js'
+      - 'index_V17_ONE_CLICK_SHADOW.html'
+      - 'vercel.json'
+      - 'package.json'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Syntax-check V17 modules and API
+        run: |
+          node --check research/v17_one_click_selection.js
+          node --check api/v16_market_context.js
+          node --check api/v17_one_click_selection.js
+          node --check api/v16_snapshot_archive.js
+          node --check api/v16_snapshot_archive_schedule.js
+      - name: Syntax-check V17 dashboard module
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path('index_V17_ONE_CLICK_SHADOW.html').read_text()
+          match = re.search(r'<script type="module">(.*?)</script>', html, re.S)
+          if not match:
+              raise SystemExit('V17 dashboard module not found')
+          Path('/tmp/v17-one-click.mjs').write_text(match.group(1))
+          PY
+          node --check /tmp/v17-one-click.mjs
+      - name: Run V17 and V16 deterministic tests
+        run: |
+          node --test \
+            tests/v17_one_click_selection.test.js \
+            tests/v16_market_system.test.js \
+            tests/v16_market_context.test.js \
+            tests/v16_narrative_theme.test.js \
+            tests/v16_selection_backtest.test.js \
+            tests/v16_snapshot_archive.test.js \
+            tests/v16_flow_lhb.test.js \
+            tests/v16_flow_lhb_integration.test.js \
+            tests/v16_flow_lhb_backtest.test.js \
+            tests/v16_early_trend.test.js \
+            tests/v16_limit_up_quality.test.js \
+            tests/v16_limit_up_quality_backtest.test.js \
+            tests/v16_volume_price_phase.test.js \
+            tests/v16_volume_price_phase_backtest.test.js
