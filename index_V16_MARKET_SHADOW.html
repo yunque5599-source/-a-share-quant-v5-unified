@@ -79,6 +79,9 @@ h2{font-size:17px;margin:0 0 10px}.note{background:#f3f6fb;border-radius:12px;pa
     <h2>五、涨停梯队、炸板与龙虎榜资金</h2>
     <div id="limitPoolInfo" class="note">涨停池、炸板池和跌停池尚未取得。</div>
     <div style="overflow:auto"><table><thead><tr><th>连板梯队</th><th>数量</th></tr></thead><tbody id="limitLadderRows"><tr><td colspan="2">等待数据</td></tr></tbody></table></div>
+    <h3 style="margin-top:14px">涨停质量与炸板风险识别（盘后代理）</h3>
+    <div id="limitQualityInfo" class="note">等待涨停池数据；日线代理未校准，不参与主评分。</div>
+    <div style="overflow:auto"><table><thead><tr><th>股票</th><th>事件池</th><th>首次封板</th><th>炸板次数</th><th>代理分</th><th>代理分类</th><th>风险标记</th><th>分时/盘口/次日</th></tr></thead><tbody id="limitQualityRows"><tr><td colspan="8">等待盘后事件池</td></tr></tbody></table></div>
     <h2 style="margin-top:14px">龙虎榜净买入观察</h2>
     <div id="lhbInfo" class="muted">—</div>
     <div style="overflow:auto"><table><thead><tr><th>股票</th><th>涨跌幅</th><th>龙虎榜净买入</th><th>上榜原因</th><th>机构净买入</th></tr></thead><tbody id="lhbRows"><tr><td colspan="5">等待盘后龙虎榜</td></tr></tbody></table></div>
@@ -107,6 +110,10 @@ h2{font-size:17px;margin:0 0 10px}.note{background:#f3f6fb;border-radius:12px;pa
     <div style="overflow:auto"><table><thead><tr><th>策略版本</th><th>候选池</th><th>周期</th><th>成熟信号日</th><th>样本覆盖</th><th>平均收益</th><th>超额收益</th><th>胜率</th><th>精确涨停捕捉率</th><th>涨停标签状态</th><th>相对基线收益差</th><th>收益状态</th></tr></thead><tbody id="flowBacktestRows"><tr><td colspan="12">等待服务器回测</td></tr></tbody></table></div>
     <h3 style="margin-top:14px">逐日回放：基准与组合因子</h3>
     <div style="overflow:auto"><table><thead><tr><th>信号日期</th><th>策略</th><th>候选池</th><th>T+1收益</th><th>T+1胜率</th><th>T+3收益</th><th>T+3胜率</th><th>T+5收益</th><th>T+5胜率</th><th>T+1涨停捕捉</th></tr></thead><tbody id="flowSeriesRows"><tr><td colspan="10">等待逐日回放</td></tr></tbody></table></div>
+    <h3 style="margin-top:16px">涨停质量分组：次日表现回放</h3>
+    <div id="limitUpQualityBacktestStatus" class="status">等待服务器归档的涨停质量分组回放。</div>
+    <div style="overflow:auto"><table><thead><tr><th>信号组</th><th>信号日</th><th>样本数</th><th>匹配覆盖</th><th>次日跳空</th><th>次日开盘至收盘</th><th>收盘至收盘</th><th>次日上涨占比</th><th>MFE</th><th>MAE</th><th>状态</th></tr></thead><tbody id="limitUpQualityBacktestRows"><tr><td colspan="11">等待分组回放</td></tr></tbody></table></div>
+    <div class="note">分组仅使用信号日盘后东方财富涨停池中的首次封板时间和炸板次数；收益标签使用下一交易日开盘、收盘及高低价。该回放是描述性队列比较，不是训练完成的预测模型。每组至少20个成熟信号日且结果覆盖率达到95%才标记为可测。</div>
     <div class="note">新因子消融以盘后快照作为信号，最早按下一交易日开盘买入，分别计算T+1/T+3/T+5收盘收益；比较基准、主力资金持续性、龙虎榜和组合版本。逐日表展示基准与组合版本的Top10/30/50时间序列。精确涨停标签来自东方财富涨停事件池，仅统计主板非ST候选范围；表格分别显示收益样本覆盖与涨停池覆盖状态。至少20个成熟信号日且候选收益覆盖率达到95%才标记为可测；精确涨停捕捉另需至少95%的信号日具备完整涨停池。仍不扣手续费、滑点，也不模拟排队成交、封板无法买入及T+1卖出约束；不代表可以上线。</div>
   </section>
 
@@ -129,6 +136,7 @@ import {evaluateOvernightGlobalImpact} from './research/v16/overnight_global_imp
 import {scoreSectorRotation} from './research/v16/sector_rotation.js';
 import {scoreNarrativeThemes} from './research/v16/narrative_theme.js';
 import {evaluateNextDayLimitUpPremium, rankFundingCandidates} from './research/v16/flow_lhb.js';
+import {evaluateLimitUpQuality} from './research/v16/limit_up_quality.js';
 
 const $ = id => document.getElementById(id);
 const MARKET_KEY = 'ashare_v16_final_market_snapshots_v1';
@@ -256,6 +264,35 @@ function renderFlowLhbPanel(context, marketHistory) {
   renderTable('limitLadderRows', (pools.ladder ?? []).map(row =>
     '<tr><td>' + escapeHtml(row.label) + '</td><td>' + row.count + '</td></tr>'
   ));
+  const limitQuality = evaluateLimitUpQuality({
+    limitPools:pools,
+    marketBreadth:context.aShare.breadth,
+    tradeDate:context.aShareSessionDate
+  });
+  const qualityCounts = limitQuality.classificationCounts ?? {};
+  $('limitQualityInfo').textContent = '日线代理状态 ' + limitQuality.status
+    + ' · 稳定代理 ' + (qualityCounts.PROXY_STABLE ?? 0)
+    + ' · 混合代理 ' + (qualityCounts.PROXY_MIXED ?? 0)
+    + ' · 风险代理 ' + (qualityCounts.PROXY_RISKY ?? 0)
+    + ' · 未分类 ' + (qualityCounts.UNCLASSIFIED ?? 0)
+    + ' · 分时封板质量 ' + limitQuality.intradayStatus
+    + ' · 盘口撤单 ' + limitQuality.orderBookCancellationStatus
+    + ' · 次日跟随 ' + limitQuality.nextSessionFollowThroughStatus
+    + '。代理分未校准，不改变V16主评分或买入许可。';
+  const limitQualityRows = [
+    ...(limitQuality.rows ?? []).slice(0,20).map(row =>
+      '<tr><td>' + escapeHtml(row.name) + ' (' + escapeHtml(row.code) + ')</td><td>涨停池</td><td>' + escapeHtml(row.firstSealLabel ?? '—')
+      + '</td><td>' + (row.breakTimes ?? '—') + '</td><td>' + score(row.dailyProxyScore) + '</td><td>' + escapeHtml(row.classification)
+      + '</td><td>' + escapeHtml((row.riskFlags ?? []).join('、') || '—')
+      + '</td><td>' + row.intradayStatus + ' / ' + row.orderBookCancellationStatus + ' / ' + row.nextSessionFollowThroughStatus + '</td></tr>'
+    ),
+    ...(limitQuality.brokenRows ?? []).slice(0,10).map(row =>
+      '<tr><td>' + escapeHtml(row.name) + ' (' + escapeHtml(row.code) + ')</td><td>炸板池</td><td>—</td><td>' + (row.breakTimes ?? '—')
+      + '</td><td>—</td><td>' + escapeHtml(row.classification) + '</td><td>' + escapeHtml(row.warning)
+      + '</td><td>分时 / 盘口 / 次日不可测</td></tr>'
+    )
+  ];
+  $('limitQualityRows').innerHTML = limitQualityRows.join('') || '<tr><td colspan="8">当前没有可用的涨停质量样本；缺失值不补零。</td></tr>';
   $('lhbInfo').textContent = '龙虎榜日期 ' + (lhb.tradeDate ?? context.aShareSessionDate ?? '—')
     + ' · 日榜 ' + (lhb.dailyStatus ?? lhb.status ?? 'NOT_MEASURABLE')
     + ' · 上榜股票 ' + (lhb.recordCount ?? '—')
@@ -325,6 +362,39 @@ async function loadServerBacktest() {
       }
     }
     $('backtestRows').innerHTML = rows.join('');
+    const limitQualityReport = body.limitUpQualityReport;
+    if (limitQualityReport?.aggregate) {
+      const labels = {
+        ALL_LIMIT_UP:'全部涨停池',
+        PROXY_STABLE:'稳定代理组',
+        PROXY_MIXED:'混合代理组',
+        PROXY_RISKY:'风险代理组',
+        UNCLASSIFIED:'未分类组',
+        BROKEN_POOL:'炸板池'
+      };
+      const rows = Object.entries(labels).map(([key,label]) => {
+        const metric = limitQualityReport.aggregate[key] ?? {};
+        return '<tr><td>' + label + '</td><td>' + (metric.maturedSignalDateCount ?? 0) + '/' + (metric.signalDateCount ?? 0)
+          + '</td><td>' + (metric.matchedCount ?? 0) + '/' + (metric.candidateCount ?? 0)
+          + '</td><td>' + pct((metric.sampleCoverage ?? 0) * 100)
+          + '</td><td>' + pct(metric.meanGapPct)
+          + '</td><td>' + pct(metric.meanOpenToClosePct)
+          + '</td><td>' + pct(metric.meanCloseToClosePct)
+          + '</td><td>' + pct(metric.positiveRatio === null || metric.positiveRatio === undefined ? null : metric.positiveRatio * 100)
+          + '</td><td>' + pct(metric.meanMfePct)
+          + '</td><td>' + pct(metric.meanMaePct)
+          + '</td><td>' + escapeHtml(metric.status ?? 'NOT_MEASURABLE') + '</td></tr>';
+      });
+      $('limitUpQualityBacktestRows').innerHTML = rows.join('');
+      $('limitUpQualityBacktestStatus').textContent = '分组回放状态：' + limitQualityReport.status
+        + ' · 合格信号日 ' + limitQualityReport.eligibleSignalDates
+        + ' · 涨停池完整覆盖 ' + pct(limitQualityReport.limitPoolCoverage * 100)
+        + ' · 校准状态 ' + limitQualityReport.calibration
+        + ' · 生产资格：否。';
+    } else {
+      $('limitUpQualityBacktestStatus').textContent = '涨停质量分组回放不可用；需要合格历史快照。';
+      $('limitUpQualityBacktestRows').innerHTML = '<tr><td colspan="11">NOT_MEASURABLE</td></tr>';
+    }
     const flow = body.flowLhbReport;
     if (flow?.aggregate) {
       const labels = {baseline:'基准',funding:'资金持续性',lhb:'龙虎榜',combined:'组合因子'};

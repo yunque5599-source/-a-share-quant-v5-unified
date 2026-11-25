@@ -668,6 +668,10 @@ export async function collectV16MarketContext() {
       exactLimitUpDown: limitPools.status==='AVAILABLE'?'MEASURABLE':limitPools.status,
       limitUpLadder:limitPools.sourceStatus.limitUp==='AVAILABLE'?'MEASURABLE':'NOT_MEASURABLE',
       brokenBoardRate:Number.isFinite(limitPools.brokenBoardRate)?'MEASURABLE':'NOT_MEASURABLE',
+      limitUpDailyProxy:limitPools.sourceStatus.limitUp==='AVAILABLE'?'VENDOR_DAILY_PROXY_UNCALIBRATED':'NOT_MEASURABLE',
+      intradaySealQuality:'NOT_MEASURABLE',
+      orderBookCancellation:'NOT_MEASURABLE',
+      nextSessionFollowThrough:'NOT_MEASURABLE',
       lhbDaily:lhb.dailyStatus,
       lhbSeatDetails:lhb.seatStatus,
       institutionalLhbFlow:lhb.institutionStatus,
@@ -692,6 +696,7 @@ export async function collectV16MarketContext() {
       'Full-market universe status requires all expected pages and at least 99% unique-code coverage.',
       'Yahoo Finance daily bars are filtered to dates strictly before the China calendar date to prevent same-date US data leakage.',
       'No daily close is substituted for auction, first-15-minute, VWAP, broken-board intraday sequence or order-book evidence.',
+      'The daily limit-up quality proxy is not calibrated and does not alter selection weights; minute-level seal quality, Level-2 cancellation risk and next-session first-15-minute follow-through remain NOT_MEASURABLE until complete timestamped feeds are connected.',
       'Full stock rows are included for private point-in-time research archiving; the snapshot is multi-page and not atomic.'
     ]
   };
