@@ -26,6 +26,7 @@ const US_SYMBOLS = {
 
 const finite = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value));
 const num = value => finite(value) ? Number(value) : null;
+const sleep = ms => new Promise(resolve => setTimeout(resolve, ms));
 
 function send(res, status, body, maxAge = 60) {
   res.setHeader('content-type', 'application/json; charset=utf-8');
@@ -85,10 +86,12 @@ async function fetchMarketPage(page, pageSize = 100) {
   for (const host of hosts) {
     try {
       const payload = await fetchJson(marketPageUrl(host, page, pageSize), 3500, {referer: 'https://quote.eastmoney.com/'});
-      if (Array.isArray(payload?.data?.diff)) return payload;
-      throw new Error('market page missing data.diff');
+      if (!Array.isArray(payload?.data?.diff)) throw new Error('market page missing data.diff');
+      await sleep(4000);
+      return payload;
     } catch (error) {
       lastError = error;
+      await sleep(4000);
     }
   }
   throw lastError ?? new Error('market data source unavailable');
@@ -147,7 +150,7 @@ async function fetchMarketUniverse() {
     fetchPage: page => fetchMarketPage(page, pageSize),
     pageSize,
     maxPages: 80,
-    concurrency: 4
+    concurrency: 1
   });
   return {
     ...result,
