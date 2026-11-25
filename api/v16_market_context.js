@@ -120,7 +120,7 @@ export async function collectMarketUniversePages({
   for (const {payload} of pages) {
     for (const row of payload.data.diff) {
       const code = String(row?.f12 ?? '');
-      if (/^\\d{6}$/.test(code)) byCode.set(code, row);
+      if (/^\d{6}$/.test(code)) byCode.set(code, row);
     }
   }
   const coverage = total ? byCode.size / total : 0;
