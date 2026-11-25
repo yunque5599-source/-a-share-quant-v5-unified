@@ -90,6 +90,12 @@ h2{font-size:17px;margin:0 0 10px}.note{background:#f3f6fb;border-radius:12px;pa
   </section>
 
   <section class="card">
+    <h2>八、早期趋势引擎（SHADOW）</h2>
+    <div id="earlyTrendStatus" class="status">早期趋势引擎代码已并入研究分支；等待真实点时输入接入。</div>
+    <div class="note">该引擎当前仅为研究影子模块。启动扫描需要逐股至少65根完整日线、最近5个交易日资金数据、独立行业成分与广度、点时公告/财务证据及不少于99%的合格股票池覆盖。上述数据适配器和历史回放尚未完成前，不生成候选名单、不提供买入许可，执行模式固定为 SHADOW_NO_ORDERS。</div>
+  </section>
+
+  <section class="card">
     <h2>六、名称题材与情绪扩散</h2>
     <div style="overflow:auto"><table><thead><tr><th>名称题材</th><th>成分数</th><th>热度</th><th>扩散速度</th><th>龙头集中度</th><th>基本面重合</th><th>退潮风险</th><th>阶段</th></tr></thead><tbody id="narrativeRows"></tbody></table></div>
     <div class="note">仅按股票简称中的“羊／洋／阳”“狼”“东方”进行词面匹配，不代表行业关联或基本面利好。热度只提高观察优先级，不提高机会评分；连续快照不足时，扩散速度和退潮风险显示为不可测。高退潮风险会阻断候选买入许可。</div>
@@ -99,6 +105,7 @@ h2{font-size:17px;margin:0 0 10px}.note{background:#f3f6fb;border-radius:12px;pa
     <h2>七、服务器历史样本与 Top10/30/50 回测</h2>
     <div class="actions"><button id="backtestBtn">读取服务器归档并回测</button></div>
     <div id="backtestStatus" class="status">服务器归档尚未连接；需要私有 Blob 存储和 CRON_SECRET 配置。</div>
+    <div id="archiveDiagnostics" class="status">等待读取最近快照的数据源诊断。</div>
     <div style="overflow:auto"><table><thead><tr><th>候选池</th><th>周期</th><th>成熟信号日</th><th>样本覆盖</th><th>平均收益</th><th>超额收益</th><th>胜率</th><th>涨停代理捕捉率</th><th>状态</th></tr></thead><tbody id="backtestRows"><tr><td colspan="9">等待服务器回测</td></tr></tbody></table></div>
     <div class="note">基准表复原的是 V15 六因子预筛 Stage-1 排名，不是最终深度K线/资金/新闻评分；收益按信号日收盘至未来交易日收盘计算，涨停事件使用9.5%代理。该表用于复现旧版预筛漏斗。</div>
     <h3 style="margin-top:16px">新增因子消融回测：资金持续性 / 龙虎榜</h3>
@@ -291,6 +298,25 @@ async function loadServerBacktest() {
     const body = await response.json();
     if (!response.ok) throw new Error(body?.error || body?.status || ('HTTP ' + response.status));
     const report = body.report;
+    const diag = body.latestSnapshotDiagnostics;
+    if (diag) {
+      const q = diag.quality ?? {};
+      const src = diag.source ?? {};
+      const failures = Array.isArray(src.failures) ? src.failures : [];
+      $('archiveDiagnostics').textContent = '最近快照 ' + (diag.tradeDate ?? '—')
+        + ' · 状态 ' + (q.status ?? 'UNKNOWN')
+        + ' · 覆盖 ' + (q.coveragePct ?? '—') + '%'
+        + ' · 股票 ' + (q.uniqueSymbols ?? '—') + '/' + (q.reportedTotal ?? '—')
+        + ' · 页数 ' + (src.pagesFetched ?? 0) + '/' + (src.pageCount ?? 0)
+        + ' · 失败页 ' + failures.length
+        + (failures.length ? '：' + failures.map(x => 'P' + x.page + ' ' + x.error).join('；') : '');
+      $('earlyTrendStatus').textContent = '早期趋势引擎代码已并入 V16 SHADOW。最新归档覆盖率 '
+        + (q.coveragePct ?? '—') + '%，' + (q.qualifiedForReplay ? '快照质量门槛通过' : '快照质量未达门槛')
+        + '。当前归档仍缺逐股65根日线、完整5日资金、独立行业成分/广度及点时公告财务输入；因此不运行候选排名，状态 WAIT，执行模式 SHADOW_NO_ORDERS。';
+    } else {
+      $('archiveDiagnostics').textContent = '暂无可读取的服务器快照诊断。';
+      $('earlyTrendStatus').textContent = '早期趋势引擎代码已并入 V16 SHADOW，但尚无可用归档输入；状态 WAIT，执行模式 SHADOW_NO_ORDERS。';
+    }
     const rows = [];
     for (const topK of [10,30,50]) {
       for (const horizon of [1,3,5]) {

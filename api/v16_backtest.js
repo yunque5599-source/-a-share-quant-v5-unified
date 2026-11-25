@@ -50,6 +50,7 @@ export default async function handler(req,res){
     const report=evaluateV15TopKForwardReturns({snapshots,asOf,topKs:[10,30,50],horizons:[1,3,5],minSignalDates:20});
     const flowLhbReport=evaluateFlowLhbAblation({snapshots,asOf,topKs:[10,30,50],horizons:[1,3,5],minSignalDates:20});
     const partialReadCount=loaded.filter(value=>!value||value.error).length;
+    const latestSnapshot=snapshots.at(-1)??null;
     const selectedTradeDates=new Set(selected.map(blob=>String(blob.pathname).match(/^v16\/snapshots\/(\d{4}-\d{2}-\d{2})\//)?.[1]).filter(Boolean));
     return send(res,200,{
       schema:'ashare-v16-server-backtest-response-v1',
@@ -60,7 +61,12 @@ export default async function handler(req,res){
         asOf:asOf??null
       },
       report,
-      flowLhbReport
+      flowLhbReport,
+      latestSnapshotDiagnostics:latestSnapshot?{
+        tradeDate:latestSnapshot.tradeDate,
+        quality:latestSnapshot.quality,
+        source:latestSnapshot.source
+      }:null
     });
   }catch(error){
     return send(res,503,{
