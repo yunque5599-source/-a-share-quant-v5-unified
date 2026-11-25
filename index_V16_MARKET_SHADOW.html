@@ -120,7 +120,13 @@ h2{font-size:17px;margin:0 0 10px}.note{background:#f3f6fb;border-radius:12px;pa
   <section class="card">
     <h2>八、早期趋势引擎（SHADOW）</h2>
     <div id="earlyTrendStatus" class="status">早期趋势引擎代码已并入研究分支；等待真实点时输入接入。</div>
-    <div class="note">该引擎当前仅为研究影子模块。启动扫描需要逐股至少65根完整日线、最近5个交易日资金数据、独立行业成分与广度、点时公告/财务证据及不少于99%的合格股票池覆盖。上述数据适配器和历史回放尚未完成前，不生成候选名单、不提供买入许可，执行模式固定为 SHADOW_NO_ORDERS。</div>
+    <h3 style="margin-top:14px">量价阶段识别：启动 / 缩量回踩 / 二次放量 / 派发风险</h3>
+    <div id="volumePhaseStatus" class="status">等待归档的V15 Stage1 Top50日线样本。</div>
+    <div style="overflow:auto"><table><thead><tr><th>股票</th><th>Stage1名次</th><th>阶段</th><th>回撤幅度</th><th>回落量比</th><th>20日量比</th><th>支撑</th><th>日线状态</th></tr></thead><tbody id="volumePhaseRows"><tr><td colspan="8">等待日线数据</td></tr></tbody></table></div>
+    <h3 style="margin-top:16px">量价阶段：次日表现分组回放</h3>
+    <div id="volumePhaseBacktestStatus" class="status">等待历史量价阶段样本。</div>
+    <div style="overflow:auto"><table><thead><tr><th>阶段</th><th>成熟信号日</th><th>样本数</th><th>覆盖率</th><th>次日跳空</th><th>开盘至收盘</th><th>收盘至收盘</th><th>次日上涨占比</th><th>MFE</th><th>MAE</th><th>状态</th></tr></thead><tbody id="volumePhaseBacktestRows"><tr><td colspan="11">等待分组回放</td></tr></table></div>
+    <div class="note">量价阶段识别已接入盘后归档：只对重建版V15 Stage1 Top50抓取不复权日线并分类；历史分组回放达到每组至少20个成熟信号日、95%结果覆盖前均不校准。量价阶段调整仅作为独立研究字段，不改变V16主评分、候选排序或买入许可。完整V16扫描仍需要全合格股票池的逐股日线、连续资金、独立行业成分、点时公告/财务及覆盖验证；当前不产生实盘订单，执行模式固定为 SHADOW_NO_ORDERS。</div>
   </section>
 
   <section class="card">
@@ -354,6 +360,23 @@ async function loadServerBacktest() {
       $('archiveDiagnostics').textContent = '暂无可读取的服务器快照诊断。';
       $('earlyTrendStatus').textContent = '早期趋势引擎代码已并入 V16 SHADOW，但尚无可用归档输入；状态 WAIT，执行模式 SHADOW_NO_ORDERS。';
     }
+    const phaseDiag = diag?.volumePhaseDiagnostics ?? {};
+    const phaseRows = Array.isArray(diag?.volumePhaseRows) ? diag.volumePhaseRows : [];
+    $('volumePhaseStatus').textContent = '量价日线状态 ' + (phaseDiag.status ?? 'NOT_MEASURABLE')
+      + ' · 候选范围 ' + (phaseDiag.candidateUniverse ?? 'V15_STAGE1_TOP50')
+      + ' · 请求 ' + (phaseDiag.requestedCount ?? 0)
+      + ' · 可用 ' + (phaseDiag.measurableCount ?? 0)
+      + ' · 覆盖 ' + pct((phaseDiag.coverage ?? 0) * 100)
+      + '。仅为日线代理，不含逐笔主动买卖；不参与主评分。';
+    $('volumePhaseRows').innerHTML = phaseRows.map(row =>
+      '<tr><td>' + escapeHtml(row.name) + ' (' + escapeHtml(row.code) + ')</td><td>' + (row.sourceRank ?? '—')
+      + '</td><td>' + escapeHtml(row.label ?? row.phase ?? '不可测')
+      + '</td><td>' + pct(row.metrics?.pullbackDepthPct)
+      + '</td><td>' + (row.metrics?.downVolumeRatio20 === null || row.metrics?.downVolumeRatio20 === undefined ? '—' : Number(row.metrics.downVolumeRatio20).toFixed(2) + 'x')
+      + '</td><td>' + (row.metrics?.volumeRatio20 === null || row.metrics?.volumeRatio20 === undefined ? '—' : Number(row.metrics.volumeRatio20).toFixed(2) + 'x')
+      + '</td><td>' + (row.metrics?.supportHeld === true ? '守住' : row.metrics?.supportHeld === false ? '失守' : '—')
+      + '</td><td>' + escapeHtml(row.status ?? 'NOT_MEASURABLE') + '</td></tr>'
+    ).join('') || '<tr><td colspan="8">暂无可用的V15 Stage1 Top50日线样本。</td></tr>';
     const rows = [];
     for (const topK of [10,30,50]) {
       for (const horizon of [1,3,5]) {
@@ -362,6 +385,40 @@ async function loadServerBacktest() {
       }
     }
     $('backtestRows').innerHTML = rows.join('');
+    const phaseReport = body.volumePricePhaseReport;
+    const phaseLabels = {
+      EARLY_BREAKOUT:'早期放量突破',
+      CONSTRUCTIVE_PULLBACK:'缩量回踩守支撑',
+      REACCELERATION:'回踩后再放量',
+      TIGHT_CONSOLIDATION:'高位缩量整理',
+      ACCELERATION_RISK:'短期加速偏热',
+      DISTRIBUTION_RISK:'放量回落/支撑破位',
+      NEUTRAL:'暂未形成清晰结构'
+    };
+    if (phaseReport?.aggregate) {
+      const phaseTableRows = Object.entries(phaseLabels).map(([key,label]) => {
+        const metric = phaseReport.aggregate[key] ?? {};
+        return '<tr><td>' + label + '</td><td>' + (metric.maturedSignalDateCount ?? 0) + '/' + (metric.signalDateCount ?? 0)
+          + '</td><td>' + (metric.matchedCount ?? 0) + '/' + (metric.candidateCount ?? 0)
+          + '</td><td>' + pct((metric.sampleCoverage ?? 0) * 100)
+          + '</td><td>' + pct(metric.meanGapPct)
+          + '</td><td>' + pct(metric.meanOpenToClosePct)
+          + '</td><td>' + pct(metric.meanCloseToClosePct)
+          + '</td><td>' + pct(metric.positiveRatio === null || metric.positiveRatio === undefined ? null : metric.positiveRatio * 100)
+          + '</td><td>' + pct(metric.meanMfePct)
+          + '</td><td>' + pct(metric.meanMaePct)
+          + '</td><td>' + escapeHtml(metric.status ?? 'NOT_MEASURABLE') + '</td></tr>';
+      });
+      $('volumePhaseBacktestRows').innerHTML = phaseTableRows.join('');
+      $('volumePhaseBacktestStatus').textContent = '分组回放 ' + phaseReport.status
+        + ' · 合格信号日 ' + phaseReport.eligibleSignalDates
+        + ' · 总体覆盖 ' + pct((phaseReport.overallSampleCoverage ?? 0) * 100)
+        + ' · 校准 ' + phaseReport.calibration
+        + ' · 生产资格：否。';
+    } else {
+      $('volumePhaseBacktestStatus').textContent = '量价阶段回放不可测：需要连续的完整归档日线样本。';
+      $('volumePhaseBacktestRows').innerHTML = '<tr><td colspan="11">NOT_MEASURABLE</td></tr>';
+    }
     const limitQualityReport = body.limitUpQualityReport;
     if (limitQualityReport?.aggregate) {
       const labels = {

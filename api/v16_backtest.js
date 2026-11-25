@@ -3,6 +3,7 @@ import {gunzipSync} from 'node:zlib';
 import {evaluateV15TopKForwardReturns} from '../research/v16/selection_backtest.js';
 import {evaluateFlowLhbAblation} from '../research/v16/flow_lhb_backtest.js';
 import {evaluateLimitUpQualityBacktest} from '../research/v16/limit_up_quality_backtest.js';
+import {evaluateVolumePricePhaseBacktest} from '../research/v16/volume_price_phase_backtest.js';
 import {selectRecentV16SnapshotBlobs} from '../research/v16/snapshot_archive.js';
 
 export const config={maxDuration:300};
@@ -51,6 +52,7 @@ export default async function handler(req,res){
     const report=evaluateV15TopKForwardReturns({snapshots,asOf,topKs:[10,30,50],horizons:[1,3,5],minSignalDates:20});
     const flowLhbReport=evaluateFlowLhbAblation({snapshots,asOf,topKs:[10,30,50],horizons:[1,3,5],minSignalDates:20});
     const limitUpQualityReport=evaluateLimitUpQualityBacktest({snapshots,asOf,minSignalDates:20,minSampleCoverage:0.95});
+    const volumePricePhaseReport=evaluateVolumePricePhaseBacktest({snapshots,asOf,minSignalDates:20,minSampleCoverage:0.95});
     const partialReadCount=loaded.filter(value=>!value||value.error).length;
     const latestSnapshot=snapshots.at(-1)??null;
     const selectedTradeDates=new Set(selected.map(blob=>String(blob.pathname).match(/^v16\/snapshots\/(\d{4}-\d{2}-\d{2})\//)?.[1]).filter(Boolean));
@@ -65,10 +67,17 @@ export default async function handler(req,res){
       report,
       flowLhbReport,
       limitUpQualityReport,
+      volumePricePhaseReport,
       latestSnapshotDiagnostics:latestSnapshot?{
         tradeDate:latestSnapshot.tradeDate,
         quality:latestSnapshot.quality,
-        source:latestSnapshot.source
+        source:latestSnapshot.source,
+        volumePhaseDiagnostics:latestSnapshot.volumePhaseDiagnostics??null,
+        volumePhaseRows:(latestSnapshot.volumePhaseRows??[]).slice(0,20).map(row=>({
+          code:row.code,name:row.name,industry:row.industry,sourceRank:row.sourceRank,status:row.status,
+          lastBarDate:row.lastBarDate,phase:row.phase?.classification??'NOT_MEASURABLE',
+          label:row.phase?.label??'不可测',metrics:row.phase?.metrics??null
+        }))
       }:null
     });
   }catch(error){

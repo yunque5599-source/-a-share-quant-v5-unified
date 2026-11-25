@@ -20,7 +20,7 @@ export default async function handler(req,res){
   if(!authorized(req))return send(res,401,{error:'UNAUTHORIZED'});
   try{
     const result=await collectAndArchiveV16Snapshot({
-      collectContext:collectV16MarketContext,
+      collectContext:()=>collectV16MarketContext({includeStockDailyBars:true}),
       writeBlob:put
     });
     return send(res,200,result);

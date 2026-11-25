@@ -125,3 +125,23 @@ test('shared archive runner skips before close without writing',async()=>{
   assert.equal(result.status,'SKIPPED_BEFORE_CLOSE');
   assert.equal(writes,0);
 });
+
+
+test('daily archive preserves volume-price phase rows and their source coverage separately',()=>{
+  const sample=context();
+  sample.aShare.volumePhaseDiagnostics={status:'AVAILABLE',candidateUniverse:'V15_STAGE1_TOP50',
+    requestedCount:50,availableCount:49,measurableCount:49,coverage:0.98};
+  sample.aShare.volumePhaseRows=[{
+    code:'600001',name:'阶段样本',industry:'半导体',sourceRank:1,status:'AVAILABLE',
+    barCount:80,lastBarDate:'2026-11-06',close:10,
+    bars:[{date:'2026-11-06',source:'fixture',availableAt:'2026-11-06T08:20:00.000Z',
+      open:9.9,high:10.2,low:9.8,close:10,volume:1000,amount:100000}],
+    phase:{status:'AVAILABLE',classification:'CONSTRUCTIVE_PULLBACK',label:'缩量回踩守支撑',
+      metrics:{pullbackDepthPct:2,downVolumeRatio20:0.7,supportHeld:true}}
+  }];
+  const result=buildV16DailySnapshot(sample);
+  assert.equal(result.quality.volumePricePhaseStatus,'AVAILABLE');
+  assert.equal(result.volumePhaseDiagnostics.coverage,0.98);
+  assert.equal(result.volumePhaseRows[0].phase.classification,'CONSTRUCTIVE_PULLBACK');
+  assert.equal(result.volumePhaseRows[0].bars.length,1);
+});

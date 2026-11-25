@@ -1,4 +1,6 @@
 import {extractNarrativeTags} from '../research/v16/narrative_theme.js';
+import {rankV15Stage1Candidates} from '../research/v16/selection_backtest.js';
+import {classifyVolumePricePhase} from '../research/v16/volume_price_phase.js';
 import {summarizeLimitPools, summarizeLhbContext} from '../research/v16/flow_lhb.js';
 
 export const config = {maxDuration: 300};
@@ -90,6 +92,8 @@ export function createMarketRequestLimiter({intervalMs = 4000, now = () => Date.
   };
 }
 const waitForMarketRequestSlot = createMarketRequestLimiter({intervalMs: 4000});
+const waitForStockKlineRequestSlot = createMarketRequestLimiter({intervalMs: 350});
+const STOCK_KLINE_HOSTS = ['https://push2his.eastmoney.com','https://80.push2his.eastmoney.com'];
 
 async function fetchMarketPage(page, pageSize = 100, attempt = 0) {
   const host = EM_HOSTS[(page - 1 + attempt) % EM_HOSTS.length];
@@ -309,6 +313,102 @@ export function summarizeMarketUniverse(universe) {
     }
   };
 }
+function stockKlineUrl(code,tradeDate,host='https://push2his.eastmoney.com') {
+  const exchange=String(code).startsWith('6')?'1':String(code).startsWith('0')?'0':null;
+  if(!exchange||! /^\d{6}$/.test(String(code)))throw new Error('unsupported stock code for Eastmoney K-line');
+  const params=new URLSearchParams({
+    secid:exchange+'.'+code,klt:'101',fqt:'0',beg:'20260101',
+    end:String(tradeDate).replaceAll('-',''),lmt:'100',
+    fields1:'f1,f2,f3,f4,f5,f6',
+    fields2:'f51,f52,f53,f54,f55,f56,f57,f58,f59,f60,f61'
+  });
+  return host+'/api/qt/stock/kline/get?'+params.toString();
+}
+export function parseStockDailyKlines(payload,{code='',name='',tradeDate=null,availableAt=new Date().toISOString()}={}) {
+  const strings=payload?.data?.klines;
+  if(!Array.isArray(strings))return {code:String(code),name:String(name),status:'NOT_MEASURABLE',bars:[],barCount:0,error:'missing data.klines'};
+  const bars=strings.map(value=>{
+    const parts=String(value).split(',');
+    return {
+      date:parts[0],open:num(parts[1]),close:num(parts[2]),high:num(parts[3]),low:num(parts[4]),
+      volume:num(parts[5]),amount:num(parts[6]),turnover:num(parts[10]),
+      source:'Eastmoney daily K-line, unadjusted fqt=0',availableAt
+    };
+  }).filter(bar=>/^\d{4}-\d{2}-\d{2}$/.test(String(bar.date??''))&&
+    [bar.open,bar.close,bar.high,bar.low,bar.volume,bar.amount].every(Number.isFinite)&&
+    bar.open>0&&bar.close>0&&bar.high>=Math.max(bar.open,bar.close)&&
+    bar.low<=Math.min(bar.open,bar.close)&&bar.low>0&&bar.volume>=0&&bar.amount>=0&&
+    (!tradeDate||bar.date<=tradeDate))
+    .sort((a,b)=>a.date.localeCompare(b.date));
+  const unique=bars.filter((bar,index)=>index===0||bar.date!==bars[index-1].date);
+  const duplicate=unique.length!==bars.length;
+  const latestDate=unique.at(-1)?.date??null;
+  const status=duplicate?'PARTIAL':!tradeDate||latestDate!==tradeDate?'STALE':
+    unique.length>=65?'AVAILABLE':'PARTIAL';
+  return {
+    code:String(code),name:String(name),status,bars:unique,barCount:unique.length,
+    latestDate,tradeDate,availableAt,
+    error:duplicate?'duplicate kline dates':latestDate!==tradeDate?'latest kline date does not match signal date':
+      unique.length<65?'fewer than 65 daily bars':null
+  };
+}
+async function fetchStockDailyKlines(row,tradeDate) {
+  const failures=[];
+  for(const host of STOCK_KLINE_HOSTS) {
+    try {
+      await waitForStockKlineRequestSlot(host);
+      const payload=await fetchJson(stockKlineUrl(row.code,tradeDate,host),6500,{referer:'https://quote.eastmoney.com/'});
+      const parsed=parseStockDailyKlines(payload,{code:row.code,name:row.name,tradeDate,availableAt:new Date().toISOString()});
+      if(parsed.status==='AVAILABLE')return parsed;
+      failures.push(host+': '+(parsed.error??parsed.status));
+    } catch(error) {
+      failures.push(host+': '+String(error?.message??error));
+    }
+  }
+  return {code:String(row.code),name:String(row.name??row.code),status:'NOT_MEASURABLE',bars:[],barCount:0,
+    latestDate:null,tradeDate,error:failures.join('; ').slice(0,220)};
+}
+async function collectStockVolumePhaseRows(stockRows,indices,tradeDate) {
+  const ranking=rankV15Stage1Candidates(stockRows,indices);
+  const candidates=ranking.candidates.slice(0,50);
+  if(!candidates.length)return {
+    rows:[],diagnostics:{status:'NOT_MEASURABLE',candidateUniverse:'V15_STAGE1_TOP50',
+      requestedCount:0,availableCount:0,measurableCount:0,coverage:0,rankingStatus:ranking.status}
+  };
+  const fetched=await mapLimit(candidates,4,row=>fetchStockDailyKlines(row,tradeDate));
+  const rows=fetched.map((item,index)=>{
+    const row=candidates[index];
+    const phase=item.status==='AVAILABLE'
+      ?classifyVolumePricePhase(item.bars,{asOf:item.availableAt})
+      :{status:item.status,classification:'NOT_MEASURABLE',label:'不可测',researchAdjustment:0,
+        mainScoreAdjustment:0,usedForSelection:false,reasons:[],warnings:[item.error??item.status]};
+    return {
+      code:String(row.code),name:String(row.name??row.code),industry:String(row.industry??'未知'),
+      sourceRank:index+1,sourceUniverse:'V15_STAGE1_TOP50',stage1Score:num(row.stage1Score),
+      status:item.status,barCount:item.barCount,lastBarDate:item.latestDate,
+      close:item.bars.at(-1)?.close??null,bars:item.bars,phase
+    };
+  });
+  const availableCount=rows.filter(row=>row.status==='AVAILABLE').length;
+  const measurableCount=rows.filter(row=>row.phase?.status==='AVAILABLE').length;
+  const coverage=measurableCount/candidates.length;
+  return {
+    rows,
+    diagnostics:{
+      status:coverage>=0.95?'AVAILABLE':'PARTIAL',
+      candidateUniverse:'V15_STAGE1_TOP50',rankingStatus:ranking.status,
+      requestedCount:candidates.length,availableCount,measurableCount,
+      coverage:Number(coverage.toFixed(4)),
+      source:'Eastmoney daily K-line unadjusted fqt=0',
+      limitations:[
+        'Only the reconstructed V15 Stage1 Top50 receives daily K-line history; this is not full-market coverage.',
+        'Unadjusted prices avoid future corporate-action adjustment leakage but can contain ex-rights/ex-dividend gaps.',
+        'No minute bars, tick trades or order-book cancellation events are included.'
+      ]
+    }
+  };
+}
+
 function indexKlineUrl(secid) {
   const params = new URLSearchParams({
     secid, klt: '101', fqt: '1', beg: '20260101', end: '20500101', lmt: '80',
@@ -582,7 +682,7 @@ async function fetchLhbContext(tradeDate) {
   };
 }
 
-export async function collectV16MarketContext() {
+export async function collectV16MarketContext({includeStockDailyBars=false}={}) {
   const calendarDate = chinaDate();
   const localClock = chinaClock();
   const [universeResult, indexResults, us] = await Promise.all([
@@ -595,11 +695,15 @@ export async function collectV16MarketContext() {
   const indexFailures = indexResults.flatMap((row, index) => !row || row.status !== 'AVAILABLE' ? [INDEXES[index]?.key ?? 'unknown'] : []);
   const aShareSessionDate = indices.find(row => row.key === 'shanghai')?.date ?? null;
   const lhbSessionFinalized = Boolean(aShareSessionDate) && (aShareSessionDate !== calendarDate || localClock.closeFinalized);
-  const [poolRaw, lhbRaw] = await Promise.all([
+  const volumePhasePromise=includeStockDailyBars&&lhbSessionFinalized
+    ?collectStockVolumePhaseRows(universe.stockRows,indices,aShareSessionDate)
+    :Promise.resolve({rows:[],diagnostics:{status:'NOT_MEASURABLE',candidateUniverse:'V15_STAGE1_TOP50',requestedCount:0,availableCount:0,measurableCount:0,coverage:0,reason:includeStockDailyBars?'PENDING_CLOSE':'NOT_REQUESTED'}});
+  const [poolRaw, lhbRaw, volumePhaseRaw] = await Promise.all([
     fetchLimitPools(aShareSessionDate),
     lhbSessionFinalized
       ? fetchLhbContext(aShareSessionDate)
-      : Promise.resolve({tradeDate:aShareSessionDate,dailyRows:[],seatRows:[],dailyStatus:'PENDING_CLOSE',seatStatus:'PENDING_CLOSE'})
+      : Promise.resolve({tradeDate:aShareSessionDate,dailyRows:[],seatRows:[],dailyStatus:'PENDING_CLOSE',seatStatus:'PENDING_CLOSE'}),
+    volumePhasePromise
   ]);
   const limitPools = summarizeLimitPools({
     tradeDate:aShareSessionDate,
@@ -656,6 +760,8 @@ export async function collectV16MarketContext() {
       sentiment,
       sectors,
       stockRows: universe.stockRows,
+      volumePhaseRows:volumePhaseRaw.rows,
+      volumePhaseDiagnostics:volumePhaseRaw.diagnostics,
       narrativeStocks: universe.narrativeStocks,
       narrativeSourceScope: universe.narrativeSourceScope,
       leaders: universe.leaders,
@@ -678,6 +784,7 @@ export async function collectV16MarketContext() {
       intradaySealQuality:'NOT_MEASURABLE',
       orderBookCancellation:'NOT_MEASURABLE',
       nextSessionFollowThrough:'NOT_MEASURABLE',
+      volumePricePhase:volumePhaseRaw.diagnostics.status,
       lhbDaily:lhb.dailyStatus,
       lhbSeatDetails:lhb.seatStatus,
       institutionalLhbFlow:lhb.institutionStatus,
@@ -703,6 +810,7 @@ export async function collectV16MarketContext() {
       'Yahoo Finance daily bars are filtered to dates strictly before the China calendar date to prevent same-date US data leakage.',
       'No daily close is substituted for auction, first-15-minute, VWAP, broken-board intraday sequence or order-book evidence.',
       'The daily limit-up quality proxy is not calibrated and does not alter selection weights; minute-level seal quality, Level-2 cancellation risk and next-session first-15-minute follow-through remain NOT_MEASURABLE until complete timestamped feeds are connected.',
+      'Daily volume-price phase diagnostics are collected only for the reconstructed V15 Stage1 Top50 after close; they are unadjusted daily-bar research labels, not a full-market V16 scan or intraday/order-book evidence.',
       'Full stock rows are included for private point-in-time research archiving; the snapshot is multi-page and not atomic.'
     ]
   };

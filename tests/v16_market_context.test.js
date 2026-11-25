@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {summarizeMarketUniverse, summarizeIndexKline, parseYahooDailyChange, collectMarketUniversePages, createMarketRequestLimiter, fetchMarketPageWithRetry} from '../api/v16_market_context.js';
+import {summarizeMarketUniverse, summarizeIndexKline, parseStockDailyKlines, parseYahooDailyChange, collectMarketUniversePages, createMarketRequestLimiter, fetchMarketPageWithRetry} from '../api/v16_market_context.js';
 import {extractNarrativeTags} from '../research/v16/narrative_theme.js';
 
 test('market universe summary labels complete breadth and approximate limit bands', () => {
@@ -193,4 +193,22 @@ test('a missing market page remains explicitly partial and never becomes full-ma
   assert.equal(result.failures[0].page,2);
   assert.equal(result.complete,false);
   assert.ok(result.coverage<0.99);
+});
+
+
+test('stock daily K-lines preserve unadjusted OHLCV and require same-date 65-bar coverage',()=>{
+  const klines=Array.from({length:70},(_,index)=>{
+    const date=new Date(Date.UTC(2026,7,1+index)).toISOString().slice(0,10);
+    const close=10+index*0.01;
+    return [date,close-0.02,close,close+0.05,close-0.05,1000+index,100000+index,0,1,2,4].join(',');
+  });
+  const last=klines.at(-1).split(',');last[0]='2026-11-25';klines[klines.length-1]=last.join(',');
+  const result=parseStockDailyKlines({data:{klines}},{code:'600001',name:'样本股',
+    tradeDate:'2026-11-25',availableAt:'2026-11-25T15:30:00+08:00'});
+  assert.equal(result.status,'AVAILABLE');assert.equal(result.bars.at(-1).date,'2026-11-25');
+  assert.equal(result.bars.at(-1).source,'Eastmoney daily K-line, unadjusted fqt=0');
+  assert.equal(result.bars.at(-1).turnover,4);assert.equal(result.barCount,70);
+  const partial=parseStockDailyKlines({data:{klines:klines.slice(-20)}},{
+    code:'600001',tradeDate:'2026-11-25',availableAt:'2026-11-25T15:30:00+08:00'});
+  assert.equal(partial.status,'PARTIAL');
 });
