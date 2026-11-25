@@ -364,3 +364,116 @@ test('market and industry helpers fail closed on stale or incomplete evidence', 
   assert.equal(flow.complete, false);
   assert.equal(earlyTrend(snapshot.securities[0].bars).phase, 'C');
 });
+
+
+test('missing or partial eligible-universe coverage forces global WAIT', () => {
+  const missing = makeSnapshot({confirmed: true});
+  delete missing.universeCoverage;
+  const missingResult = scanV16(missing);
+  assert.equal(missingResult.decision, 'WAIT');
+  assert.equal(missingResult.universeCoverage.valid, false);
+  assert.ok(missingResult.evaluations[0].risk.hardVeto.includes('UNIVERSE_COVERAGE_INSUFFICIENT'));
+
+  const partial = makeSnapshot({confirmed: true});
+  partial.universeCoverage.expectedCount = 100;
+  partial.universeCoverage.coverage = 0.01;
+  const partialResult = scanV16(partial);
+  assert.equal(partialResult.decision, 'WAIT');
+  assert.equal(partialResult.universeCoverage.valid, false);
+});
+
+test('stale per-security metadata fails the data-quality gate', () => {
+  const snapshot = makeSnapshot({confirmed: true});
+  snapshot.securities[0].metadata.availableAt = '2026-11-25T19:00:00+08:00';
+  const result = scanV16(snapshot);
+  assert.equal(result.candidates.length, 0);
+  assert.ok(result.evaluations[0].risk.hardVeto.includes('DATA_QUALITY'));
+  assert.ok(result.evaluations[0].dataQuality.errors.includes('SECURITY_METADATA_STALE'));
+});
+
+test('closing at the verified upper price cannot become a normal buy-plan candidate', () => {
+  const snapshot = makeSnapshot({confirmed: true});
+  const last = snapshot.securities[0].bars.at(-1);
+  last.high = 10.30;
+  last.close = 10.30;
+  snapshot.securities[0].metadata.limitUpPrice = 10.30;
+  const result = scanV16(snapshot);
+  assert.equal(result.candidates[0].state, 'TRIGGERED');
+  assert.equal(result.candidates[0].entryBlocked, true);
+  assert.equal(result.candidates[0].buyPlanEligible, false);
+  assert.ok(result.candidates[0].risk.warnings.some(x => x.includes('禁止按普通突破信号追买')));
+});
+
+test('flow spike reversal invalidates a previously triggered candidate', () => {
+  const firstSnapshot = makeSnapshot();
+  const first = scanV16(firstSnapshot);
+  assert.equal(first.candidates[0].state, 'TRIGGERED');
+
+  const next = makeSnapshot({confirmed: true});
+  const nextDate = '2026-11-26';
+  const nextAvailableAt = '2026-11-26T20:25:00+08:00';
+  next.id = 'fixture-next-session-flow-reversal';
+  next.asOf = '2026-11-26T20:30:00+08:00';
+  next.capturedAt = nextAvailableAt;
+  next.expectedDailyDate = nextDate;
+  next.calendar.availableAt = nextAvailableAt;
+  next.calendar.coverageThrough = nextDate;
+  next.calendar.tradingDates.push(nextDate);
+  next.universeCoverage.availableAt = nextAvailableAt;
+  next.universeCoverage.tradingDate = nextDate;
+  next.market.availableAt = nextAvailableAt;
+  for (const index of next.market.indices) index.availableAt = nextAvailableAt;
+  next.market.benchmarkReturns.availableAt = nextAvailableAt;
+  next.market.benchmarkReturns.throughDate = nextDate;
+  next.industries[0].availableAt = nextAvailableAt;
+  next.industries[0].throughDate = nextDate;
+
+  const security = next.securities[0];
+  security.metadata.availableAt = nextAvailableAt;
+  security.metadata.tradingDate = nextDate;
+  security.evidenceCoverage.availableAt = nextAvailableAt;
+  security.bars.push({
+    date: nextDate,
+    availableAt: '2026-11-26T15:05:00+08:00',
+    source: SOURCE,
+    open: 10.24,
+    high: 10.35,
+    low: 10.13,
+    close: 10.30,
+    volume: 1200,
+    amount: 120_000_000,
+    turnover: 4
+  });
+  const dates = [...tradingDates().slice(-4), nextDate];
+  const flows = [10_000_000, 2_000_000, 2_000_000, 2_000_000, -1_000_000];
+  security.moneyFlow = dates.map((date, i) => ({
+    date,
+    availableAt: nextAvailableAt,
+    source: SOURCE,
+    netMain: flows[i],
+    amount: 150_000_000,
+    estimated: false
+  }));
+
+  const result = scanV16(next, first.poolState);
+  assert.equal(result.evaluations[0].flow.reversal, true);
+  assert.equal(result.evaluations[0].state, 'INVALIDATED');
+  assert.ok(result.evaluations[0].risk.hardVeto.includes('BREAKOUT_INVALIDATED'));
+});
+
+test('duplicate benchmark index rows fail closed instead of overweighting an index', () => {
+  const snapshot = makeSnapshot();
+  snapshot.market.indices.push({...snapshot.market.indices[0]});
+  const result = scanV16(snapshot);
+  assert.equal(result.market.regime, 'UNKNOWN');
+  assert.equal(result.decision, 'WAIT');
+});
+
+test('stale evidence-coverage metadata cannot authorize confirmation', () => {
+  const snapshot = makeSnapshot({confirmed: true});
+  snapshot.securities[0].evidenceCoverage.availableAt = '2026-11-25T19:00:00+08:00';
+  const result = scanV16(snapshot);
+  assert.equal(result.candidates[0].state, 'TRIGGERED');
+  assert.equal(result.candidates[0].buyPlanEligible, false);
+  assert.equal(result.candidates[0].dataQuality.status, 'PARTIAL');
+});
