@@ -6,6 +6,8 @@ This is an isolated research layer. It does not modify production `index.html`, 
 - `market_transition.js`: weighted market breadth/index/turnover/sentiment/sector/leader score; BEAR, TRANSITION, BULL and DISTRIBUTION classification. BULL/BEAR require multi-session confirmation.
 - `overnight_global_impact.js`: separate US semiconductor, AI-infrastructure, mega-cap, memory and cloud factors; explicit A-share industry exposure map; opening confirmation is NOT_MEASURABLE without first-15-minute/VWAP inputs.
 - `sector_rotation.js`: sector persistence, rotation acceleration, prior-day profit-taking risk, LHB sector breadth, and independent entry-timing score.
+- `limit_up_quality.js`: separates Eastmoney post-close daily-pool proxies from minute-bar seal quality, Level-2 order-book cancellation risk, and next-session first-15-minute follow-through. It reports first-seal timing/reopen-count categories as uncalibrated observation-only diagnostics; intraday, cancellation and next-session states remain NOT_MEASURABLE until timestamped feeds with coverage checks are supplied.
+- `limit_up_quality_backtest.js`: chronological cohort replay of signal-date stable/mixed/risky daily-proxy groups and broken-board pool members against next-session open/close outcomes. It requires full-market replay-qualified snapshots, adjacent weekday sessions, at least 20 matured signal dates and 95% outcome coverage per cohort; future prices are labels only.
 - `flow_lhb.js`: normalizes Eastmoney limit-up/broken-board/limit-down pools and post-close LHB daily/seat disclosures; deduplicates repeated abnormal-trading rows; computes board ladder, broken-board rate, institution-labelled seat flow, next-session limit-up cohort premium, and 2-of-3-session capital-flow persistence. Funding evidence only raises research attention when three consecutive qualified snapshots show at least two positive main-flow observations and higher lows; incomplete three-session inputs remain NOT_MEASURABLE. High-turnover price extension is penalized, and missing chase-risk inputs are not represented as zero risk. Full-market rows are used when a candidate is outside the top-500 funding display subset.
 - `decision_overlay.js`: combines market, sector, overnight and entry gates. It never places orders.
 - `narrative_theme.js`: lexical name-theme detection for 羊／洋／阳、狼 and 东方; computes heat, diffusion, turnover concentration and multi-session exhaustion risk. It does not infer a fundamental catalyst from a name.
@@ -34,11 +36,21 @@ This is an isolated research layer. It does not modify production `index.html`, 
 - `leader_concentration` is the largest member's share of theme turnover amount, not an ownership statistic. Diffusion requires two comparable full-market snapshots; exhaustion requires at least three full-market snapshots and a common constituent cohort.
 - `fundamental_overlap_score` remains null unless a dated, verified source URL and explicit theme/stock mapping are provided. The upstream caller is responsible for setting `verified: true` only after source verification. Name similarity is not an earnings or industry catalyst.
 
+## Limit-up quality model
+- The daily vendor proxy is kept separate from exact intraday seal quality. Its provisional diagnostic uses only reported first-seal time, reported reopen count and explicitly full-market breadth; turnover and multi-board extension are risk flags, not hidden positive factors.
+- `PROXY_STABLE`, `PROXY_MIXED` and `PROXY_RISKY` are heuristic cohort labels, not calibrated probabilities. They do not alter V16 core weights, candidate rank, buy-plan eligibility or production behavior.
+- Minute-bar seal duration/reopen analysis requires at least 95% timestamped session coverage. Order-book cancellation risk requires complete Level-2 add/cancel/execute event totals. Next-session follow-through requires auction open, complete first-15-minute OHLC/VWAP, and contemporaneous market/industry first-15-minute returns.
+- Next-session follow-through is an after-open confirmation diagnostic, not a signal known at the prior close. Historical cohort replay uses next-session outcomes only as labels and never as signal features.
+
 ## Data capability gates
 | Metric | Required evidence | Missing-data treatment |
 |---|---|---|
 | Full-market breadth | All expected pages fetched and at least 99% unique-code coverage | Otherwise labelled partial-market; not full-market |
 | US overnight factors | Yahoo daily bars dated strictly before China calendar date | Missing symbols reduce factor coverage; same-date US bars excluded |
+| Limit-up daily quality proxy | Complete vendor limit-up pool with first-seal time and reported reopen count | Partial/unavailable; uncalibrated proxy only |
+| Intraday seal quality | Timestamped minute bars with at least 95% session coverage | NOT_MEASURABLE |
+| Order-book cancellation risk | Complete Level-2 bid add/cancel/execute event coverage | NOT_MEASURABLE |
+| Next-session follow-through | Next-session auction, first 15-minute OHLC/VWAP, market and sector context | NOT_MEASURABLE until after open |
 | Exact limit-up/down | Eastmoney limit-up/broken-board/limit-down event pools | Vendor pool status and source diagnostics retained; do not relabel as exchange-certified |
 | Limit-up ladder | Daily limit-up pool with `lbc` board count | Missing pool remains NOT_MEASURABLE; no percent-threshold substitution |
 | LHB daily/seat flow | Date-filtered DataCenter disclosures, deduplicated by stock/seat | Missing or delayed report remains NOT_MEASURABLE; only explicit institution-labelled seats count as institutional |
@@ -59,6 +71,7 @@ This is an isolated research layer. It does not modify production `index.html`, 
 - Replay only frozen snapshots captured on or before the requested cutoff.
 - Never use same-day close to reconstruct auction, first-15-minute, VWAP or order-book decisions.
 - The original Top10/30/50 backtest reconstructs the V15 six-factor rank pool and Stage-1 formula from full-market snapshots. It is a **preselection-funnel test**, not the final deep K-line/flow/news ranking.
+- Limit-up quality cohort replay groups stocks using only signal-date vendor-pool fields and measures next-session open-to-close, gap, MFE/MAE and close-to-close outcomes. It is descriptive until each cohort has at least 20 matured signal dates and 95% matched outcomes.
 - The new flow/LHB ablation uses post-close signal data and assumes the earliest modeled entry is the next trading session open. T+1/T+3/T+5 returns are measured from that open to the corresponding future close. This avoids granting the strategy a same-close fill after post-close LHB disclosures.
 - Exact future limit-up capture uses the Eastmoney vendor event pool, not the old 9.5% return proxy. The event source remains vendor data, not exchange-certified order-book evidence.
 - The ablation variants are baseline, baseline + 10% main-force net-flow persistence, baseline + 5% LHB percentile, and combined 85% baseline + 10% main-flow + 5% LHB. Institutional LHB is excluded from the funding ablation to avoid double-counting it in the separate LHB variant. Complete three-session funding inputs with no confirmed persistence score 0; incomplete funding inputs leave the baseline score unchanged. Missing LHB feeds are not imputed; no LHB disclosure is neutral only when the daily LHB feed and stock-signal map are both complete.
@@ -75,4 +88,4 @@ This is an isolated research layer. It does not modify production `index.html`, 
 6. Snapshot files are gzip-compressed and immutable. The backtest API reads the latest archive window and reports data gaps rather than filling missing outcomes with zero. The factor-ablation report requires at least three qualified sessions for funding evidence and at least 20 matured signal dates before any Top-K/horizon is labelled MEASURABLE.
 
 ## Tests
-Run syntax checks on all V16 modules and API routes, then `node --test tests/v16_market_system.test.js tests/v16_market_context.test.js tests/v16_narrative_theme.test.js tests/v16_selection_backtest.test.js tests/v16_snapshot_archive.test.js tests/v16_flow_lhb.test.js tests/v16_flow_lhb_integration.test.js tests/v16_flow_lhb_backtest.test.js`.
+Run syntax checks on all V16 modules and API routes, then `node --test tests/v16_market_system.test.js tests/v16_market_context.test.js tests/v16_narrative_theme.test.js tests/v16_selection_backtest.test.js tests/v16_snapshot_archive.test.js tests/v16_flow_lhb.test.js tests/v16_flow_lhb_integration.test.js tests/v16_flow_lhb_backtest.test.js tests/v16_early_trend.test.js tests/v16_limit_up_quality.test.js tests/v16_limit_up_quality_backtest.test.js`.

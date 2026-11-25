@@ -45,7 +45,7 @@ function summarize(rows,minSignalDates,minCoverage) {
 export function evaluateLimitUpQualityBacktest({snapshots=[],asOf=null,minSignalDates=20,minSampleCoverage=0.95}={}) {
   const cutoff=String(asOf??'').slice(0,10);
   const history=(Array.isArray(snapshots)?snapshots:[])
-    .filter(snapshot=>/^\\d{4}-\\d{2}-\\d{2}$/.test(dateOf(snapshot))&&(!cutoff||dateOf(snapshot)<=cutoff))
+    .filter(snapshot=>/^\d{4}-\d{2}-\d{2}$/.test(dateOf(snapshot))&&(!cutoff||dateOf(snapshot)<=cutoff))
     .sort((a,b)=>dateOf(a).localeCompare(dateOf(b)));
   const unique=new Map();
   for(const snapshot of history)if(!unique.has(dateOf(snapshot)))unique.set(dateOf(snapshot),snapshot);

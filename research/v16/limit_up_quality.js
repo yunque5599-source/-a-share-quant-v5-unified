@@ -39,7 +39,7 @@ function marketBreadthEvidence(breadth) {
 
 export function scoreLimitUpDailyProxy(row,{tradeDate=null,sourceStatus='AVAILABLE',marketBreadth=null}={}) {
   const code=String(row?.code??'');
-  if(!available(sourceStatus)||!/^\\d{6}$/.test(code)||!/^\\d{4}-\\d{2}-\\d{2}$/.test(dateKey(tradeDate))) {
+  if(!available(sourceStatus)||!/^\d{6}$/.test(code)||!/^\d{4}-\d{2}-\d{2}$/.test(dateKey(tradeDate))) {
     return {code:code||null,status:'NOT_MEASURABLE',classification:'UNCLASSIFIED',dailyProxyScore:null,
       riskFlags:[],supportFlags:[],reason:'涨停池来源或交易日不完整'};
   }

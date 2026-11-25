@@ -40,6 +40,8 @@ test('daily archive snapshot qualifies only with finalized same-date full-market
   assert.equal(result.quality.quoteTimestampCoverage,1);
   assert.equal(result.quality.sameDateQuoteRatio,1);
   assert.equal(result.stockRows.length,500);
+  assert.equal(result.market.limitUpQuality.status,'NOT_MEASURABLE');
+  assert.equal(result.quality.limitUpDailyProxyStatus,'NOT_MEASURABLE');
   assert.equal(result.strategies.v15Stage1Top10.length,10);
   assert.equal(result.strategies.v15Stage1Top30.length,30);
   assert.equal(result.strategies.v15Stage1Top50.length,50);
