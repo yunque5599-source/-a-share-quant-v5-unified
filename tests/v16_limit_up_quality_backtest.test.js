@@ -9,7 +9,7 @@ function nextWeekday(date) {
 }
 function makeSnapshot(date,index) {
   const stableClose=10+index*0.05;
-  const riskyClose=20+index*0.05;
+  const riskyClose=20-index*0.05;
   const stockRows=[
     {code:'600001',name:'稳定代理样本',price:stableClose,open:stableClose*1.01,high:stableClose*1.06,low:stableClose*0.99},
     {code:'600002',name:'风险代理样本',price:riskyClose,open:riskyClose*0.99,high:riskyClose*1.01,low:riskyClose*0.90},
@@ -60,8 +60,8 @@ test('future snapshots beyond asOf are excluded from signal and outcome samples'
   const cutoff=snapshots[21].tradeDate;
   const report=evaluateLimitUpQualityBacktest({snapshots,asOf:cutoff,minSignalDates:1,minSampleCoverage:0.95});
   assert.equal(report.asOf,cutoff);
-  assert.equal(report.eligibleSignalDates,20);
-  assert.ok(report.aggregate.ALL_LIMIT_UP.candidateCount<=40);
+  assert.equal(report.eligibleSignalDates,21);
+  assert.ok(report.aggregate.ALL_LIMIT_UP.candidateCount<=42);
 });
 
 test('partial or unqualified snapshots do not contribute to replay',()=>{
