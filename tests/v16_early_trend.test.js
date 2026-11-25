@@ -197,6 +197,16 @@ function makeSnapshot({confirmed = false, marketStress = false, stale = false, m
       coverageThrough: dates.at(-1),
       tradingDates: dates
     },
+    universeCoverage: {
+      source: SOURCE,
+      availableAt,
+      verified: true,
+      scope: 'eligible-universe',
+      tradingDate: dates.at(-1),
+      expectedCount: 1,
+      observedCount: 1,
+      coverage: 1
+    },
     market,
     industries: missingIndustry ? [] : [industry],
     securities: [security]
