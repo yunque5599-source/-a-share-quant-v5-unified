@@ -458,7 +458,7 @@ test('flow spike reversal invalidates a previously triggered candidate', () => {
   const result = scanV16(next, first.poolState);
   assert.equal(result.evaluations[0].flow.reversal, true);
   assert.equal(result.evaluations[0].state, 'INVALIDATED');
-  assert.ok(result.evaluations[0].risk.hardVeto.includes('BREAKOUT_INVALIDATED'));
+  assert.ok(result.evaluations[0].risk.hardVeto.includes('FLOW_REVERSAL_INVALIDATED'));
 });
 
 test('duplicate benchmark index rows fail closed instead of overweighting an index', () => {
