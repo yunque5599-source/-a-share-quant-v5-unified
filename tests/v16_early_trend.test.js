@@ -352,5 +352,5 @@ test('market and industry helpers fail closed on stale or incomplete evidence', 
   assert.equal(industryResonance(incompleteIndustry, AS_OF).complete, false);
   const flow = flowContinuity([], snapshot.securities[0].bars, AS_OF);
   assert.equal(flow.complete, false);
-  assert.equal(earlyTrend(snapshot.securities[0].bars).phase, 'B');
+  assert.equal(earlyTrend(snapshot.securities[0].bars).phase, 'C');
 });
