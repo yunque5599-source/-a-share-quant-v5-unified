@@ -103,16 +103,21 @@ export function flowContinuity(raw,bars,asOf,c=mergeV16Config()) {
     warnings:['资金流是供应商口径，不能解释为真实机构持仓']};
 }
 export function marketRegime(m,asOf,c=mergeV16Config()) {
+  const indexRows=Array.isArray(m?.indices)?m.indices:[];
+  const uniqueIndexes=new Set(indexRows.map(i=>i?.code));
   const valid=known(m,asOf)&&m.scope==='full-market' && m.verified===true &&
     Math.abs(time(asOf)-time(m.availableAt))<=c.data.maxMarketSkewMinutes*60000 &&
     [m.up,m.down,m.flat,m.limitUp,m.limitDown,m.amount].every(finite) &&
     m.up+m.down+m.flat>0 && m.amount>0 && [m.up,m.down,m.flat,m.limitUp,m.limitDown].every(x=>x>=0) &&
-    c.market.indices.every(code=>m.indices?.some(i=>i.code===code&&known(i,asOf)&&finite(i.return1)&&
-      Math.abs(time(i.availableAt)-time(m.availableAt))<=c.data.maxMarketSkewMinutes*60000));
+    uniqueIndexes.size===c.market.indices.length &&
+    c.market.indices.every(code=>indexRows.filter(i=>i?.code===code).length===1 &&
+      indexRows.some(i=>i.code===code&&known(i,asOf)&&finite(i.return1)&&
+        Math.abs(time(i.availableAt)-time(m.availableAt))<=c.data.maxMarketSkewMinutes*60000));
   if(!valid) return {regime:'UNKNOWN',pass:false,threshold:100,maxPosition:0,reasons:['缺少时间一致、可验证的全市场及四大指数数据'],missing:['overseas','macro','keyIndustries']};
-  const total=m.up+m.down+m.flat,upRatio=m.up/total,r=mean(m.indices.filter(i=>c.market.indices.includes(i.code)).map(i=>i.return1));
+  const total=m.up+m.down+m.flat,upRatio=m.up/total,r=mean(indexRows.filter(i=>c.market.indices.includes(i.code)).map(i=>i.return1));
   const external=(m.externalEvents||[]).filter(e=>known(e,asOf)&&e.verified===true);
-  const overseas=known(m.overseas,asOf)&&m.overseas.verified===true?(m.overseas.indices||[]).filter(i=>finite(i.return1)):[];
+  const overseas=known(m.overseas,asOf)&&m.overseas.verified===true?
+    (m.overseas.indices||[]).filter(i=>known(i,asOf)&&i.verified===true&&finite(i.return1)):[];
   const overseasReturn=overseas.length?mean(overseas.map(i=>i.return1)):null;
   const macroSystemic=known(m.macro,asOf)&&m.macro.verified===true&&m.macro.systemicRisk===true;
   let regime='RANGE';
@@ -149,7 +154,8 @@ export function exchangeLimits(metadata,asOf) {
 }
 function newsAndQuality(sec,asOf,c) {
   const coverage=sec.evidenceCoverage;
-  const complete=known(coverage,asOf)&&coverage.newsComplete===true&&coverage.fundamentalsComplete===true;
+  const coverageFresh=known(coverage,asOf)&&time(asOf)-time(coverage.availableAt)<=c.data.maxSnapshotSkewMinutes*60000;
+  const complete=coverageFresh&&coverage.newsComplete===true&&coverage.fundamentalsComplete===true;
   const visible=(sec.news||[]).filter(n=>n.source&&n.url&&Number.isFinite(time(n.publishedAt))&&time(n.publishedAt)<=time(asOf));
   const hard=[],penalties=[],warnings=[],categories=[];
   let score=c.scoring.newsBase;
@@ -185,12 +191,19 @@ function scoreSecurity(sec,snapshot,market,c,prior) {
   if(bars.length<c.data.minBars) errors.push('INSUFFICIENT_HISTORY');
   if(!snapshot.expectedDailyDate||snapshot.expectedDailyDate>asOfDay||closeAt(snapshot.expectedDailyDate)>time(asOf)||bars.at(-1)?.date!==snapshot.expectedDailyDate) errors.push('STALE_OR_UNVERIFIED_DAILY_SESSION');
   const md=sec.metadata,limits=exchangeLimits(md,asOf);
-  if(!known(md,asOf)||typeof md.isST!=='boolean'||typeof md.delistingRisk!=='boolean'||!md.tradingStatus) errors.push('SECURITY_METADATA_MISSING');
+  const metadataFresh=known(md,asOf)&&time(asOf)-time(md.availableAt)<=c.data.maxSnapshotSkewMinutes*60000;
+  if(!metadataFresh||typeof md.isST!=='boolean'||typeof md.delistingRisk!=='boolean'||!md.tradingStatus)
+    errors.push(metadataFresh?'SECURITY_METADATA_MISSING':'SECURITY_METADATA_STALE');
   else{
     if(md.isST||md.delistingRisk) hard.push('ST_OR_DELISTING');
     if(md.tradingStatus!=='TRADING') hard.push('NOT_TRADING');
   }
   if(limits.status==='NOT_MEASURABLE') errors.push('LIMIT_RULES_MISSING');
+  const limitReferenceBar=bars.at(-1);
+  const atLimitUp=limits.status==='VERIFIED'&&limitReferenceBar&&limitReferenceBar.close>=limits.up-0.005;
+  const atLimitDown=limits.status==='VERIFIED'&&limitReferenceBar&&limitReferenceBar.close<=limits.down+0.005;
+  if(atLimitUp) warnings.push('收盘触及涨停价，禁止按普通突破信号追买');
+  if(atLimitDown) hard.push('LIMIT_DOWN_CLOSE_RISK');
   const t=errors.some(e=>['INVALID_OHLCV','INSUFFICIENT_HISTORY','DUPLICATE_BARS'].includes(e))?{score:0,phase:'A',reasons:[],insufficient:true}:earlyTrend(bars,c);
   const f=flowContinuity(sec.moneyFlow,bars,asOf,c);
   const industryRaw=(snapshot.industries||[]).find(i=>i.industry===sec.industry);
@@ -213,7 +226,8 @@ function scoreSecurity(sec,snapshot,market,c,prior) {
   if(market.regime==='SYSTEMIC'&&t.atrRatio>c.market.volatilityThreshold) add('SYSTEMIC_VOLATILITY',c.market.systemicVolatilityPenalty);
   if(errors.length) hard.push('DATA_QUALITY');
   const benchRaw=snapshot.market?.benchmarkReturns;
-  const bench=benchRaw?.throughDate===snapshot.expectedDailyDate?benchRaw:null;
+  const bench=benchRaw?.throughDate===snapshot.expectedDailyDate&&known(benchRaw,asOf)&&
+    time(asOf)-time(benchRaw.availableAt)<=c.data.maxSnapshotSkewMinutes*60000?benchRaw:null;
   const rs=known(bench,asOf)&&[bench.return5,bench.return10].every(finite)&&ind.complete&&!t.insufficient?
     clamp(c.scoring.rsBase+mean([t.ret5-bench.return5,t.ret10-bench.return10])*c.scoring.rsScale+(t.ret5-ind.return5)*c.scoring.rsIndustryScale):0;
   const constructive=!t.insufficient&&bars.slice(-5).filter((b,i,a)=>i&&b.close<a[i-1].close).every((b,i,a)=>b.volume<mean(bars.slice(-20,-5).map(x=>x.volume)));
@@ -225,12 +239,12 @@ function scoreSecurity(sec,snapshot,market,c,prior) {
   const penalty=sum(penalties.map(p=>p.points)),score=round(clamp(gross-penalty));
   let state='WATCH';
   const invalidated=hard.length>0 || (prior && ['TRIGGERED','CONFIRMED'].includes(prior.state)&&
-    (f.persistentOutflow || (finite(prior.breakoutLevel)&&last?.close<prior.breakoutLevel*(1-c.trend.failureBuffer))));
+    (f.persistentOutflow || f.reversal || (finite(prior.breakoutLevel)&&last?.close<prior.breakoutLevel*(1-c.trend.failureBuffer))));
   if(invalidated) state='INVALIDATED';
   else if(['B','C'].includes(t.phase)&&t.early) {
     state='TRIGGERED';
     if(t.phase==='C'&&f.positive&&ind.complete&&ind.score>=c.industry.minConfirmationScore&&!ind.weak&&
-      news.complete&&market.pass&&known(bench,asOf)&&score>=market.threshold) state='CONFIRMED';
+      news.complete&&market.pass&&known(bench,asOf)&&score>=market.threshold&&!atLimitUp) state='CONFIRMED';
   }
   const dataQuality={status:errors.length?'INSUFFICIENT':(!f.complete||!ind.complete||!news.complete?'PARTIAL':'VERIFIED'),
     errors,warnings,capabilities:{daily:!errors.length,intraday:'NOT_MEASURABLE',orderBook:'NOT_MEASURABLE',fundFlow:f.complete,industry:ind.complete,newsAndFundamentals:news.complete}};
@@ -244,7 +258,8 @@ function scoreSecurity(sec,snapshot,market,c,prior) {
     volumePriceStatus:t.moderateVolume?'温和放量':t.volumeRatio>c.volume.extremeRatio?'异常放量':'待观察',
     triggerReasons:reasons,invalidationConditions:['收盘跌破启动压力位 '+round((prior?.breakoutLevel??t.resistance20??0)*(1-c.trend.failureBuffer)),'3/5日资金反转','重大公告或数据质量风险'],
     breakoutLevel:prior?.breakoutLevel??t.resistance20??null,dataUpdatedAt:last?.availableAt??null,dataQuality,
-    buyPlanEligible:state==='CONFIRMED'&&hard.length===0&&dataQuality.status==='VERIFIED'&&market.pass,
+    entryBlocked:!!atLimitUp,
+    buyPlanEligible:state==='CONFIRMED'&&hard.length===0&&dataQuality.status==='VERIFIED'&&market.pass&&!atLimitUp,
     execution:'SHADOW_NO_ORDERS',firstSeenAt:prior?.firstSeenAt??null,
     firstTriggeredAt:prior?.firstTriggeredAt??(['TRIGGERED','CONFIRMED'].includes(state)?asOf:null),
     firstConfirmedAt:prior?.firstConfirmedAt??(state==='CONFIRMED'?asOf:null),
@@ -266,13 +281,26 @@ export function scanV16(snapshot,previous={},overrides={}) {
   const calendar=snapshot.calendar;
   const sessions=Array.isArray(calendar?.tradingDates)?calendar.tradingDates:[];
   const lastCompleted=sessions.filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&closeAt(d)<=time(asOf)).sort().at(-1);
-  const calendarValid=known(calendar,asOf)&&calendar.verified===true&&calendar.coverageThrough>=day(asOf)&&
-    lastCompleted===snapshot.expectedDailyDate;
+  const calendarValid=known(calendar,asOf)&&time(asOf)-time(calendar.availableAt)<=c.data.maxSnapshotSkewMinutes*60000&&
+    calendar.verified===true&&calendar.coverageThrough>=day(asOf)&&lastCompleted===snapshot.expectedDailyDate;
   if(!calendarValid){market.pass=false;market.maxPosition=0;market.reasons.push('交易日历或最近完整交易日未核验');}
+  const universe=snapshot.universeCoverage;
+  const calculatedCoverage=finite(universe?.expectedCount)&&universe.expectedCount>0?
+    universe.observedCount/universe.expectedCount:NaN;
+  const universeValid=known(universe,asOf)&&time(asOf)-time(universe.availableAt)<=c.data.maxSnapshotSkewMinutes*60000&&
+    universe.verified===true&&universe.scope==='eligible-universe'&&universe.tradingDate===snapshot.expectedDailyDate&&
+    Number.isInteger(universe.expectedCount)&&universe.expectedCount>0&&
+    Number.isInteger(universe.observedCount)&&universe.observedCount===snapshot.securities.length&&
+    finite(universe.coverage)&&universe.coverage>=0.99&&universe.coverage<=1.01&&
+    Number.isFinite(calculatedCoverage)&&Math.abs(calculatedCoverage-universe.coverage)<=0.01;
+  if(!universeValid){market.pass=false;market.maxPosition=0;market.reasons.push('选股证券池覆盖不足或未核验，禁止形成候选信号');}
   const sorted=snapshot.securities.slice().sort((a,b)=>String(a.code).localeCompare(String(b.code)));
   if(new Set(sorted.map(s=>String(s.code))).size!==sorted.length) throw Error('Duplicate security code');
   const all=sorted.map(sec=>scoreSecurity(sec,snapshot,market,c,entries[sec.code]));
-  if(stale||!calendarValid) for(const row of all){row.risk.hardVeto.push(stale?'STALE_SNAPSHOT':'TRADING_CALENDAR_MISSING');row.state='INVALIDATED';row.buyPlanEligible=false;row.dataQuality.status='INSUFFICIENT';row.invalidatedAt=row.invalidatedAt||asOf;}
+  if(stale||!calendarValid||!universeValid) for(const row of all){
+    row.risk.hardVeto.push(stale?'STALE_SNAPSHOT':!calendarValid?'TRADING_CALENDAR_MISSING':'UNIVERSE_COVERAGE_INSUFFICIENT');
+    row.state='INVALIDATED';row.buyPlanEligible=false;row.dataQuality.status='INSUFFICIENT';row.invalidatedAt=row.invalidatedAt||asOf;
+  }
   const eligible=all.filter(r=>r.state!=='INVALIDATED'&&!['D','E'].includes(r.phase));
   // A fixed incumbent bonus implements hysteresis without an inconsistent pairwise comparator.
   eligible.sort((a,b)=>(b.score+(entries[b.code]?.inPool?c.pool.retentionMargin:0))-
@@ -296,7 +324,10 @@ export function scanV16(snapshot,previous={},overrides={}) {
   }
   const result={metadata:{modelVersion:c.modelVersion,configVersion:c.configVersion,configFingerprint:cfg,snapshotId:snapshot.id,
       universeId:snapshot.universeId,asOf,dataFingerprint:fp,priorPoolFingerprint:compatible?fingerprint({lastAsOf:previous.lastAsOf,entries}):null,mode:'SHADOW',probabilityCalibration:'NOT_CALIBRATED'},
-    decision:market.pass&&!stale&&candidates.length?'OBSERVE':'WAIT',market,candidates,top10:candidates.slice(0,10),
+    decision:market.pass&&!stale&&calendarValid&&universeValid&&candidates.length?'OBSERVE':'WAIT',
+    universeCoverage:{valid:universeValid,expectedCount:universe?.expectedCount??null,observedCount:universe?.observedCount??null,
+      coverage:finite(universe?.coverage)?universe.coverage:null,source:universe?.source??null,availableAt:universe?.availableAt??null},
+    market,candidates,top10:candidates.slice(0,10),
     top30:candidates.slice(0,30),top50:candidates.slice(0,50),evaluations:all,removed,
     buyPlanEvaluation:candidates.filter(r=>r.buyPlanEligible).map(r=>r.code),productionOverride:false};
   const poolState={modelVersion:c.modelVersion,configVersion:c.configVersion,configFingerprint:cfg,universeId:snapshot.universeId,
