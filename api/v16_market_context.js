@@ -47,7 +47,7 @@ async function fetchText(url, timeout = 5000, headers = {}) {
   try {
     const response = await fetch(url, {
       signal: controller.signal,
-      headers: {'user-agent': 'Mozilla/5.0 AShareQuantV16/1.0', 'accept': 'application/json,text/plain,*/*', ...headers}
+      headers: {'user-agent': 'Mozilla/5.0 AShareQuant/10.1.8-S', 'accept': 'application/json,text/javascript,*/*;q=0.8', ...headers}
     });
     if (!response.ok) throw new Error('HTTP ' + response.status);
     return await response.text();
@@ -74,7 +74,7 @@ async function mapLimit(items, limit, fn) {
 }
 function marketPageUrl(host, page, pageSize) {
   const params = new URLSearchParams({
-    pn: String(page), pz: String(pageSize), po: '1', np: '1', fltt: '2', invt: '2',
+    pn: String(page), pz: String(pageSize), po: '1', np: '1', fltt: '2', invt: '2', ut: 'bd1d9ddb04089700cf9c27f6f7426281',
     fid: 'f6', fs: MARKET_FS, fields: MARKET_FIELDS
   });
   return host + '/api/qt/clist/get?' + params.toString();
