@@ -2,6 +2,7 @@ import {get, list} from '@vercel/blob';
 import {gunzipSync} from 'node:zlib';
 import {collectV17ResearchContext} from './v16_market_context.js';
 import {buildV17OneClickSelection} from '../research/v17_one_click_selection.js';
+import {evaluateV17HistoricalReplay} from '../research/v17_one_click_backtest.js';
 import {selectRecentV16SnapshotBlobs} from '../research/v16/snapshot_archive.js';
 
 export const config = {maxDuration: 300};
@@ -93,8 +94,16 @@ async function loadArchive() {
 export default async function handler(req, res) {
   if (req.method !== 'GET') return send(res, 405, {error: 'METHOD_NOT_ALLOWED'});
   try {
-    const context = await collectV17ResearchContext();
     const archive = await loadArchive();
+    if (String(req.query?.mode ?? '') === 'backtest') {
+      const replay = evaluateV17HistoricalReplay({
+        snapshots: archive.snapshots,
+        asOf: new Date().toISOString()
+      });
+      replay.archive = archive.diagnostics;
+      return send(res, 200, replay);
+    }
+    const context = await collectV17ResearchContext();
     const asOf = new Date().toISOString();
     const result = buildV17OneClickSelection({
       context,

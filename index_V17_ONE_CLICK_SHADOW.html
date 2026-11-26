@@ -41,6 +41,7 @@ a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
     <p>先扫描全市场行情截面，再对沪深支持代码中的两组候选做65日线深度检查：V15 Stage1 Top50 与 V17 沪深支持代码早期资金预筛 Top30。输出的是研究观察排序，不是上涨概率、买卖指令或实盘回测结论。</p>
     <div class="actions">
       <button class="primary" id="scanBtn">一键扫描</button>
+      <button id="replayBtn">历史回放验证</button>
       <button id="exportBtn" disabled>导出扫描结果</button>
       <a href="./index_V16_MARKET_SHADOW.html" style="align-self:center;font-size:12px">打开 V16 市场研究台</a>
     </div>
@@ -89,12 +90,19 @@ a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
       <button data-k="30">Top 30</button>
       <button data-k="50">Top 50</button>
     </div>
-    <div class="scroll"><table><thead><tr><th>排名</th><th>股票</th><th>研究分</th><th>状态</th><th>趋势阶段</th><th>量价结构</th><th>个股资金</th><th>行业资金</th><th>5日收益</th><th>数据覆盖</th><th>风险</th></tr></thead><tbody id="candidateRows"><tr><td colspan="11">等待扫描</td></tr></tbody></table></div>
-    <div class="note">优先寻找“行业资金改善 + 个股资金持续 + 价格尚未过热 + 缩量回踩/首次突破”的组合。D/E加速过热、放量派发、涨停追买和市场风险门控会降级或排除。所有候选均为 SHADOW_NO_ORDERS。</div>
+    <div class="scroll"><table><thead><tr><th>排名</th><th>股票</th><th>研究分</th><th>状态</th><th>趋势阶段</th><th>量价结构</th><th>个股资金</th><th>资金价格响应</th><th>入场时机</th><th>行业资金</th><th>5日收益</th><th>数据覆盖</th><th>风险</th></tr></thead><tbody id="candidateRows"><tr><td colspan="13">等待扫描</td></tr></tbody></table></div>
+    <div class="note">优先寻找“行业资金改善 + 个股资金持续 + 资金价格响应合理 + 价格尚未过热 + 缩量回踩/首次突破”的组合。D/E加速过热、放量派发、涨停追买和市场风险门控会降级或排除。所有候选均为 SHADOW_NO_ORDERS。</div>
   </section>
 
   <section class="card">
-    <h2>五、模型逻辑与边界</h2>
+    <div class="row"><h2>五、历史回放验证</h2><span class="muted">V17 / V15 / 60日动量对照</span></div>
+    <p class="note">仅使用信号日收盘后可见的合格归档快照；最早按下一合格归档交易日开盘模拟入场。净收益扣除21bp双边成本代理。至少20个成熟信号日且结果覆盖率达到95%后，指标才标记为MEASURABLE。</p>
+    <div id="replaySummary" class="status">尚未运行历史回放。</div>
+    <div class="scroll"><table><thead><tr><th>模型</th><th>Top-K</th><th>期限</th><th>状态</th><th>净收益均值</th><th>胜率</th><th>超额收益</th><th>平均最大回撤</th><th>结果覆盖</th></tr></thead><tbody id="replayRows"><tr><td colspan="9">等待回放</td></tr></tbody></table></div>
+  </section>
+
+  <section class="card">
+    <h2>六、模型逻辑与边界</h2>
     <div class="scroll"><table><thead><tr><th>模块</th><th>作用</th><th>硬约束</th></tr></thead><tbody>
       <tr><td>早期趋势</td><td>MA拐头、20/60日压力、ATR收缩扩张、5日收益与乖离</td><td>加速/过热不作为追涨信号</td></tr>
       <tr><td>个股资金</td><td>最近3个合格交易日主力资金与低点结构</td><td>至少2日净流入且低点抬高；单日流入不确认</td></tr>
@@ -112,6 +120,7 @@ const $ = id => document.getElementById(id);
 let latest = null;
 let selectedK = 10;
 let busy = false;
+let replayBusy = false;
 const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
 const number = value => value !== null && value !== undefined && value !== '' && Number.isFinite(Number(value)) ? Number(value) : null;
 const fmt = value => number(value) === null ? '—' : Number(value).toFixed(1);
@@ -149,10 +158,12 @@ function renderCandidates() {
       + '<td class="' + statusClass(row.state) + '">' + escapeHtml(labels[row.state] ?? row.state) + '</td>'
       + '<td>' + escapeHtml(row.trendPhase ?? '—') + '</td><td>' + escapeHtml(row.volumePricePhase ?? '—') + '</td>'
       + '<td>' + escapeHtml(row.flowEvidence?.status ?? 'NOT_MEASURABLE') + '</td>'
+      + '<td>' + escapeHtml(row.flowPriceResponse?.stage ?? 'NOT_MEASURABLE') + '<br><span class="muted">' + fmt(row.flowPriceResponseScore) + '</span></td>'
+      + '<td>' + fmt(row.entryTimingScore) + '</td>'
       + '<td>' + escapeHtml(row.industryEvidence?.status ?? 'NOT_MEASURABLE') + '</td>'
       + '<td>' + pct(row.return5Pct) + '</td><td>' + ratioPct(row.dataCoverage) + '</td><td>' + risks
       + '<details><summary>触发原因</summary>' + details + '</details></td></tr>';
-  }).join('') || '<tr><td colspan="11">没有可用的65日线深度候选。检查行情源与日线覆盖状态。</td></tr>';
+  }).join('') || '<tr><td colspan="13">没有可用的65日线深度候选。检查行情源与日线覆盖状态。</td></tr>';
 }
 function renderCapabilities(rows) {
   $('capabilityRows').innerHTML = Object.entries(rows ?? {}).map(([key, value]) =>
@@ -190,6 +201,61 @@ function render(result) {
     + '\n' + (warnings || '无额外警告');
   $('exportBtn').disabled = false;
 }
+
+function renderReplay(result) {
+  const status = result.status ?? 'NOT_MEASURABLE';
+  const archive = result.archive ?? {};
+  $('replaySummary').className = 'status ' + (status === 'MEASURABLE' ? '' : 'error');
+  $('replaySummary').textContent = '状态 ' + status
+    + ' · 归档快照 ' + (archive.loadedSnapshotCount ?? result.uniqueTradeDates ?? 0)
+    + ' · 合格信号日 ' + (result.qualifiedSignalDates ?? 0)
+    + ' · 最低要求 ' + (result.minimumSignalDatesForMetric ?? 20) + ' 日'
+    + ' · 结果覆盖门槛 ' + ratioPct(result.minimumSampleCoverageForMetric ?? 0.95)
+    + ' · 可晋级 ' + (result.promotionEligible ? '是' : '否');
+  const names = {
+    v17All: 'V17全支持池', v17MainBoard: 'V17主板重叠池',
+    v15Stage1: 'V15 Stage1', momentum60: '60日动量'
+  };
+  const rows = [];
+  for (const variant of Object.keys(names)) {
+    for (const k of [10, 30, 50]) {
+      const block = result.aggregate?.[variant]?.['top' + k];
+      if (!block) continue;
+      for (const horizon of [1, 3, 5]) {
+        const metric = block['T+' + horizon];
+        if (!metric) continue;
+        rows.push('<tr><td>' + names[variant] + '</td><td>Top' + k + '</td><td>T+' + horizon + '</td>'
+          + '<td class="' + statusClass(metric.status) + '">' + escapeHtml(metric.status) + '</td>'
+          + '<td>' + pct(metric.meanNetReturnPct) + '</td>'
+          + '<td>' + ratioPct(metric.positiveRatio) + '</td>'
+          + '<td>' + pct(metric.excessMeanPct) + '</td>'
+          + '<td>' + pct(metric.meanMaxDrawdownPct) + '</td>'
+          + '<td>' + ratioPct(metric.sampleCoverage) + '</td></tr>');
+      }
+    }
+  }
+  $('replayRows').innerHTML = rows.join('') || '<tr><td colspan="9">没有达到可计算条件的成熟样本。</td></tr>';
+}
+async function runReplay() {
+  if (replayBusy) return;
+  replayBusy = true;
+  $('replayBtn').disabled = true;
+  $('replaySummary').className = 'status';
+  $('replaySummary').textContent = '正在读取归档并执行按时间顺序的历史回放……';
+  try {
+    const response = await fetch('/api/v17_one_click_selection?mode=backtest', {cache:'no-store'});
+    const body = await response.json();
+    if (!response.ok) throw new Error(body?.error ?? body?.status ?? ('HTTP ' + response.status));
+    renderReplay(body);
+  } catch (error) {
+    $('replaySummary').className = 'status error';
+    $('replaySummary').textContent = '历史回放失败：' + String(error?.message ?? error);
+  } finally {
+    replayBusy = false;
+    $('replayBtn').disabled = false;
+  }
+}
+
 async function scan() {
   if (busy) return;
   busy = true;
@@ -210,6 +276,7 @@ async function scan() {
   }
 }
 $('scanBtn').addEventListener('click', scan);
+$('replayBtn').addEventListener('click', runReplay);
 $('exportBtn').addEventListener('click', () => {
   if (!latest) return;
   const blob = new Blob([JSON.stringify(latest, null, 2)], {type:'application/json'});
