@@ -6,11 +6,13 @@ on:
       - research/v17-one-click-selection-20261125
     paths:
       - 'research/v17_one_click_selection.js'
+      - 'research/v17_one_click_backtest.js'
       - 'research/V17_ONE_CLICK_PROTOCOL.md'
       - 'api/v16_market_context.js'
       - 'api/v16_snapshot_archive.js'
       - 'api/v16_snapshot_archive_schedule.js'
       - 'api/v17_one_click_selection.js'
+      - 'tests/v17_one_click_backtest.test.js'
       - 'tests/v17_one_click_selection.test.js'
       - 'tests/v16_market_context.test.js'
       - 'index_V17_ONE_CLICK_SHADOW.html'
@@ -21,11 +23,13 @@ on:
       - research/v16-flow-lhb-20261118
     paths:
       - 'research/v17_one_click_selection.js'
+      - 'research/v17_one_click_backtest.js'
       - 'research/V17_ONE_CLICK_PROTOCOL.md'
       - 'api/v16_market_context.js'
       - 'api/v16_snapshot_archive.js'
       - 'api/v16_snapshot_archive_schedule.js'
       - 'api/v17_one_click_selection.js'
+      - 'tests/v17_one_click_backtest.test.js'
       - 'tests/v17_one_click_selection.test.js'
       - 'tests/v16_market_context.test.js'
       - 'index_V17_ONE_CLICK_SHADOW.html'
@@ -43,6 +47,7 @@ jobs:
       - name: Syntax-check V17 modules and API
         run: |
           node --check research/v17_one_click_selection.js
+          node --check research/v17_one_click_backtest.js
           node --check api/v16_market_context.js
           node --check api/v17_one_click_selection.js
           node --check api/v16_snapshot_archive.js
@@ -63,6 +68,7 @@ jobs:
         run: |
           node --test \
             tests/v17_one_click_selection.test.js \
+            tests/v17_one_click_backtest.test.js \
             tests/v16_market_system.test.js \
             tests/v16_market_context.test.js \
             tests/v16_narrative_theme.test.js \

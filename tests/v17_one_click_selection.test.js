@@ -5,6 +5,8 @@ import {
   rankEarlyTrendPrefilter,
   aggregateIndustryRows,
   buildSectorFlowEvidence,
+  scoreCapitalFlowResponse,
+  scoreEntryTiming,
   buildV17OneClickSelection
 } from '../research/v17_one_click_selection.js';
 
@@ -281,4 +283,39 @@ test('a partial snapshot blocks the five-session industry claim but not a valid 
   assert.equal(sector.status, 'REBOUND_CONFIRMED');
   assert.equal(sector.status5, 'INSUFFICIENT_HISTORY');
   assert.equal(sector.historySessions5, 0);
+});
+
+
+test('flow-price response distinguishes early absorption from weak price response', () => {
+  const sessions = [0, 1, 2].map(day => ({
+    tradeDate: ['2026-11-23', '2026-11-24', '2026-11-25'][day],
+    stockRows: [stock('600001', {
+      mainNet: 12000000, amount: 100000000,
+      price: 10 + day * 0.08, low: 9.4 + day * 0.1, turn: 5
+    })]
+  }));
+  const result = scoreCapitalFlowResponse({code: '600001', sessions, asOf: '2026-11-25'});
+  assert.equal(result.status, 'AVAILABLE');
+  assert.equal(result.stage, 'ABSORPTION');
+  assert.equal(result.higherLows, true);
+  assert.ok(result.score >= 80);
+
+  sessions[2].stockRows[0].price = 9.5;
+  const weak = scoreCapitalFlowResponse({code: '600001', sessions, asOf: '2026-11-25'});
+  assert.equal(weak.stage, 'WEAK_PRICE_RESPONSE');
+  assert.ok(weak.score < result.score);
+});
+
+test('daily entry timing rewards constructive pullbacks and penalizes acceleration', () => {
+  const pullback = scoreEntryTiming({
+    phase: {status: 'AVAILABLE', classification: 'CONSTRUCTIVE_PULLBACK', metrics: {deviation20Pct: 4}},
+    trend: {phase: 'C', deviation20: 0.04}, currentPct: 1.2, currentTurn: 5
+  });
+  const acceleration = scoreEntryTiming({
+    phase: {status: 'AVAILABLE', classification: 'ACCELERATION_RISK', metrics: {deviation20Pct: 12}},
+    trend: {phase: 'E', deviation20: 0.12}, currentPct: 7.2, currentTurn: 18
+  });
+  assert.ok(pullback > 80);
+  assert.ok(acceleration <= 15);
+  assert.equal(scoreEntryTiming({phase: {status: 'NOT_MEASURABLE'}}), null);
 });
