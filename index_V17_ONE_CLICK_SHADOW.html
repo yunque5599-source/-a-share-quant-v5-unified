@@ -96,7 +96,7 @@ a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
 
   <section class="card">
     <div class="row"><h2>五、历史回放验证</h2><span class="muted">V17 / V15 / 60日动量对照</span></div>
-    <p class="note">仅使用信号日收盘后可见的合格归档快照；最早按下一合格归档交易日开盘模拟入场。净收益扣除21bp双边成本代理。至少20个成熟信号日且结果覆盖率达到95%后，指标才标记为MEASURABLE。</p>
+    <p class="note">仅使用信号日收盘后可见的合格归档快照；最早按下一合格归档快照开盘模拟入场。T+N按归档序列计数，当前未归档官方交易日历，不能视为已核验交易日。净收益扣除21bp双边成本代理。至少20个成熟信号日且结果覆盖率达到95%后，指标才标记为MEASURABLE。</p>
     <div id="replaySummary" class="status">尚未运行历史回放。</div>
     <div class="scroll"><table><thead><tr><th>模型</th><th>Top-K</th><th>期限</th><th>状态</th><th>净收益均值</th><th>胜率</th><th>超额收益</th><th>平均最大回撤</th><th>结果覆盖</th></tr></thead><tbody id="replayRows"><tr><td colspan="9">等待回放</td></tr></tbody></table></div>
   </section>
@@ -106,13 +106,15 @@ a{color:var(--blue);text-decoration:none}a:hover{text-decoration:underline}
     <div class="scroll"><table><thead><tr><th>模块</th><th>作用</th><th>硬约束</th></tr></thead><tbody>
       <tr><td>早期趋势</td><td>MA拐头、20/60日压力、ATR收缩扩张、5日收益与乖离</td><td>加速/过热不作为追涨信号</td></tr>
       <tr><td>个股资金</td><td>最近3个合格交易日主力资金与低点结构</td><td>至少2日净流入且低点抬高；单日流入不确认</td></tr>
+      <tr><td>资金价格响应</td><td>3日主力净流入/成交额、价格变化和低点结构</td><td>持续流入但股价明显下跌标记弱响应；短期涨幅过大标记过热</td></tr>
       <tr><td>行业资金</td><td>3/5日净流入率、正流入天数、上涨广度和行业收益</td><td>历史归档不完整时只显示当日脉冲，不冒充持续性</td></tr>
       <tr><td>相对强度</td><td>个股5日表现相对上证基准</td><td>基准缺失时不补中性分</td></tr>
+      <tr><td>入场时机</td><td>首次突破、缩量回踩、二次启动、紧凑整理</td><td>仅日线代理；加速和高乖离不作为追涨信号</td></tr>
       <tr><td>流动性与风险</td><td>成交额、换手、长上影、放量滞涨、过热和涨停追买</td><td>风险扣分独立于机会评分</td></tr>
     </tbody></table></div>
-    <div class="note">初始权重是研究参数，尚未通过滚动样本外回测校准。当前新闻/财务点时覆盖、集合竞价、分钟线、VWAP、Level-2撤单和真实可成交数据未接入；不输出买入价、止损价、目标价或仓位，也不自动下单。</div>
+    <div class="note">V17.1初始权重：早期趋势30、个股资金持续性20、资金价格响应10、行业资金10/20、相对强度10、入场时机5、流动性5。权重尚未通过滚动样本外回测校准。新闻/财务点时覆盖、集合竞价、分钟线、VWAP、Level-2撤单和真实可成交数据未接入；不输出买入价、止损价、目标价或仓位，也不自动下单。</div>
   </section>
-  <footer>V17 one-click selection · 研究影子版。分数不是上涨概率。历史回测须满足至少20个成熟信号日和95%结果覆盖后才可标记为可测；未达到时必须显示 NOT_MEASURABLE。</footer>
+  <footer>V17.1 one-click selection · 研究影子版。分数不是上涨概率。历史回测须满足至少20个成熟信号日和95%结果覆盖后才可标记为可测；未达到时必须显示 NOT_MEASURABLE。</footer>
 </main>
 
 <script type="module">
@@ -132,9 +134,14 @@ const labels = {
   PERSISTENT_OUTFLOW:'持续流出', MIXED:'资金分歧', INSUFFICIENT_HISTORY:'历史不足',
   WATCH:'观察', TRIGGERED:'趋势触发', CONFIRMED:'多因子确认', AVOID_CHASE:'避免追高', INVALIDATED:'结构失效'
 };
+const flowResponseLabels = {
+  ABSORPTION: '吸收型承接', EFFICIENT_TREND: '有效趋势',
+  WEAK_PRICE_RESPONSE: '流入未推动价格', OVEREXTENDED: '价格过度延伸',
+  PRICE_RESILIENCE: '资金流出但价格强', MIXED: '混合响应'
+};
 function statusClass(value) {
-  if (['CONFIRMED','TRIGGERED','REBOUND_CONFIRMED','PERSISTENT_INFLOW','OBSERVE','AVAILABLE','MEASURABLE','BULL','SELECTIVE'].includes(value)) return 'good';
-  if (['INVALIDATED','AVOID_CHASE','PERSISTENT_OUTFLOW','NO_NEW_RISK','REDUCE_RISK','UNAVAILABLE','BEAR','DISTRIBUTION'].includes(value)) return 'bad';
+  if (['CONFIRMED','TRIGGERED','REBOUND_CONFIRMED','PERSISTENT_INFLOW','ABSORPTION','EFFICIENT_TREND','OBSERVE','AVAILABLE','MEASURABLE','BULL','SELECTIVE'].includes(value)) return 'good';
+  if (['INVALIDATED','AVOID_CHASE','PERSISTENT_OUTFLOW','WEAK_PRICE_RESPONSE','OVEREXTENDED','NO_NEW_RISK','REDUCE_RISK','UNAVAILABLE','BEAR','DISTRIBUTION'].includes(value)) return 'bad';
   return 'warn';
 }
 function renderSectors(rows) {
@@ -158,7 +165,7 @@ function renderCandidates() {
       + '<td class="' + statusClass(row.state) + '">' + escapeHtml(labels[row.state] ?? row.state) + '</td>'
       + '<td>' + escapeHtml(row.trendPhase ?? '—') + '</td><td>' + escapeHtml(row.volumePricePhase ?? '—') + '</td>'
       + '<td>' + escapeHtml(row.flowEvidence?.status ?? 'NOT_MEASURABLE') + '</td>'
-      + '<td>' + escapeHtml(row.flowPriceResponse?.stage ?? 'NOT_MEASURABLE') + '<br><span class="muted">' + fmt(row.flowPriceResponseScore) + '</span></td>'
+      + '<td class="' + statusClass(row.flowPriceResponse?.stage) + '">' + escapeHtml(flowResponseLabels[row.flowPriceResponse?.stage] ?? row.flowPriceResponse?.stage ?? '不可测') + '<br><span class="muted">' + fmt(row.flowPriceResponseScore) + '</span></td>'
       + '<td>' + fmt(row.entryTimingScore) + '</td>'
       + '<td>' + escapeHtml(row.industryEvidence?.status ?? 'NOT_MEASURABLE') + '</td>'
       + '<td>' + pct(row.return5Pct) + '</td><td>' + ratioPct(row.dataCoverage) + '</td><td>' + risks
@@ -186,7 +193,12 @@ function render(result) {
   $('universeCount').textContent = (result.universe?.uniqueSymbols ?? '—') + ' / ' + (result.universe?.reportedTotal ?? '—') + ' · ' + (result.universe?.scope ?? 'unknown');
   $('candidateCount').textContent = String(result.universe?.candidateScanCount ?? result.candidates?.length ?? 0);
   $('archiveCount').textContent = '合格归档 ' + (result.archive?.qualifiedSessionCount ?? 0) + ' 个交易日';
-  $('candidateScope').textContent = (result.universe?.candidateUniverse ?? '候选范围未知') + ' · ' + (result.universe?.pagesFetched ?? '—') + '/' + (result.universe?.pageCount ?? '—') + ' 页';
+  const pools = result.selectionPools ?? {};
+  $('candidateScope').textContent = (result.universe?.candidateUniverse ?? '候选范围未知')
+    + ' · ' + (result.universe?.pagesFetched ?? '—') + '/' + (result.universe?.pageCount ?? '—') + ' 页'
+    + ' · 潜在启动 ' + (pools.potentialStart?.length ?? 0)
+    + ' · 趋势触发 ' + (pools.triggered?.length ?? 0)
+    + ' · 避免追高 ' + (pools.noChase?.length ?? 0);
   $('marketWarnings').textContent = (result.market?.warnings ?? []).join('；') || '市场数据已读取；趋势分类仍需要多日确认。';
   $('archiveNote').textContent = '归档存储 ' + (result.archive?.archiveStorageStatus ?? 'UNKNOWN')
     + ' · 多日持续性 ' + (result.archive?.persistenceStatus ?? result.archive?.status ?? 'UNKNOWN')
