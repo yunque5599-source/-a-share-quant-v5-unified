@@ -86,7 +86,15 @@ async function loadArchive() {
           volumePricePhaseStatus: latestQuality?.volumePricePhaseStatus ?? 'NOT_MEASURABLE',
           earlyTrendStatus: latestQuality?.earlyTrendStatus ?? 'NOT_MEASURABLE',
           stockRowCount: Array.isArray(latestSnapshot.stockRows) ? latestSnapshot.stockRows.length : 0,
-          sourceScope: latestSnapshot.sourceScope ?? 'unknown'
+          sourceScope: latestSnapshot.sourceScope ?? 'unknown',
+          sourcePagesFetched: latestSnapshot.source?.pagesFetched ?? null,
+          sourcePageCount: latestSnapshot.source?.pageCount ?? null,
+          sourceFailureCount: Array.isArray(latestSnapshot.source?.failures) ? latestSnapshot.source.failures.length : null,
+          sourceFailures: Array.isArray(latestSnapshot.source?.failures)
+            ? latestSnapshot.source.failures.slice(0, 10).map(item => ({
+                page: item.page ?? null, error: String(item.error ?? '').slice(0, 140)
+              })) : [],
+          collectionDurationMs: latestQuality?.collectionDurationMs ?? null
         } : null
       }
     };

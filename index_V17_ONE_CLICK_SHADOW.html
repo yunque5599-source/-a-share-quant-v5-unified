@@ -255,7 +255,10 @@ function renderReplay(result) {
       + ' · 全市场覆盖 ' + (q.coveragePct === null ? '—' : q.coveragePct + '%')
       + ' · 报价时间覆盖 ' + ratioPct(q.quoteTimestampCoverage)
       + ' · 同日报价覆盖 ' + ratioPct(q.sameDateQuoteRatio)
+      + ' · 抓取页 ' + (q.sourcePagesFetched ?? '—') + '/' + (q.sourcePageCount ?? '—')
+      + ' · 失败页 ' + (q.sourceFailureCount ?? '—')
       + ' · 原因：' + ((q.reasons ?? []).join('、') || '无')
+      + ((q.sourceFailures ?? []).length ? ' · 示例错误：' + q.sourceFailures.slice(0, 3).map(item => '第' + item.page + '页 ' + item.error).join('；') : '')
     : '当前没有可用的归档质量诊断。';
 }
 async function runReplay() {
