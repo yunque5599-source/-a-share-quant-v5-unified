@@ -348,6 +348,89 @@ function relativeStrengthScore(trend, context) {
   return relative === null ? null : clamp(50 + relative * 4);
 }
 
+export function scoreCapitalFlowResponse({code, sessions = [], asOf = null} = {}) {
+  const eligible = sortSessions(sessions)
+    .filter(session => !asOf || dateKey(session.tradeDate ?? session.date) <= dateKey(asOf))
+    .slice(-3);
+  const observations = eligible.map(session => {
+    const rows = Array.isArray(session?.stockRows) ? session.stockRows
+      : Array.isArray(session?.fundingRows) ? session.fundingRows : [];
+    const row = rows.find(item => String(item?.code ?? '') === String(code));
+    return {
+      tradeDate: dateKey(session.tradeDate ?? session.date),
+      mainNet: num(row?.mainNet),
+      amount: num(row?.amount),
+      price: num(row?.price),
+      low: num(row?.low),
+      turn: num(row?.turn)
+    };
+  });
+  const complete = observations.length === 3 && observations.every(item =>
+    item.mainNet !== null && item.amount !== null && item.amount > 0
+      && item.price !== null && item.price > 0 && item.low !== null && item.low > 0);
+  if (!complete) return {
+    status: observations.length < 3 ? 'INSUFFICIENT_HISTORY' : 'PARTIAL',
+    score: null, observationCount: observations.length,
+    completeThreeSessionInputs: false, stage: 'NOT_MEASURABLE',
+    reasons: ['三日资金、成交额、收盘价或低点数据不完整']
+  };
+
+  const totalMainNetCny = observations.reduce((sum, item) => sum + item.mainNet, 0);
+  const totalAmountCny = observations.reduce((sum, item) => sum + item.amount, 0);
+  const netFlowRatio = totalAmountCny > 0 ? totalMainNetCny / totalAmountCny : null;
+  const positiveFlowDays = observations.filter(item => item.mainNet > 0).length;
+  const lows = observations.map(item => item.low);
+  const higherLows = lows.slice(1).every((value, index) => value > lows[index]);
+  const return3Pct = (observations.at(-1).price / observations[0].price - 1) * 100;
+  const currentTurn = observations.at(-1).turn;
+
+  let score = 50;
+  score += totalMainNetCny > 0 ? 8 : -10;
+  score += positiveFlowDays >= 2 ? 12 : positiveFlowDays === 1 ? 0 : -10;
+  score += netFlowRatio >= 0.005 ? 12 : netFlowRatio > 0 ? 5 : -8;
+  if (return3Pct >= -1 && return3Pct <= 4) score += 12;
+  else if (return3Pct > 4 && return3Pct <= 7) score += 4;
+  else if (return3Pct > 7) score -= 15;
+  else if (return3Pct < -2) score -= 18;
+  score += higherLows ? 8 : -8;
+  if (currentTurn !== null && currentTurn >= 20) score -= 8;
+
+  let stage = 'MIXED';
+  if (totalMainNetCny > 0 && positiveFlowDays >= 2 && higherLows
+    && return3Pct >= -1 && return3Pct <= 4) stage = 'ABSORPTION';
+  else if (totalMainNetCny > 0 && positiveFlowDays >= 2
+    && return3Pct > 4 && return3Pct <= 7) stage = 'EFFICIENT_TREND';
+  else if (return3Pct > 7) stage = 'OVEREXTENDED';
+  else if (totalMainNetCny > 0 && return3Pct < -2) stage = 'WEAK_PRICE_RESPONSE';
+  else if (totalMainNetCny <= 0 && return3Pct > 0) stage = 'PRICE_RESILIENCE';
+
+  return {
+    status: 'AVAILABLE', score: Number(clamp(score).toFixed(2)),
+    observationCount: observations.length, completeThreeSessionInputs: true,
+    totalMainNetCny, totalAmountCny, netFlowRatio, positiveFlowDays,
+    return3Pct: Number(return3Pct.toFixed(2)), higherLows, currentTurn, stage, observations
+  };
+}
+
+export function scoreEntryTiming({phase, trend, currentPct = null, currentTurn = null} = {}) {
+  if (phase?.status !== 'AVAILABLE') return null;
+  const baseScores = {
+    REACCELERATION: 95, CONSTRUCTIVE_PULLBACK: 90, EARLY_BREAKOUT: 84,
+    TIGHT_CONSOLIDATION: 72, NEUTRAL: 48, ACCELERATION_RISK: 22, DISTRIBUTION_RISK: 0
+  };
+  let score = baseScores[phase.classification] ?? 45;
+  const deviation20Pct = num(phase.metrics?.deviation20Pct)
+    ?? (num(trend?.deviation20) === null ? null : num(trend.deviation20) * 100);
+  if (deviation20Pct !== null && deviation20Pct > 8)
+    score -= Math.min(20, (deviation20Pct - 8) * 1.5);
+  if (currentPct !== null && currentPct >= 6.5) score = Math.min(score, 20);
+  else if (currentPct !== null && currentPct >= 5) score -= 6;
+  if (currentTurn !== null && currentTurn >= 20) score -= 10;
+  if (trend?.phase === 'D') score = Math.min(score, 30);
+  if (trend?.phase === 'E') score = Math.min(score, 15);
+  return Number(clamp(score).toFixed(2));
+}
+
 export function buildV17OneClickSelection({context, snapshots = [], asOf = null} = {}) {
   if (!context?.aShare || !context.aShareSessionDate) throw new TypeError('Current V16 market context is required');
   if (typeof asOf !== 'string' || !/(?:Z|[+-]\d{2}:\d{2})$/.test(asOf) || !Number.isFinite(Date.parse(asOf)))
@@ -436,6 +519,7 @@ export function buildV17OneClickSelection({context, snapshots = [], asOf = null}
     const funding = scoreCandidateFundingEvidence({
       code, sessions: fundingSessions, asOf: tradeDate, includeInstitutionalLhb: false
     });
+    const flowPriceResponse = scoreCapitalFlowResponse({code, sessions: fundingSessions, asOf: tradeDate});
     const industry = sectorByIndustry.get(String(stock.industry ?? row.industry ?? '未知')) ?? null;
     const rotationRow = rotationByIndustry.get(String(stock.industry ?? row.industry ?? '未知')) ?? null;
     const trendScore = num(trend.score);
@@ -445,12 +529,16 @@ export function buildV17OneClickSelection({context, snapshots = [], asOf = null}
     const industryWeight = industryPersistenceScore !== null ? 20 : industryScore !== null ? 10 : 0;
     const rsScore = relativeStrengthScore(trend, context);
     const liquidityScore = scoreLiquidity(liquidityRow, latestBar);
+    const flowPriceResponseScore = flowPriceResponse.status === 'AVAILABLE' ? num(flowPriceResponse.score) : null;
+    const entryTimingScore = scoreEntryTiming({phase, trend, currentPct, currentTurn});
     const components = [
-      [trendScore, 35],
-      [flowScore, 25],
+      [trendScore, 30],
+      [flowScore, 20],
+      [flowPriceResponseScore, 10],
       [industryScore, industryWeight],
       [rsScore, 10],
-      [liquidityScore, 10]
+      [entryTimingScore, 5],
+      [liquidityScore, 5]
     ].filter(([value, weight]) => Number.isFinite(value) && weight > 0);
     const coverage = components.reduce((sum, [, weight]) => sum + weight, 0);
     const rawScore = coverage ? components.reduce((sum, [value, weight]) => sum + value * weight, 0) / coverage : null;
@@ -468,6 +556,9 @@ export function buildV17OneClickSelection({context, snapshots = [], asOf = null}
     if (trend.phase === 'D') { riskFlags.push('ACCELERATION_RISK'); penalty += 14; }
     if (trend.phase === 'E') { riskFlags.push('OVERHEATED'); penalty += 25; }
     if (funding.persistentOutflow || funding.reversal) { riskFlags.push('FLOW_REVERSAL_OR_OUTFLOW'); penalty += 18; }
+    if (flowPriceResponse.stage === 'WEAK_PRICE_RESPONSE') { riskFlags.push('FLOW_WITHOUT_PRICE_RESPONSE'); penalty += 8; }
+    if (flowPriceResponse.stage === 'OVEREXTENDED') { riskFlags.push('FLOW_PRICE_RESPONSE_OVEREXTENDED'); penalty += 10; }
+    if (entryTimingScore !== null && entryTimingScore < 35) { riskFlags.push('ENTRY_TIMING_POOR'); penalty += 8; }
     if (industry?.status === 'PERSISTENT_OUTFLOW') { riskFlags.push('INDUSTRY_PERSISTENT_OUTFLOW'); penalty += 12; }
     if (currentTurn !== null && currentTurn >= 20) { riskFlags.push('HIGH_TURNOVER'); penalty += 10; }
     if (currentPct !== null && currentPct >= 6.5) { riskFlags.push('DAILY_MOVE_NO_CHASE'); penalty += 18; }
@@ -477,10 +568,17 @@ export function buildV17OneClickSelection({context, snapshots = [], asOf = null}
       penalty += 20;
     }
     const score = rawScore === null ? null : Number(clamp(rawScore - penalty).toFixed(2));
+    const flowResponsePass = flowPriceResponse.status === 'AVAILABLE'
+      && ['ABSORPTION', 'EFFICIENT_TREND'].includes(flowPriceResponse.stage)
+      && flowPriceResponse.score >= 60;
+    const timingPass = entryTimingScore !== null && entryTimingScore >= 65
+      && ['EARLY_BREAKOUT', 'CONSTRUCTIVE_PULLBACK', 'REACCELERATION', 'TIGHT_CONSOLIDATION'].includes(phase.classification);
     let state = 'WATCH';
     if (trend.failed || phase.classification === 'DISTRIBUTION_RISK' || atLimitDown) state = 'INVALIDATED';
-    else if (trend.phase === 'D' || trend.phase === 'E' || atLimitUp || (currentPct !== null && currentPct >= 6.5)) state = 'AVOID_CHASE';
+    else if (trend.phase === 'D' || trend.phase === 'E' || atLimitUp
+      || (currentPct !== null && currentPct >= 6.5) || (entryTimingScore !== null && entryTimingScore < 35)) state = 'AVOID_CHASE';
     else if (['B', 'C'].includes(trend.phase) && funding.status === 'AVAILABLE'
+      && flowResponsePass && timingPass
       && ['PERSISTENT_INFLOW', 'REBOUND_CONFIRMED'].includes(industry?.status)
       && ['SELECTIVE', 'PROBE_ONLY'].includes(market.trade_permission) && coverage >= 80) {
       const newsAndFundamentalsComplete = a.newsAndFundamentalsComplete === true;
@@ -490,6 +588,10 @@ export function buildV17OneClickSelection({context, snapshots = [], asOf = null}
     const reasons = [
       ...trend.reasons,
       ...(funding.status === 'AVAILABLE' ? ['近3个合格交易日资金持续性与更高低点通过'] : ['多日资金证据不足，不把单日净流入当作持续吸筹']),
+      ...(flowPriceResponse.status === 'AVAILABLE'
+        ? ['资金价格响应：' + flowPriceResponse.stage + '，3日价格变化 ' + flowPriceResponse.return3Pct + '%']
+        : ['资金价格响应缺少完整3日点时数据']),
+      ...(entryTimingScore !== null ? ['日线入场时机评分 ' + entryTimingScore + '/100'] : ['入场时机不可测']),
       ...(industry?.status === 'REBOUND_CONFIRMED' ? ['行业3日资金与上涨广度同步改善'] :
         industry?.status === 'PERSISTENT_INFLOW' ? ['行业3日资金持续净流入'] : ['行业多日资金持续性尚未核验']),
       ...(phase.reasons ?? [])
@@ -501,9 +603,10 @@ export function buildV17OneClickSelection({context, snapshots = [], asOf = null}
       state, trendPhase: trend.phase, trendScore,
       return5Pct: finite(trend.ret5) ? Number((trend.ret5 * 100).toFixed(2)) : null,
       deviation20Pct: finite(trend.deviation20) ? Number((trend.deviation20 * 100).toFixed(2)) : null,
-      flowEvidence: funding, industryEvidence: industry,
+      flowEvidence: funding, flowPriceResponse, flowPriceResponseScore,
+      industryEvidence: industry,
       sectorRotationScore: rotationRow?.opportunity_score ?? null,
-      relativeStrengthScore: rsScore, liquidityScore,
+      relativeStrengthScore: rsScore, entryTimingScore, liquidityScore,
       volumePricePhase: phase.classification ?? 'NOT_MEASURABLE',
       volumePriceMetrics: phase.metrics ?? null,
       riskFlags, penalty: Number(penalty.toFixed(2)), reasons,
@@ -515,6 +618,14 @@ export function buildV17OneClickSelection({context, snapshots = [], asOf = null}
   candidates.sort((a, b) => (priority[a.state] ?? 9) - (priority[b.state] ?? 9)
     || (b.score ?? -1) - (a.score ?? -1) || a.code.localeCompare(b.code));
   candidates.forEach((row, index) => { row.rank = index + 1; });
+  const selectionPools = {
+    potentialStart: candidates.filter(row => row.state === 'WATCH'
+      && ['B', 'C'].includes(row.trendPhase) && row.entryTimingScore !== null && row.entryTimingScore >= 60).map(row => row.code),
+    triggered: candidates.filter(row => row.state === 'TRIGGERED').map(row => row.code),
+    confirmed: candidates.filter(row => row.state === 'CONFIRMED').map(row => row.code),
+    noChase: candidates.filter(row => row.state === 'AVOID_CHASE').map(row => row.code),
+    invalidated: candidates.filter(row => row.state === 'INVALIDATED').map(row => row.code)
+  };
   const fullUniverse = a.breadth?.fullMarket === true && num(a.breadth?.coverage) >= 0.99;
   const decision = fullUniverse && currentQualified && candidates.length ? 'OBSERVE' : 'WAIT';
   const archiveSessions = allSnapshots.filter(snapshot => snapshot?.quality?.qualifiedForReplay === true).length;
@@ -522,8 +633,8 @@ export function buildV17OneClickSelection({context, snapshots = [], asOf = null}
   const fiveSessionWindowAvailable = latestFour.length === 4
     && latestFour.every(snapshot => snapshot?.quality?.qualifiedForReplay === true) && currentQualified;
   return {
-    schema: 'ashare-v17-one-click-selection-v1',
-    modelVersion: 'V17.0.0-one-click-shadow',
+    schema: 'ashare-v17-one-click-selection-v2',
+    modelVersion: 'V17.1.0-one-click-shadow',
     asOf,
     tradeDate,
     decision,
@@ -554,6 +665,13 @@ export function buildV17OneClickSelection({context, snapshots = [], asOf = null}
     sectors: sectorEvidence.slice(0, 30),
     sectorRotation: rotation.sectors.slice(0, 20),
     candidates: candidates.slice(0, 50),
+    selectionPools: {
+      potentialStart: selectionPools.potentialStart.slice(0, 30),
+      triggered: selectionPools.triggered.slice(0, 30),
+      confirmed: selectionPools.confirmed.slice(0, 30),
+      noChase: selectionPools.noChase.slice(0, 30),
+      invalidated: selectionPools.invalidated.slice(0, 30)
+    },
     top10: candidates.slice(0, 10),
     top30: candidates.slice(0, 30),
     top50: candidates.slice(0, 50),
@@ -572,6 +690,8 @@ export function buildV17OneClickSelection({context, snapshots = [], asOf = null}
       dailyKlines: a.earlyTrendDiagnostics?.status ?? 'NOT_MEASURABLE',
       threeSessionStockFlow: persistencePrior.length === 2 && currentQualified ? 'MEASURABLE' : 'NOT_MEASURABLE',
       threeSessionIndustryFlow: persistencePrior.length === 2 && currentQualified ? 'MEASURABLE' : 'NOT_MEASURABLE',
+      flowPriceResponse: persistencePrior.length === 2 && currentQualified ? 'MEASURABLE' : 'NOT_MEASURABLE',
+      entryTiming: a.earlyTrendDiagnostics?.status === 'AVAILABLE' ? 'DAILY_BAR_PROXY' : 'NOT_MEASURABLE',
       fiveSessionIndustryFlow: fiveSessionWindowAvailable ? 'MEASURABLE' : 'NOT_MEASURABLE',
       lhb: a.lhb?.dailyStatus ?? 'NOT_MEASURABLE',
       limitUpDailyProxy: a.limitPools?.sourceStatus?.limitUp === 'AVAILABLE' ? 'VENDOR_DAILY_PROXY_UNCALIBRATED' : 'NOT_MEASURABLE',
@@ -585,6 +705,8 @@ export function buildV17OneClickSelection({context, snapshots = [], asOf = null}
       ...(persistencePrior.length === 2 ? [] : ['最近两个归档交易日不完整或未通过质量门槛，3日资金/行业持续性不可测']),
       ...(fiveSessionWindowAvailable ? [] : ['最近四个归档交易日未全部通过质量门槛，5日行业资金持续性不可测']),
       '主力资金为供应商估算口径，不等于机构真实持仓或账户净流入。',
+      '资金价格响应是供应商主力资金估算与日线价格/低点的组合代理；不能证明真实账户吸筹，也不能单独作为买入信号。',
+      '入场时机评分仅使用日线量价结构，分钟线、集合竞价、VWAP和Level-2撤单仍不可测。',
       '候选初筛来自V15 Stage1 Top50与V17沪深支持代码早期资金预筛Top30的并集；北交所代码未纳入当前深度扫描，不代表全市场每只股票均已完成65日线深度扫描。',
       '分数是研究排序分，不是上涨概率；当前版本不输出买入价、止损价、目标价或仓位。',
       '分钟线、集合竞价、盘口撤单、新闻和财务点时数据未接入，不得据此宣称具备盘中预警或完整基本面风控。'
