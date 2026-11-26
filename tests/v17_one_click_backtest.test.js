@@ -107,7 +107,7 @@ test('V17 replay uses frozen signal-date data and compares V17 with V15 and mome
   }));
   const second = evaluateV17HistoricalReplay({...options, snapshots: mutated});
   assert.deepEqual(
-    first.daily[0].topK.v17All.top1.map(row => row.code),
+    first.daily[0].topK.v17All.top1.top.map(row => row.code),
     second.daily[0].topK.v17All.top1.map(row => row.code)
   );
   assert.equal(first.executionConvention.entry.includes('next qualified archived session open'), true);
