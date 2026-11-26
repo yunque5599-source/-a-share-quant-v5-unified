@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {summarizeMarketUniverse, summarizeIndexKline, parseStockDailyKlines, parseYahooDailyChange, collectMarketUniversePages, createMarketRequestLimiter, fetchMarketPageWithRetry} from '../api/v16_market_context.js';
+import {summarizeMarketUniverse, summarizeIndexKline, parseStockDailyKlines, parseYahooDailyChange, collectMarketUniversePages, createMarketRequestLimiter, fetchMarketPageWithRetry, stockKlineUrl} from '../api/v16_market_context.js';
 import {extractNarrativeTags} from '../research/v16/narrative_theme.js';
 
 test('market universe summary labels complete breadth and approximate limit bands', () => {
@@ -129,19 +129,19 @@ test('Eastmoney request pacing is isolated per host rather than throttling all h
   assert.deepEqual(waits,[4000,4000]);
 });
 
-test('market page retry rotates through three attempts and preserves failure diagnostics', async () => {
+test('market page retry rotates through five attempts and preserves failure diagnostics', async () => {
   const attempts = [];
   const payload = {data:{diff:[]}};
   const result = await fetchMarketPageWithRetry(4,100,async(page,pageSize,attempt)=>{
     attempts.push({page,pageSize,attempt});
-    if(attempt<2)throw new Error('HTTP 502');
+    if(attempt<4)throw new Error('HTTP 502');
     return payload;
   });
   assert.equal(result,payload);
-  assert.deepEqual(attempts.map(row=>row.attempt),[0,1,2]);
+  assert.deepEqual(attempts.map(row=>row.attempt),[0,1,2,3,4]);
   await assert.rejects(
     fetchMarketPageWithRetry(7,100,async()=>{throw new Error('upstream unavailable');}),
-    /market page 7 failed after 3 attempts/
+    /market page 7 failed after 5 attempts/
   );
 });
 
@@ -211,4 +211,43 @@ test('stock daily K-lines preserve unadjusted OHLCV and require same-date 65-bar
   const partial=parseStockDailyKlines({data:{klines:klines.slice(-20)}},{
     code:'600001',tradeDate:'2026-11-25',availableAt:'2026-11-25T15:30:00+08:00'});
   assert.equal(partial.status,'PARTIAL');
+});
+
+
+test('stock K-line adapter maps Shanghai, Shenzhen main board and ChiNext correctly', () => {
+  assert.match(stockKlineUrl('600001', '2026-11-25'), /secid=1\.600001/);
+  assert.match(stockKlineUrl('000001', '2026-11-25'), /secid=0\.000001/);
+  assert.match(stockKlineUrl('300001', '2026-11-25'), /secid=0\.300001/);
+  assert.match(stockKlineUrl('688001', '2026-11-25'), /secid=1\.688001/);
+  assert.throws(() => stockKlineUrl('830001', '2026-11-25'), /unsupported stock code/);
+});
+
+
+test('market universe collector retries failed pages once more before marking coverage partial', async () => {
+  const total = 300;
+  const pageSize = 100;
+  const makePage = page => ({
+    data: {
+      total,
+      diff: Array.from({length: pageSize}, (_, offset) => ({
+        f12: String((page - 1) * pageSize + offset + 1).padStart(6, '0')
+      }))
+    }
+  });
+  const calls = new Map();
+  const result = await collectMarketUniversePages({
+    firstPage: makePage(1),
+    fetchPage: async page => {
+      const count = (calls.get(page) ?? 0) + 1;
+      calls.set(page, count);
+      if (page === 2 && count === 1) throw new Error('HTTP 502');
+      return makePage(page);
+    },
+    pageSize, maxPages: 80, concurrency: 2
+  });
+  assert.equal(calls.get(2), 2);
+  assert.equal(result.retryRecoveredPages, 1);
+  assert.equal(result.failures.length, 0);
+  assert.equal(result.complete, true);
+  assert.equal(result.rows.length, 300);
 });
