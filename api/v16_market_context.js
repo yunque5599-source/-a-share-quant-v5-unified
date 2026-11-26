@@ -99,22 +99,23 @@ const STOCK_KLINE_HOSTS = ['https://push2his.eastmoney.com','https://80.push2his
 async function fetchMarketPage(page, pageSize = 100, attempt = 0) {
   const host = EM_HOSTS[(page - 1 + attempt) % EM_HOSTS.length];
   await waitForMarketRequestSlot(host);
-  const payload = await fetchJson(marketPageUrl(host, page, pageSize), 3500, {referer: 'https://quote.eastmoney.com/'});
+  const payload = await fetchJson(marketPageUrl(host, page, pageSize), 5000, {referer: 'https://quote.eastmoney.com/'});
   if (!Array.isArray(payload?.data?.diff)) throw new Error('market page missing data.diff');
   return payload;
 }
 
 export async function fetchMarketPageWithRetry(page, pageSize = 100, requestPage = fetchMarketPage) {
   const failures = [];
-  for (let attempt = 0; attempt < 3; attempt++) {
+  const maxAttempts = 5;
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
     try {
       return await requestPage(page, pageSize, attempt);
     } catch (error) {
       failures.push('attempt ' + (attempt + 1) + ': ' + String(error?.message ?? error));
-      if (attempt < 2) await sleep(250 * (attempt + 1));
+      if (attempt < maxAttempts - 1) await sleep(200 * (attempt + 1));
     }
   }
-  throw new Error('market page ' + page + ' failed after 3 attempts (' + failures.join('; ') + ')');
+  throw new Error('market page ' + page + ' failed after ' + maxAttempts + ' attempts (' + failures.join('; ') + ')');
 }
 
 export async function collectMarketUniversePages({
@@ -125,15 +126,18 @@ export async function collectMarketUniversePages({
   if (typeof fetchPage !== 'function') throw new TypeError('fetchPage must be a function');
   const pageCount = Math.ceil(total / pageSize);
   const pagesToFetch = Math.min(maxPages, pageCount);
-  const rest = await mapLimit(
-    Array.from({length: Math.max(0, pagesToFetch - 1)}, (_, index) => index + 2),
-    concurrency,
-    page => fetchPage(page)
-  );
+  const requestedPages = Array.from({length: Math.max(0, pagesToFetch - 1)}, (_, index) => index + 2);
+  const rest = await mapLimit(requestedPages, concurrency, page => fetchPage(page));
+  const resultByPage = new Map(rest.map((result, index) => [requestedPages[index], result]));
+  const firstPassFailedPages = requestedPages.filter(page => resultByPage.get(page)?.error
+    || !Array.isArray(resultByPage.get(page)?.data?.diff));
+  const fallbackResults = await mapLimit(firstPassFailedPages, 2, page => fetchPage(page));
+  fallbackResults.forEach((result, index) => resultByPage.set(firstPassFailedPages[index], result));
   const pages = [{page: 1, payload: firstPage}];
   const failures = [];
-  rest.forEach((result, index) => {
-    const page = index + 2;
+  const finalResults = requestedPages.map(page => resultByPage.get(page));
+  finalResults.forEach((result, index) => {
+    const page = requestedPages[index];
     if (result?.error) failures.push({page, error: result.error});
     else if (!Array.isArray(result?.data?.diff)) failures.push({page, error: 'market page missing data.diff'});
     else if (Number(result?.data?.total) !== total) failures.push({page, error: 'universe-total-changed'});
@@ -154,6 +158,7 @@ export async function collectMarketUniversePages({
     pageCount,
     pagesRequested: pagesToFetch,
     failures,
+    retryRecoveredPages: firstPassFailedPages.length - failures.length,
     coverage,
     complete: failures.length === 0 && pages.length === pageCount && coverage >= 0.99
   };
