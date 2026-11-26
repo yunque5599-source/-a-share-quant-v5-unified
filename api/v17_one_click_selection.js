@@ -60,6 +60,8 @@ async function loadArchive() {
       if (!prior || String(snapshot.capturedAt ?? '') > String(prior.capturedAt ?? '')) byDate.set(date, snapshot);
     }
     const snapshots = [...byDate.values()].sort((a, b) => a.tradeDate.localeCompare(b.tradeDate));
+    const latestSnapshot = snapshots.at(-1) ?? null;
+    const latestQuality = latestSnapshot?.quality ?? null;
     return {
       snapshots,
       diagnostics: {
@@ -70,7 +72,22 @@ async function loadArchive() {
         readFailureCount: readFailures,
         qualifiedSessionCount: snapshots.filter(row => row?.quality?.qualifiedForReplay === true).length,
         partialSessionCount: snapshots.filter(row => row?.quality?.qualifiedForReplay !== true).length,
-        latestSnapshotDate: snapshots.at(-1)?.tradeDate ?? null
+        latestSnapshotDate: latestSnapshot?.tradeDate ?? null,
+        latestSnapshotQuality: latestSnapshot ? {
+          status: latestQuality?.status ?? 'UNKNOWN',
+          qualifiedForReplay: latestQuality?.qualifiedForReplay === true,
+          reasons: Array.isArray(latestQuality?.reasons) ? latestQuality.reasons : [],
+          sourceComplete: latestQuality?.sourceComplete === true,
+          coveragePct: latestQuality?.coveragePct ?? null,
+          reportedTotal: latestQuality?.reportedTotal ?? null,
+          uniqueSymbols: latestQuality?.uniqueSymbols ?? null,
+          quoteTimestampCoverage: latestQuality?.quoteTimestampCoverage ?? null,
+          sameDateQuoteRatio: latestQuality?.sameDateQuoteRatio ?? null,
+          volumePricePhaseStatus: latestQuality?.volumePricePhaseStatus ?? 'NOT_MEASURABLE',
+          earlyTrendStatus: latestQuality?.earlyTrendStatus ?? 'NOT_MEASURABLE',
+          stockRowCount: Array.isArray(latestSnapshot.stockRows) ? latestSnapshot.stockRows.length : 0,
+          sourceScope: latestSnapshot.sourceScope ?? 'unknown'
+        } : null
       }
     };
   } catch (error) {
